@@ -24,10 +24,10 @@
       };
 
       # Bare-metal NixOS host (replaces TrueNAS).
-      # Deploy with: nixos-rebuild switch --flake .#nixhost
-      nixosConfigurations.nixhost = nixpkgs.lib.nixosSystem {
+      # Deploy with: nixos-rebuild switch --flake .#nasa
+      nixosConfigurations.nasa = nixpkgs.lib.nixosSystem {
         inherit system specialArgs;
-        modules = commonModules ++ [ ./hosts/nixhost/default.nix ];
+        modules = commonModules ++ [ ./hosts/nasa/default.nix ];
       };
     };
 }

@@ -1,4 +1,4 @@
-# Machine-specific configuration for "nixhost" (bare-metal NixOS host).
+# Machine-specific configuration for "nasa" (bare-metal NixOS host).
 # Replace hardware-configuration.nix with the output of nixos-generate-config
 # after booting the NixOS installer on this machine.
 { ... }: {
@@ -8,7 +8,7 @@
   boot.zfs.forceImportRoot = false;
   boot.zfs.extraPools = [ "Data" ];
 
-  networking.hostName = "nixhost";
+  networking.hostName = "nasa";
   networking.hostId = "e878c22f";
 
   # Enable KVM/libvirt so this host can run the NixOS VM (and others).
