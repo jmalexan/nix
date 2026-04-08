@@ -6,19 +6,28 @@
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, ... }: {
-    nixosConfigurations.nix = nixpkgs.lib.nixosSystem {
+  outputs = { self, nixpkgs, nixpkgs-unstable, ... }:
+    let
       system = "x86_64-linux";
-      specialArgs = {
-        pkgs-unstable = import nixpkgs-unstable {
-          system = "x86_64-linux";
-          config.allowUnfree = true;
-        };
+      pkgs-unstable = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
       };
-      modules = [
-        ./configuration.nix
-        ./hosts/nix/default.nix
-      ];
+      specialArgs = { inherit pkgs-unstable; };
+      commonModules = [ ./configuration.nix ];
+    in
+    {
+      # NixOS VM running inside TrueNAS / the new host.
+      nixosConfigurations.nix = nixpkgs.lib.nixosSystem {
+        inherit system specialArgs;
+        modules = commonModules ++ [ ./hosts/nix/default.nix ];
+      };
+
+      # Bare-metal NixOS host (replaces TrueNAS).
+      # Deploy with: nixos-rebuild switch --flake .#nixhost
+      nixosConfigurations.nixhost = nixpkgs.lib.nixosSystem {
+        inherit system specialArgs;
+        modules = commonModules ++ [ ./hosts/nixhost/default.nix ];
+      };
     };
-  };
 }
