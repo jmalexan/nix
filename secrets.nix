@@ -8,4 +8,6 @@ let
   allKeys = [ nasa jmalexan ];
 in {
   "secrets/cloudflare-token.age".publicKeys = allKeys;
+  "secrets/backblaze-env.age".publicKeys    = allKeys;
+  "secrets/restic-password.age".publicKeys  = allKeys;
 }

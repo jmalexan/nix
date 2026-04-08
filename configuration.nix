@@ -19,7 +19,7 @@
   users.users.jmalexan = {
     isNormalUser = true;
     description = "Jonathan";
-    extraGroups = [ "wheel" "networkmanager" "hass" "jellyfin" "qbittorrent" "immich" "media" ];
+    extraGroups = [ "wheel" "networkmanager" "hass" "jellyfin" "qbittorrent" "immich" ];
     shell = pkgs.fish;
     home = "/home/jmalexan";
     packages = with pkgs; [
