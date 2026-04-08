@@ -1,4 +1,4 @@
-{ config, lib, pkgs, pkgs-unstable, ... }:
+{ config, lib, pkgs, pkgs-unstable, agenix, ... }:
 
 {
   # ── Boot ──────────────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@
   users.users.jmalexan = {
     isNormalUser = true;
     description = "Jonathan";
-    extraGroups = [ "wheel" "networkmanager" ];
+    extraGroups = [ "wheel" "networkmanager" "hass" "jellyfin" "qbittorrent" "immich" "media" ];
     shell = pkgs.fish;
     home = "/home/jmalexan";
     packages = with pkgs; [
@@ -50,6 +50,9 @@
     # Nix tooling
     # nix-index       # builds a local index for nix-locate (find which package owns a file)
     # nh              # nicer `nixos-rebuild` wrapper with diffs    
+
+    # Secrets management
+    agenix.packages.${pkgs.stdenv.hostPlatform.system}.default
 
     # Unstable
     pkgs-unstable.claude-code
