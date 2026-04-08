@@ -4,7 +4,12 @@
 { ... }: {
   imports = [ ./hardware-configuration.nix ];
 
+  boot.supportedFilesystems = [ "zfs" ];
+  boot.zfs.forceImportRoot = false;
+  boot.zfs.extraPools = [ "Data" ];
+
   networking.hostName = "nixhost";
+  networking.hostId = "e878c22f";
 
   # Enable KVM/libvirt so this host can run the NixOS VM (and others).
   virtualisation.libvirtd.enable = true;
