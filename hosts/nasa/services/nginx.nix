@@ -1,4 +1,10 @@
-{ ... }: {
+{ ... }: let
+  ssl = {
+    forceSSL          = true;
+    sslCertificate    = "/var/lib/nginx/certs/server.crt";
+    sslCertificateKey = "/var/lib/nginx/certs/server.key";
+  };
+in {
   services.nginx = {
     enable = true;
 
@@ -8,11 +14,8 @@
     recommendedTlsSettings   = true;
 
     virtualHosts = {
-      "immich.nasa.jmalexan.com" = {
+      "immich.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "immich" ];
-        forceSSL          = true;
-        sslCertificate    = "/var/lib/nginx/certs/server.crt";
-        sslCertificateKey = "/var/lib/nginx/certs/server.key";
         extraConfig = ''
           client_max_body_size 50000M;
           proxy_read_timeout   600s;
@@ -25,33 +28,24 @@
         };
       };
 
-      "jellyfin.nasa.jmalexan.com" = {
+      "jellyfin.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "jellyfin" ];
-        forceSSL          = true;
-        sslCertificate    = "/var/lib/nginx/certs/server.crt";
-        sslCertificateKey = "/var/lib/nginx/certs/server.key";
         locations."/" = {
           proxyPass       = "http://localhost:8096";
           proxyWebsockets = true;
         };
       };
 
-      "homeassistant.nasa.jmalexan.com" = {
+      "homeassistant.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "homeassistant" ];
-        forceSSL          = true;
-        sslCertificate    = "/var/lib/nginx/certs/server.crt";
-        sslCertificateKey = "/var/lib/nginx/certs/server.key";
         locations."/" = {
           proxyPass       = "http://localhost:8123";
           proxyWebsockets = true;
         };
       };
 
-      "qbittorrent.nasa.jmalexan.com" = {
+      "qbittorrent.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "torrent.nasa.jmalexan.com" "qbittorrent" "torrent" ];
-        forceSSL          = true;
-        sslCertificate    = "/var/lib/nginx/certs/server.crt";
-        sslCertificateKey = "/var/lib/nginx/certs/server.key";
         locations."/" = {
           proxyPass = "http://localhost:8080";
           # qBittorrent's CSRF check requires Host to match the upstream, not

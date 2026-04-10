@@ -6,9 +6,11 @@
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     agenix.url = "github:ryantm/agenix";
     agenix.inputs.nixpkgs.follows = "nixpkgs";
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, ... }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -34,7 +36,11 @@
       # Deploy with: nixos-rebuild switch --flake .#nasa
       nixosConfigurations.nasa = nixpkgs.lib.nixosSystem {
         inherit system specialArgs;
-        modules = commonModules ++ [ ./hosts/nasa/default.nix ];
+        modules = commonModules ++ [
+          ./hosts/nasa/default.nix
+          disko.nixosModules.disko
+          ./hosts/nasa/disko.nix
+        ];
       };
     };
 }

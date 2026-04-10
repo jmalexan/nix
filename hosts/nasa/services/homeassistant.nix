@@ -1,4 +1,13 @@
 { ... }: {
+  hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = true;
+
+  # HA needs these capabilities to manage Bluetooth adapters directly
+  systemd.services.home-assistant.serviceConfig = {
+    AmbientCapabilities = [ "CAP_NET_ADMIN" "CAP_NET_RAW" ];
+    CapabilityBoundingSet = [ "CAP_NET_ADMIN" "CAP_NET_RAW" ];
+  };
+
   # ── Home Assistant ────────────────────────────────────────────────────────────
 
   services.home-assistant = {
@@ -19,6 +28,8 @@
     # Extra integrations — NixOS uses these to pull in required Python packages.
     extraComponents = [
       "apple_tv"
+      "bluetooth"
+      "bluetooth_le_tracker"
       "brother"
       "dhcp"
       "go2rtc"
@@ -39,8 +50,12 @@
     ];
 
     # psycopg2 is needed for the recorder to connect to PostgreSQL.
-    extraPackages = ps: with ps; [ psycopg2 grpcio ];
+    extraPackages = ps: with ps; [ psycopg2 grpcio zlib-ng isal ];
   };
+
+  # HomeKit bridge port (mDNS is handled by avahi in default.nix)
+  networking.firewall.allowedTCPPorts = [ 21064 ];
+  networking.firewall.allowedUDPPorts = [ 21064 ];
 
   # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
