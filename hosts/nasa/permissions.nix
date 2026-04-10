@@ -18,5 +18,6 @@
     "d /Data/smb/Internal/Services/homeassistant      0750 hass        root -"
     "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root -"
     "d /Data/smb/Media                                0755 root        root -"
+    "d /Data/smb/Torrents                             0750 qbittorrent qbittorrent -"
   ];
 }

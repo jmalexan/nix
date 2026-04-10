@@ -18,7 +18,7 @@
     requires = [ "mullvad-netns.service" ];
     serviceConfig = {
       PrivateUsers         = lib.mkForce false;
-      ReadWritePaths       = [ "/Data/smb/Internal/Services/qbittorrent" ];
+      ReadWritePaths       = [ "/Data/smb/Internal/Services/qbittorrent" "/Data/smb/Torrents" ];
       # Run inside the Mullvad network namespace — all traffic exits via VPN.
       NetworkNamespacePath = "/run/netns/mullvad";
     };
