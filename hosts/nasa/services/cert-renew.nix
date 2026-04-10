@@ -24,12 +24,22 @@ in {
 
   systemd.services.cert-renew = {
     description = "Issue/renew nginx TLS certificate from local CA";
+    # Run before nginx so certs exist on first boot.
+    before   = [ "nginx.service" ];
+    wantedBy = [ "nginx.service" ];
     serviceConfig = {
       Type = "oneshot";
       # CSR is temporary, key/cert go to certDir
       WorkingDirectory = certDir;
     };
     script = ''
+      # Skip if the cert exists and won't expire within 30 days.
+      if ${pkgs.openssl}/bin/openssl x509 -checkend 2592000 \
+           -in ${certDir}/server.crt 2>/dev/null; then
+        echo "Certificate is valid, skipping renewal."
+        exit 0
+      fi
+
       ${pkgs.openssl}/bin/openssl req -nodes -newkey rsa:2048 \
         -keyout ${certDir}/server.key \
         -out    ${certDir}/server.csr \
