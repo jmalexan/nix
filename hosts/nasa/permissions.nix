@@ -10,13 +10,17 @@
   #   getfacl <path>                                       # inspect current ACL
 
   systemd.tmpfiles.rules = [
-    "d /Data/smb                                0755 jmalexan root -"
-    "d /Data/smb/Internal                       0755 root     root -"
-    "d /Data/smb/Internal/Services              0755 root     root -"
-    "d /Data/smb/Internal/Services/immich       0750 immich   root -"
-    "d /Data/smb/Internal/Services/jellyfin     0750 jellyfin root -"
-    "d /Data/smb/Internal/Services/homeassistant 0750 hass    root -"
-    "d /Data/smb/Internal/Services/qbittorrent  0750 qbittorrent root -"
-    "d /Data/smb/Media                          0755 root     root -"
+    "d /Data/smb                                      0755 jmalexan    root -"
+    "d /Data/smb/Internal                             0755 root        root -"
+    "d /Data/smb/Internal/Services                    0755 root        root -"
+    "d /Data/smb/Internal/Services/immich             0750 immich      root -"
+    "d /Data/smb/Internal/Services/jellyfin           0750 jellyfin    root -"
+    "d /Data/smb/Internal/Services/jellyfin/config    0750 jellyfin    root -"
+    "d /Data/smb/Internal/Services/jellyfin/cache     0750 jellyfin    root -"
+    "d /Data/smb/Internal/Services/homeassistant      0750 hass        root -"
+    "d /Data/smb/Internal/Services/homeassistant/config 0750 hass      root -"
+    "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root -"
+    "d /Data/smb/Internal/Services/qbittorrent/config 0750 qbittorrent root -"
+    "d /Data/smb/Media                                0755 root        root -"
   ];
 }

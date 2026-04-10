@@ -1,4 +1,8 @@
 { ... }: {
+  # Pin UIDs/GIDs so file ownership stays consistent across rebuilds and migrations.
+  users.users.jellyfin.uid = 997;
+  users.groups.jellyfin.gid = 997;
+
   services.jellyfin = {
     enable = true;
     dataDir  = "/Data/smb/Internal/Services/jellyfin/config";

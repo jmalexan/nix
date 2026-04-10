@@ -1,4 +1,8 @@
 { lib, ... }: {
+  # Pin UIDs/GIDs so file ownership stays consistent across rebuilds and migrations.
+  users.users.qbittorrent.uid = 994;
+  users.groups.qbittorrent.gid = 994;
+
   services.qbittorrent = {
     enable = true;
     profileDir = "/Data/smb/Internal/Services/qbittorrent/config";
