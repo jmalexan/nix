@@ -16,6 +16,9 @@
 
   # ── Users ─────────────────────────────────────────────────────────────────
 
+  # Wheel users get passwordless sudo. SSH is key-only so this is safe.
+  security.sudo.wheelNeedsPassword = false;
+
   users.users.jmalexan = {
     isNormalUser = true;
     description = "Jonathan";
