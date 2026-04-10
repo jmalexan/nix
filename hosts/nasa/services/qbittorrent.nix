@@ -6,13 +6,21 @@
   services.qbittorrent = {
     enable = true;
     profileDir = "/Data/smb/Internal/Services/qbittorrent/config";
-    openFirewall = true;
+    # Port forwarding is handled by Mullvad, not the host firewall.
+    openFirewall = false;
   };
 
   # PrivateUsers remaps UIDs in a user namespace, preventing access to files
   # on the ZFS filesystem.
-  systemd.services.qbittorrent.serviceConfig = {
-    PrivateUsers = lib.mkForce false;
-    ReadWritePaths = [ "/Data/smb/Internal/Services/qbittorrent" ];
+  systemd.services.qbittorrent = {
+    # Require the Mullvad VPN namespace to be ready first.
+    after    = [ "mullvad-netns.service" ];
+    requires = [ "mullvad-netns.service" ];
+    serviceConfig = {
+      PrivateUsers         = lib.mkForce false;
+      ReadWritePaths       = [ "/Data/smb/Internal/Services/qbittorrent" ];
+      # Run inside the Mullvad network namespace — all traffic exits via VPN.
+      NetworkNamespacePath = "/run/netns/mullvad";
+    };
   };
 }

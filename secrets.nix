@@ -12,4 +12,5 @@ in {
   "secrets/restic-password.age".publicKeys      = allKeys;
   "secrets/step-ca-key.age".publicKeys          = allKeys;
   "secrets/samba-password.age".publicKeys       = allKeys;
+  "secrets/mullvad-wg.age".publicKeys           = allKeys;
 }

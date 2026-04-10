@@ -47,7 +47,9 @@ in {
       "qbittorrent.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "torrent.nasa.jmalexan.com" "qbittorrent" "torrent" ];
         locations."/" = {
-          proxyPass = "http://localhost:8080";
+          # qbittorrent runs in the Mullvad network namespace; reach it via
+          # the veth pair that bridges the namespace to the host.
+          proxyPass = "http://10.200.200.2:8080";
           # qBittorrent's CSRF check requires Host to match the upstream, not
           # the client-facing hostname.
           extraConfig = ''
