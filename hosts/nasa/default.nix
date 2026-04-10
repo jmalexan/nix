@@ -1,4 +1,4 @@
-{ lib, ... }: {
+{ lib, pkgs, config, ... }: {
   imports = [
     ./hardware-configuration.nix
     ./permissions.nix
@@ -10,6 +10,12 @@
   boot.supportedFilesystems = [ "zfs" ];
   boot.zfs.forceImportRoot = false;
   boot.zfs.extraPools = [ "Data" ];
+
+  # ZFS ARC limits — host has 32 GiB RAM
+  boot.extraModprobeConfig = ''
+    options zfs zfs_arc_max=17179869184
+    options zfs zfs_arc_min=2147483648
+  '';
 
   networking.hostName = "nasa";
   networking.hostId = "e878c22f";
@@ -67,6 +73,20 @@
         "directory mask" = "0775";
       };
     };
+  };
+
+  age.secrets.samba-password = {
+    file = ../../secrets/samba-password.age;
+    mode = "0400";
+  };
+
+  system.activationScripts.sambaPasswords = {
+    deps = [ "agenix" ];
+    text = ''
+      pw=$(cat ${config.age.secrets.samba-password.path})
+      printf '%s\n%s\n' "$pw" "$pw" | ${pkgs.samba}/bin/smbpasswd -s -a jmalexan || \
+      printf '%s\n%s\n' "$pw" "$pw" | ${pkgs.samba}/bin/smbpasswd -s jmalexan
+    '';
   };
 
   services.avahi = {

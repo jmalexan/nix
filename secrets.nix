@@ -10,5 +10,6 @@ in {
   "secrets/cloudflare-token.age".publicKeys     = allKeys;
   "secrets/backblaze-env.age".publicKeys        = allKeys;
   "secrets/restic-password.age".publicKeys      = allKeys;
-  "secrets/step-ca-key.age".publicKeys = allKeys;
+  "secrets/step-ca-key.age".publicKeys          = allKeys;
+  "secrets/samba-password.age".publicKeys       = allKeys;
 }
