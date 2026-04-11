@@ -33,11 +33,6 @@
     htop
     tree
 
-    # Languages
-    go
-    nodejs
-    python3
-
     # Secrets management (CLI only — for managing NAS secrets from this machine)
     agenix.packages.${pkgs.stdenv.hostPlatform.system}.default
 
@@ -48,8 +43,8 @@
   # ── Shell ─────────────────────────────────────────────────────────────────
 
   programs.fish.enable = true;
-  # To set fish as your default shell, run once after first activation:
-  #   chsh -s /run/current-system/sw/bin/fish
+  users.users.jmalexan.shell = pkgs.fish;
+  environment.shells = [ pkgs.fish ];
 
   # ── Nix Settings ──────────────────────────────────────────────────────────
 
@@ -117,7 +112,7 @@
       "daisydisk"
       "claude"
       "cleanshot"            # CleanShot X
-"discord"
+      "discord"
       "element"
       "elgato-stream-deck"
       "font-fira-code"
@@ -126,7 +121,7 @@
       "google-chrome"
       "godot"
       "little-snitch"
-      # "obsidian"   # running beta — manage manually
+      "obsidian"
       "sf-symbols"
       "signal"
       "spotify"

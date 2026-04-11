@@ -49,6 +49,11 @@
 
       programs.fish.enable = true;
 
+      programs.direnv = {
+        enable = true;
+        nix-direnv.enable = true;
+      };
+
       services.openssh = {
         enable = true;
         settings = {

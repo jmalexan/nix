@@ -3,6 +3,12 @@
 {
   imports = [ ./common.nix ];
 
+  # ── Fish ──────────────────────────────────────────────────────────────────
+
+  programs.fish.loginShellInit = ''
+    eval (/opt/homebrew/bin/brew shellenv)
+  '';
+
   # ── SSH ───────────────────────────────────────────────────────────────────
 
   programs.ssh.matchBlocks = {
@@ -18,8 +24,13 @@
 
   # ── Ghostty ───────────────────────────────────────────────────────────────
 
-  # Uncomment and populate once ready to migrate ~/.config/ghostty/config:
-  # xdg.configFile."ghostty/config".text = ''
-  #   ...
-  # '';
+  programs.ghostty = {
+    enable = true;
+    package = null;  # installed via Homebrew cask on macOS
+    settings = {
+      theme = "dark:One Half Dark,light:One Half Light";
+      font-family = "Fira Code Retina";
+      shell-integration-features = "ssh-env";
+    };
+  };
 }
