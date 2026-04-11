@@ -8,39 +8,64 @@
     agenix.inputs.nixpkgs.follows = "nixpkgs";
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
+    nix-darwin.url = "github:nix-darwin/nix-darwin/master";
+    nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, ... }:
     let
-      system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-      pkgs-unstable = import nixpkgs-unstable {
+      mkUnstable = system: import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
       };
-      specialArgs = { inherit pkgs-unstable agenix; };
+
+      linuxSystem = "x86_64-linux";
+      darwinSystem = "aarch64-darwin";
+
+      nixosSpecialArgs = {
+        pkgs-unstable = mkUnstable linuxSystem;
+        inherit agenix;
+      };
+      darwinSpecialArgs = {
+        pkgs-unstable = mkUnstable darwinSystem;
+        inherit agenix;
+      };
+
       commonModules = [ ./configuration.nix agenix.nixosModules.default ];
     in
     {
       # Run `nix develop` to get a shell with secrets management tools.
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [ agenix.packages.${system}.default ];
+      devShells.${linuxSystem}.default = nixpkgs.legacyPackages.${linuxSystem}.mkShell {
+        packages = [ agenix.packages.${linuxSystem}.default ];
       };
+      devShells.${darwinSystem}.default = nixpkgs.legacyPackages.${darwinSystem}.mkShell {
+        packages = [ agenix.packages.${darwinSystem}.default ];
+      };
+
       # NixOS VM running inside TrueNAS / the new host.
       nixosConfigurations.nix = nixpkgs.lib.nixosSystem {
-        inherit system specialArgs;
+        system = linuxSystem;
+        specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [ ./hosts/nix/default.nix ];
       };
 
       # Bare-metal NixOS host (replaces TrueNAS).
       # Deploy with: nixos-rebuild switch --flake .#nasa
       nixosConfigurations.nasa = nixpkgs.lib.nixosSystem {
-        inherit system specialArgs;
+        system = linuxSystem;
+        specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
           ./hosts/nasa/default.nix
           disko.nixosModules.disko
           ./hosts/nasa/disko.nix
         ];
+      };
+
+      # macOS (Apple Silicon) MacBook.
+      # Deploy with: darwin-rebuild switch --flake .#book
+      darwinConfigurations.book = nix-darwin.lib.darwinSystem {
+        specialArgs = darwinSpecialArgs;
+        modules = [ ./hosts/book/default.nix ];
       };
     };
 }
