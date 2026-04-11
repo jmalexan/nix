@@ -10,6 +10,7 @@
     enable = true;
     settings.user.name = "Jonathan Alexander";
     settings.user.email = "me@jmalexan.com";
+    settings.pull.rebase = false;
   };
 
   # ── Fish ──────────────────────────────────────────────────────────────────
