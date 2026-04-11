@@ -28,7 +28,7 @@
 
       nixosSpecialArgs = {
         pkgs-unstable = mkUnstable linuxSystem;
-        inherit agenix;
+        inherit agenix home-manager-stable;
       };
       darwinSpecialArgs = {
         pkgs-unstable = mkUnstable darwinSystem;

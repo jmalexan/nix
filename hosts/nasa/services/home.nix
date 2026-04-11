@@ -1,4 +1,4 @@
-{ pkgs, pkgs-unstable, ... }: {
+{ pkgs, pkgs-unstable, home-manager-stable, ... }: {
   # ── Bridge networking ──────────────────────────────────────────────────────
   # enp5s0 joins br0 so nasa, the home container, and all LAN devices can
   # reach each other freely. NetworkManager is told to leave both interfaces
@@ -18,6 +18,7 @@
       imports = [
         (import ../../../modules/dev-environment.nix pkgs-unstable)
         ../../../modules/linux-server.nix
+        home-manager-stable.nixosModules.home-manager
       ];
 
       networking.hostName = "home";
@@ -35,10 +36,10 @@
         openssh.authorizedKeys.keys = import ../../../users/authorized-keys.nix;
       };
 
-      # direnv (system-wide, since this container isn't managed by home-manager)
-      programs.direnv = {
-        enable = true;
-        nix-direnv.enable = true;
+      home-manager = {
+        useGlobalPkgs = true;
+        useUserPackages = true;
+        users.jmalexan = import ../../../home/linux.nix;
       };
 
       networking.firewall.allowedTCPPorts = [ 22 ];
