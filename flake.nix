@@ -35,7 +35,7 @@
         inherit agenix;
       };
 
-      commonModules = [ ./configuration.nix agenix.nixosModules.default ];
+      commonModules = [ ./modules/common.nix agenix.nixosModules.default ];
     in
     {
       # Run `nix develop` to get a shell with secrets management tools.
@@ -44,21 +44,6 @@
       };
       devShells.${darwinSystem}.default = nixpkgs.legacyPackages.${darwinSystem}.mkShell {
         packages = [ agenix.packages.${darwinSystem}.default ];
-      };
-
-      # NixOS VM running inside TrueNAS / the new host.
-      nixosConfigurations.nix = nixpkgs.lib.nixosSystem {
-        system = linuxSystem;
-        specialArgs = nixosSpecialArgs;
-        modules = commonModules ++ [
-          ./hosts/nix/default.nix
-          home-manager-stable.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.jmalexan = import ./home/linux.nix;
-          }
-        ];
       };
 
       # Bare-metal NixOS host (replaces TrueNAS).

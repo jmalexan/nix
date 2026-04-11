@@ -1,0 +1,6 @@
+# SSH public keys allowed to log into jmalexan on any host.
+# Imported by NixOS/nix-darwin configurations and the home container.
+[
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINgAalZOAJUM/O8gwhWmsEnbmUV8qiAFvTja8WABC4O5 rootshell"
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL8aGLgotG8GS662Qw4Vce2B8LrBsKxDuHgFU9JIzPQH jmalexan@Book"
+]

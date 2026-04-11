@@ -1,12 +1,15 @@
 { config, lib, pkgs, pkgs-unstable, agenix, ... }:
 
 {
+  imports = [
+    (import ../../modules/dev-environment.nix pkgs-unstable)
+  ];
+
   # ── Platform ──────────────────────────────────────────────────────────────
 
   nixpkgs.hostPlatform = "aarch64-darwin";
-  nixpkgs.config.allowUnfree = true;
 
-  # ── Networking ────────────────────────────────────────────────────────────
+  # ── Identity ──────────────────────────────────────────────────────────────
 
   system.primaryUser = "jmalexan";
 
@@ -22,33 +25,17 @@
 
   # ── Packages ──────────────────────────────────────────────────────────────
 
-  environment.systemPackages = with pkgs; [
-    # Editors
-    nano
-
-    # Utilities
-    git
-    curl
-    wget
-    htop
-    tree
-
+  environment.systemPackages = [
     # Secrets management (CLI only — for managing NAS secrets from this machine)
     agenix.packages.${pkgs.stdenv.hostPlatform.system}.default
-
-    # Unstable
-    pkgs-unstable.claude-code
   ];
 
   # ── Shell ─────────────────────────────────────────────────────────────────
 
-  programs.fish.enable = true;
   users.users.jmalexan.shell = pkgs.fish;
   environment.shells = [ pkgs.fish ];
 
   # ── Nix Settings ──────────────────────────────────────────────────────────
-
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # Automatic garbage collection (launchd interval format, not systemd dates)
   nix.gc = {
