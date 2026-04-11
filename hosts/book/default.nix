@@ -123,6 +123,7 @@
       "font-fira-code"
       "font-symbols-only-nerd-font"
       "ghostty"
+      "google-chrome"
       "godot"
       "little-snitch"
       # "obsidian"   # running beta — manage manually
