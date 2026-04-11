@@ -10,9 +10,11 @@
     disko.inputs.nixpkgs.follows = "nixpkgs";
     nix-darwin.url = "github:nix-darwin/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    home-manager.url = "github:nix-community/home-manager";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, ... }:
     let
       mkUnstable = system: import nixpkgs-unstable {
         inherit system;
@@ -46,7 +48,15 @@
       nixosConfigurations.nix = nixpkgs.lib.nixosSystem {
         system = linuxSystem;
         specialArgs = nixosSpecialArgs;
-        modules = commonModules ++ [ ./hosts/nix/default.nix ];
+        modules = commonModules ++ [
+          ./hosts/nix/default.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.jmalexan = import ./home/linux.nix;
+          }
+        ];
       };
 
       # Bare-metal NixOS host (replaces TrueNAS).
@@ -58,6 +68,12 @@
           ./hosts/nasa/default.nix
           disko.nixosModules.disko
           ./hosts/nasa/disko.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.jmalexan = import ./home/linux.nix;
+          }
         ];
       };
 
@@ -65,7 +81,15 @@
       # Deploy with: darwin-rebuild switch --flake .#book
       darwinConfigurations.book = nix-darwin.lib.darwinSystem {
         specialArgs = darwinSpecialArgs;
-        modules = [ ./hosts/book/default.nix ];
+        modules = [
+          ./hosts/book/default.nix
+          home-manager.darwinModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.jmalexan = import ./home/book.nix;
+          }
+        ];
       };
     };
 }

@@ -10,6 +10,9 @@
 
   system.primaryUser = "jmalexan";
 
+  # Needed so home-manager can infer the user's home directory
+  users.users.jmalexan.home = "/Users/jmalexan";
+
   networking.hostName = "Book";
   networking.computerName = "Book";
 
