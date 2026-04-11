@@ -12,9 +12,11 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    home-manager-stable.url = "github:nix-community/home-manager/release-25.11";
+    home-manager-stable.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, ... }:
     let
       mkUnstable = system: import nixpkgs-unstable {
         inherit system;
@@ -50,7 +52,7 @@
         specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
           ./hosts/nix/default.nix
-          home-manager.nixosModules.home-manager
+          home-manager-stable.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
@@ -68,7 +70,7 @@
           ./hosts/nasa/default.nix
           disko.nixosModules.disko
           ./hosts/nasa/disko.nix
-          home-manager.nixosModules.home-manager
+          home-manager-stable.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
