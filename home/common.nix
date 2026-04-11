@@ -34,17 +34,32 @@
   programs.starship = {
     enable = true;
     settings = {
+      # Mid-tone palette: each segment background is luminance ~0.30–0.40 so it
+      # stays visible against both dark and light terminal backgrounds, and dark
+      # text on top has good contrast in both modes.
+      palette = "muted";
+
+      palettes.muted = {
+        purple = "#9080c4";  # os/hostname
+        teal   = "#5a9eb3";  # directory
+        pink   = "#c66b9c";  # git
+        green  = "#5fa860";  # langs + character success
+        amber  = "#b08840";  # cmd_duration
+        red    = "#e06070";  # character error (text only, no bg)
+        base   = "#1e1e2e";  # dark text on colored segments
+      };
+
       format = lib.concatStrings [
         "╭─"
         "$os"
         "$hostname"
-        "[](fg:prev_bg bg:cyan)"
+        "[](fg:prev_bg bg:teal)"
         "$directory"
-        "([](fg:prev_bg bg:purple)$git_branch$git_status)"
+        "([](fg:prev_bg bg:pink)$git_branch$git_status)"
         "[](fg:prev_bg)"
         "$fill"
         "([](fg:green)\${custom.langs})"
-        "([](fg:yellow bg:prev_bg)$cmd_duration)"
+        "([](fg:amber bg:prev_bg)$cmd_duration)"
         "$line_break"
         "$character"
       ];
@@ -52,7 +67,7 @@
       os = {
         disabled = false;
         format = "[ $symbol]($style)";
-        style = "bg:blue";
+        style = "bg:purple fg:base";
         symbols = {
           Macos = "";
           NixOS = "";
@@ -62,24 +77,24 @@
 
       hostname = {
         ssh_only = false;
-        style = "bg:blue";
+        style = "bg:purple fg:base";
         format = "[ $hostname ]($style)";
       };
 
       directory = {
-        style = "bg:cyan";
+        style = "bg:teal fg:base";
         format = "[ $path ]($style)";
         truncation_length = 3;
         truncation_symbol = "…/";
       };
 
       git_branch = {
-        style = "bg:purple";
+        style = "bg:pink fg:base";
         format = "[ $symbol$branch ]($style)";
       };
 
       git_status = {
-        style = "bg:purple";
+        style = "bg:pink fg:base";
         format = "[$all_status$ahead_behind ]($style)";
       };
 
@@ -93,7 +108,7 @@
           printf "%s" "$out"
         '';
         shell = [ "sh" ];
-        style = "bg:green";
+        style = "bg:green fg:base";
         format = "[ $output ]($style)";
       };
 
@@ -103,7 +118,7 @@
 
       cmd_duration = {
         format = "[ $duration ]($style)";
-        style = "bg:yellow";
+        style = "bg:amber fg:base";
         min_time = 2000;
       };
 
