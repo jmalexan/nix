@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{ pkgs, pkgs-unstable, ... }: {
   # ── Bridge networking ──────────────────────────────────────────────────────
   # enp5s0 joins br0 so nasa, the home container, and all LAN devices can
   # reach each other freely. NetworkManager is told to leave both interfaces
@@ -44,6 +44,7 @@
         nano
         tree
         screen
+        pkgs-unstable.claude-code
       ];
 
       programs.fish.enable = true;
