@@ -9,7 +9,7 @@
     authorityKeyIdentifier = keyid, issuer
     basicConstraints = CA:FALSE
     keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-    subjectAltName = DNS:nasa.jmalexan.com,DNS:*.nasa.jmalexan.com,DNS:plex,DNS:qbittorrent,DNS:torrent,DNS:homeassistant,DNS:ddns,DNS:immich,DNS:truenas,DNS:romm,DNS:cobalt,DNS:lyrion,DNS:jellyfin,DNS:tmm,DNS:komga,DNS:calibre,DNS:calibre-web,DNS:open-webui,DNS:freshrss
+    subjectAltName = DNS:nasa.jmalexan.com,DNS:*.nasa.jmalexan.com,DNS:plex,DNS:qbittorrent,DNS:torrent,DNS:homeassistant,DNS:ddns,DNS:immich,DNS:truenas,DNS:romm,DNS:cobalt,DNS:lyrion,DNS:jellyfin,DNS:tmm,DNS:komga,DNS:calibre,DNS:calibre-web,DNS:open-webui,DNS:freshrss,DNS:sonarr,DNS:radarr,DNS:lidarr,DNS:prowlarr
   '';
 
 in {
@@ -25,6 +25,7 @@ in {
   systemd.services.cert-renew = {
     description = "Issue/renew nginx TLS certificate from local CA";
     # Run before nginx so certs exist on first boot.
+    after    = [ "agenix.service" ];  # CA key must be decrypted first
     before   = [ "nginx.service" ];
     wantedBy = [ "nginx.service" ];
     serviceConfig = {
@@ -40,7 +41,8 @@ in {
         exit 0
       fi
 
-      ${pkgs.openssl}/bin/openssl req -nodes -newkey rsa:2048 \
+      # -batch suppresses any interactive prompts that would block in a service.
+      ${pkgs.openssl}/bin/openssl req -batch -nodes -newkey rsa:2048 \
         -keyout ${certDir}/server.key \
         -out    ${certDir}/server.csr \
         -subj   "${subject}"
@@ -60,7 +62,14 @@ in {
       chown root:nginx ${certDir}/server.key ${certDir}/server.crt
       chmod 640        ${certDir}/server.key ${certDir}/server.crt
 
-      systemctl reload nginx || true
+      # Reload nginx by signalling the master process directly — avoids calling
+      # systemctl, which deadlocks when systemd holds a transaction lock on the
+      # nginx→cert-renew dependency chain during boot.
+      # If the PID file doesn't exist nginx isn't running yet and will pick up
+      # the new cert when it starts normally.
+      if [ -f /run/nginx/nginx.pid ]; then
+        kill -HUP "$(cat /run/nginx/nginx.pid)" || true
+      fi
     '';
   };
 

@@ -44,6 +44,38 @@ in {
         };
       };
 
+      "prowlarr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "prowlarr" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:9696";
+          proxyWebsockets = true;
+        };
+      };
+
+      "sonarr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "sonarr" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:8989";
+          proxyWebsockets = true;
+        };
+      };
+
+      "radarr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "radarr" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:7878";
+          proxyWebsockets = true;
+        };
+      };
+
+      "lidarr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "lidarr" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:8686";
+          proxyWebsockets = true;
+        };
+      };
+
       "qbittorrent.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "torrent.nasa.jmalexan.com" "qbittorrent" "torrent" ];
         locations."/" = {

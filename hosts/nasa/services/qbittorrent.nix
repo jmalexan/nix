@@ -21,6 +21,9 @@
       ReadWritePaths       = [ "/Data/smb/Internal/Services/qbittorrent" "/Data/smb/Torrents" ];
       # Run inside the Mullvad network namespace — all traffic exits via VPN.
       NetworkNamespacePath = "/run/netns/mullvad";
+      # Create files as 664 (group-writable) so the *arr services can create
+      # hardlinks to downloaded files without tripping fs.protected_hardlinks.
+      UMask                = "0002";
     };
   };
 }

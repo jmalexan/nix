@@ -22,7 +22,27 @@
     "d /Data/smb/Internal/Services/jellyfin           0750 jellyfin    root  -"
     "d /Data/smb/Internal/Services/homeassistant      0750 hass        root  -"
     "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root  -"
+    # The *arr module tmpfiles rules use single-quoted paths which systemd-tmpfiles
+    # does not support, so we create these directories explicitly here instead.
+    "d /Data/smb/Internal/Services/sonarr            0700 sonarr      sonarr -"
+    "d /Data/smb/Internal/Services/radarr            0700 radarr      radarr -"
+    "d /Data/smb/Internal/Services/lidarr            0700 lidarr      lidarr -"
     "d /Data/smb/Media                                2755 root        media -"
-    "d /Data/smb/Torrents                             0750 qbittorrent qbittorrent -"
+    # setgid (02750) ensures new files/dirs created by qbittorrent inherit the
+    # media group, so the *arr services and Jellyfin can follow symlinks into
+    # this dir.  After changing this, backfill ownership on existing files:
+    #   sudo chown -R :media /Data/smb/Torrents
+    #   sudo chmod -R g+rw /Data/smb/Torrents   # g+w needed for hardlinks
+    "d /Data/smb/Torrents                             02750 qbittorrent media -"
+    # *arr services write organised, hardlinked content here; Jellyfin reads it.
+    # setgid propagates the media group to all new subdirectories.
+    # Migration: move actual media files to /Data/smb/Torrents first, then
+    # remove these dirs so tmpfiles recreates them with the correct ownership:
+    #   sudo mv /Data/smb/Media/"TV Shows"/* /Data/smb/Torrents/
+    #   sudo mv /Data/smb/Media/Movies/* /Data/smb/Torrents/
+    #   sudo rmdir /Data/smb/Media/"TV Shows" /Data/smb/Media/Movies
+    "d \"/Data/smb/Media/TV Shows\"                   02755 sonarr      media -"
+    "d /Data/smb/Media/Movies                         02755 radarr      media -"
+    "d /Data/smb/Media/Music                          02755 lidarr      media -"
   ];
 }
