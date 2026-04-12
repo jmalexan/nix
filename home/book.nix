@@ -11,11 +11,13 @@
 
   # ── SSH ───────────────────────────────────────────────────────────────────
 
-  programs.ssh.addKeysToAgent = "yes";
   programs.ssh.matchBlocks = {
     "*" = {
       identityFile = "~/.ssh/id_ed25519";
-      extraOptions.UseKeychain = "yes";
+      extraOptions = {
+        AddKeysToAgent = "yes";
+        UseKeychain = "yes";
+      };
     };
     "nasa nasa.lan" = {
       hostname = "nasa.lan";
