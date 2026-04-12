@@ -28,7 +28,7 @@
   users.users.jmalexan = {
     isNormalUser = true;
     description = "Jonathan";
-    extraGroups = [ "wheel" "networkmanager" "hass" "jellyfin" "qbittorrent" "immich" ];
+    extraGroups = [ "wheel" "networkmanager" "hass" "jellyfin" "qbittorrent" "immich" "media" ];
     shell = pkgs.fish;
     home = "/home/jmalexan";
     openssh.authorizedKeys.keys = import ../users/authorized-keys.nix;

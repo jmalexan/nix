@@ -11,5 +11,5 @@
   };
 
   # Grant jellyfin access to the GPU for NVENC transcoding
-  users.users.jellyfin.extraGroups = [ "video" "render" ];
+  users.users.jellyfin.extraGroups = [ "video" "render" "media" ];
 }
