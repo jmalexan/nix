@@ -22,6 +22,7 @@
     "nasa nasa.lan" = {
       hostname = "nasa.lan";
       user = "jmalexan";
+      port = 2222;
       forwardAgent = true;
     };
   };
