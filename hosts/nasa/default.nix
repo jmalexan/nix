@@ -75,6 +75,8 @@
     };
   };
 
+  age.identityPaths = [ "/etc/age/host.key" ];
+
   age.secrets.samba-password = {
     file = ../../secrets/samba-password.age;
     mode = "0400";

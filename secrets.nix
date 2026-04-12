@@ -1,9 +1,9 @@
 let
   # Host key — machine decrypts secrets at boot
-  nasa = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8xM12gVZXzdvRDHwXwP9kIxj5fecxG5gU39rSTxUXr root@nixhost";
+  nasa = "age1hzthzt8uw8272vj40xektzmnzwcexmlmew4hm9jpkw32knswuajsaf9cl0";
 
   # Your personal key — lets you re-encrypt secrets from your laptop
-  jmalexan = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBlAyfNwSQbGKAGoNBPJzUfwDWwFoeuVUnXOM7p8rnkH jmalexan@nixhost";
+  jmalexan = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL8aGLgotG8GS662Qw4Vce2B8LrBsKxDuHgFU9JIzPQH jmalexan@Book";
 
   allKeys = [ nasa jmalexan ];
 in {
