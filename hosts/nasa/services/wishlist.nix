@@ -18,6 +18,9 @@ let
       - name: home
         address: home.nasa.lan:22
         user: jmalexan
+      - name: pihole
+        address: pihole.lan:22
+        user: jmalexan
   '');
 in
 {
