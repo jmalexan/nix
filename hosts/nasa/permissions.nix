@@ -44,5 +44,7 @@
     "d \"/Data/smb/Media/TV Shows\"                   02755 sonarr      media -"
     "d /Data/smb/Media/Movies                         02755 radarr      media -"
     "d /Data/smb/Media/Music                          02755 lidarr      media -"
+    "d /Data/smb/Media/Books                          0755 calibre-web  calibre-web -"
+    "d /Data/smb/Internal/Services/calibre-web        0700 calibre-web  calibre-web -"
   ];
 }

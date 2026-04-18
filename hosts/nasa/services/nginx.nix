@@ -68,6 +68,26 @@ in {
         };
       };
 
+      "calibre.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "calibre" ];
+        # Kobo sync sends large JSON payloads in response headers; the
+        # defaults cause "upstream sent too big header" errors.  Values
+        # from the calibre-web Kobo integration wiki.
+        extraConfig = ''
+          proxy_buffer_size       1024k;
+          proxy_buffers           4 512k;
+          proxy_busy_buffers_size 1024k;
+        '';
+        locations."/" = {
+          proxyPass       = "http://127.0.0.1:8083";
+          proxyWebsockets = true;
+          extraConfig = ''
+            proxy_set_header X-Forwarded-Host  $http_host;
+            proxy_set_header X-Scheme          https;
+          '';
+        };
+      };
+
       "lidarr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "lidarr" ];
         locations."/" = {
