@@ -81,9 +81,13 @@ in {
         locations."/" = {
           proxyPass       = "http://127.0.0.1:8083";
           proxyWebsockets = true;
+          # X-Forwarded-Host is already set by recommendedProxySettings;
+          # adding it here too causes WSGI to see "calibre, calibre" which
+          # breaks calibre-web's download URL generation.
+          # X-Scheme is needed because calibre-web's ReverseProxied middleware
+          # reads HTTP_X_SCHEME (not HTTP_X_FORWARDED_PROTO) to set wsgi.url_scheme.
           extraConfig = ''
-            proxy_set_header X-Forwarded-Host  $http_host;
-            proxy_set_header X-Scheme          https;
+            proxy_set_header X-Scheme https;
           '';
         };
       };
