@@ -42,6 +42,9 @@
         users.jmalexan = import ../../../home/linux.nix;
       };
 
+      networking.useHostResolvConf = false;
+      services.resolved.enable = true;
+
       networking.firewall.allowedTCPPorts = [ 22 ];
 
       system.stateVersion = "25.11";
