@@ -13,4 +13,5 @@ in {
   "secrets/step-ca-key.age".publicKeys          = allKeys;
   "secrets/samba-password.age".publicKeys       = allKeys;
   "secrets/mullvad-wg.age".publicKeys           = allKeys;
+  "secrets/gitlab-runner-token.age".publicKeys  = allKeys;
 }
