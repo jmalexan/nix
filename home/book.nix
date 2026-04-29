@@ -22,8 +22,15 @@
     "nasa nasa.lan" = {
       hostname = "nasa.lan";
       user = "jmalexan";
-      port = 2222;
       forwardAgent = true;
+    };
+    home = {
+      hostname = "home.nasa.lan";
+      user = "jmalexan";
+    };
+    pihole = {
+      hostname = "pihole.lan";
+      user = "jmalexan";
     };
   };
 
