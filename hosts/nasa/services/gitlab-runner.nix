@@ -21,8 +21,6 @@
       executor = "docker";
       dockerImage = "alpine:latest";
       requestConcurrency = 4;
-      tagList = [ "docker" ];
-      runUntagged = true;
     };
   };
 }
