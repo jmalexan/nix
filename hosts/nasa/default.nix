@@ -20,6 +20,8 @@
   networking.hostName = "nasa";
   networking.hostId = "e878c22f";
 
+  programs.nix-ld.enable = true;
+
   # ── Samba ─────────────────────────────────────────────────────────────────
   # SMB file sharing optimised for macOS clients on ZFS.
 
