@@ -94,9 +94,8 @@ in {
 
       "calibre-desktop.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "calibre-desktop" ];
-        # KasmVNC streams large frames and uses websockets for clipboard,
-        # uploads, and the VNC channel itself. Upstream is HTTPS with a
-        # self-signed cert, hence proxy_ssl_verify off.
+        # Selkies streams large frames and uses websockets for the display
+        # channel, clipboard, and file transfer.
         extraConfig = ''
           client_max_body_size  500M;
           proxy_buffer_size     1024k;
@@ -106,11 +105,8 @@ in {
           proxy_send_timeout    3600s;
         '';
         locations."/" = {
-          proxyPass       = "https://127.0.0.1:8085";
+          proxyPass       = "http://127.0.0.1:8085";
           proxyWebsockets = true;
-          extraConfig = ''
-            proxy_ssl_verify off;
-          '';
         };
       };
 
