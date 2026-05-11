@@ -46,5 +46,8 @@
     "d /Data/smb/Media/Music                          02755 lidarr      media -"
     "d /Data/smb/Media/Books                          0755 calibre-web  calibre-web -"
     "d /Data/smb/Internal/Services/calibre-web        0700 calibre-web  calibre-web -"
+    # Container runs as PUID=987 (calibre-web) so library file ownership
+    # stays consistent across both services.
+    "d /Data/smb/Internal/Services/calibre-desktop    0750 calibre-web  calibre-web -"
   ];
 }
