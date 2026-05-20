@@ -118,6 +118,14 @@ in {
         };
       };
 
+      "musicassistant.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "musicassistant" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:8095";
+          proxyWebsockets = true;
+        };
+      };
+
       "qbittorrent.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "torrent.nasa.jmalexan.com" "qbittorrent" "torrent" ];
         locations."/" = {

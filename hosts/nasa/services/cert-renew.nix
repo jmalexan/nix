@@ -1,6 +1,6 @@
 { config, pkgs, ... }: let
   certDir = "/var/lib/nginx/certs";
-  caCert  = toString ../certs/ca.crt;
+  caCert  = ../certs/ca.crt;
   caKey   = config.age.secrets.step-ca-key.path;
 
   subject = "/CN=nasa.jmalexan.com/O=Personal/C=US/ST=Pennsylvania/L=Pittsburgh/emailAddress=me@jmalexan.com";
@@ -9,10 +9,14 @@
     authorityKeyIdentifier = keyid, issuer
     basicConstraints = CA:FALSE
     keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-    subjectAltName = DNS:nasa.jmalexan.com,DNS:*.nasa.jmalexan.com,DNS:plex,DNS:qbittorrent,DNS:torrent,DNS:homeassistant,DNS:ddns,DNS:immich,DNS:truenas,DNS:romm,DNS:cobalt,DNS:lyrion,DNS:jellyfin,DNS:tmm,DNS:komga,DNS:calibre,DNS:calibre-web,DNS:open-webui,DNS:freshrss,DNS:sonarr,DNS:radarr,DNS:lidarr,DNS:prowlarr
+    subjectAltName = DNS:nasa.jmalexan.com,DNS:*.nasa.jmalexan.com,DNS:plex,DNS:qbittorrent,DNS:torrent,DNS:homeassistant,DNS:ddns,DNS:immich,DNS:truenas,DNS:romm,DNS:cobalt,DNS:lyrion,DNS:jellyfin,DNS:tmm,DNS:komga,DNS:calibre,DNS:calibre-web,DNS:open-webui,DNS:freshrss,DNS:sonarr,DNS:radarr,DNS:lidarr,DNS:prowlarr,DNS:musicassistant
   '';
 
 in {
+  # Trust our private CA host-wide so internal services (Music Assistant,
+  # scripts, anything using OpenSSL/Python) can verify certs issued by it.
+  security.pki.certificateFiles = [ caCert ];
+
   age.secrets.step-ca-key = {
     file = ../../../secrets/step-ca-key.age;
     mode = "0400";
