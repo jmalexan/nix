@@ -7,6 +7,11 @@
   networking.interfaces.br0.useDHCP = true;
   networking.networkmanager.unmanaged = [ "enp5s0" "br0" ];
 
+  # br0 is the trusted home LAN segment — skip firewall rules on it so
+  # LAN-only services (HomeKit bridges, Sonos UPnP, AirPlay, mDNS, etc.)
+  # don't need per-port allowlisting.
+  networking.firewall.trustedInterfaces = [ "br0" ];
+
   containers.home = {
     autoStart = true;
     privateNetwork = true;

@@ -16,57 +16,46 @@
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
 
-  # HA needs these capabilities to manage Bluetooth adapters directly
-  systemd.services.home-assistant.serviceConfig = {
-    AmbientCapabilities = [ "CAP_NET_ADMIN" "CAP_NET_RAW" ];
-    CapabilityBoundingSet = [ "CAP_NET_ADMIN" "CAP_NET_RAW" ];
+  # ── Home Assistant ────────────────────────────────────────────────────────────
+  # Runs from the official container image. The "Core" install method (HA as a
+  # plain Python process under systemd) was deprecated by upstream in May 2025.
+  # Host networking is required for HomeKit, mDNS, DHCP discovery, and UPnP to
+  # see traffic on br0; NET_ADMIN/NET_RAW plus the D-Bus socket give Bluetooth
+  # access via the host's bluez.
+  virtualisation.oci-containers.containers.home-assistant = {
+    image = "ghcr.io/home-assistant/home-assistant:stable";
+    autoStart = true;
+    extraOptions = [
+      "--network=host"
+      "--cap-add=NET_ADMIN"
+      "--cap-add=NET_RAW"
+    ];
+    volumes = [
+      "/Data/smb/Internal/Services/homeassistant/config:/config"
+      "/run/dbus:/run/dbus:ro"
+      "/etc/localtime:/etc/localtime:ro"
+    ];
+    environment.TZ = "America/New_York";
   };
 
-  # ── Home Assistant ────────────────────────────────────────────────────────────
+  networking.firewall.allowedTCPPorts = [ 8123 ];
 
-  services.home-assistant = {
+  # ── Matter server ─────────────────────────────────────────────────────────────
+  # Standalone matter-server (port 5580) that HA's Matter integration connects
+  # to over a websocket. It runs natively on the host; HA reaches it at
+  # ws://localhost:5580/ws via the container's host networking. No firewall
+  # opening is needed — the websocket is loopback-only and Matter/mDNS device
+  # traffic rides br0, which is already a trusted interface.
+  services.matter-server = {
     enable = true;
-    openFirewall = true;
-    configDir = "/Data/smb/Internal/Services/homeassistant/config";
-    config = {
-      default_config = {};
-
-      http = {
-        use_x_forwarded_for = true;
-        trusted_proxies = [ "127.0.0.1" "::1" ];
-      };
-
-      recorder.db_url = "postgresql://@/hass";
-    };
-
-    # Extra integrations — NixOS uses these to pull in required Python packages.
-    extraComponents = [
-      "apple_tv"
-      "bluetooth"
-      "bluetooth_le_tracker"
-      "brother"
-      "dhcp"
-      "go2rtc"
-      "google_translate"   # tts / gtts
-      "homekit"
-      "homekit_controller"
-      "ipp"
-      "met"
-      "mobile_app"
-      "music_assistant"
-      "nest"
-      "radio_browser"
-      "smartthings"
-      "sonos"
-      "stream"
-      "thread"
-      "unifi"
-      "unifiprotect"
-      "upnp"
-    ];
-
-    # psycopg2 is needed for the recorder to connect to PostgreSQL.
-    extraPackages = ps: with ps; [ psycopg2 grpcio zlib-ng isal ];
+    # The module's systemd sandbox hides /proc/net (ProcSubset=pid), so
+    # python-matter-server can't auto-detect the primary interface and logs
+    # "Using 'None' as primary interface". Without an interface to scope IPv6
+    # link-local traffic to, the post-commission CASE interview can't reach the
+    # device and times out. Pin it to br0 — the host's L3 LAN interface
+    # (enp5s0 is only a bridge slave and carries no addresses).
+    extraArgs = [ "--primary-interface" "br0" ];
+    logLevel = "debug"; # TEMP: diagnosing operational-interview timeout
   };
 
   # ── Music Assistant ───────────────────────────────────────────────────────────
@@ -87,20 +76,18 @@
     REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
   };
 
-  # HomeKit bridge: 21065 21066
-  # Sonos UPnP event callbacks: 1400
-  # Music Assistant web/ws: 8095
-  # AirPlay control: 7000, with ephemeral UDP for audio data
-  networking.firewall.allowedTCPPorts = [ 21065 21066 1400 8095 7000 ];
-  networking.firewall.allowedUDPPorts = [ 21065 21066 ];
-  networking.firewall.allowedUDPPortRanges = [
-    { from = 32768; to = 65535; }
-  ];
-
   # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
   services.postgresql = {
     enable = true;
+    # The HA container can't use peer auth (its process is root, not the hass
+    # OS user), so expose PG on loopback and trust local connections from the
+    # hass DB user. Loopback-only — same security posture as peer-on-socket.
+    enableTCPIP = true;
+    authentication = ''
+      host hass hass 127.0.0.1/32 trust
+      host hass hass ::1/128 trust
+    '';
     ensureDatabases = [ "hass" ];
     ensureUsers = [{
       name = "hass";
