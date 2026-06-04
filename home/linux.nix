@@ -6,6 +6,7 @@
   programs.tmux = {
     enable = true;
     terminal = "tmux-256color";
+    mouse = true;
   };
 
   # Auto-attach (or create) a tmux session named "main" on SSH login.
