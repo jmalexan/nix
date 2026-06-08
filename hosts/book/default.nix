@@ -1,8 +1,8 @@
-{ config, lib, pkgs, pkgs-unstable, agenix, ... }:
+{ config, lib, pkgs, pkgs-unstable, claude-code-pkg, agenix, ... }:
 
 {
   imports = [
-    (import ../../modules/dev-environment.nix pkgs-unstable)
+    (import ../../modules/dev-environment.nix pkgs-unstable claude-code-pkg)
   ];
 
   # ── Platform ──────────────────────────────────────────────────────────────
