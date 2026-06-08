@@ -14,9 +14,10 @@
     home-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
     home-manager-stable.url = "github:nix-community/home-manager/release-25.11";
     home-manager-stable.inputs.nixpkgs.follows = "nixpkgs";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, claude-code-nix, ... }:
     let
       mkUnstable = system: import nixpkgs-unstable {
         inherit system;
@@ -28,10 +29,12 @@
 
       nixosSpecialArgs = {
         pkgs-unstable = mkUnstable linuxSystem;
+        claude-code-pkg = claude-code-nix.packages.${linuxSystem}.default;
         inherit agenix home-manager-stable;
       };
       darwinSpecialArgs = {
         pkgs-unstable = mkUnstable darwinSystem;
+        claude-code-pkg = claude-code-nix.packages.${darwinSystem}.default;
         inherit agenix;
       };
 
