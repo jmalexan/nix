@@ -68,6 +68,14 @@ in {
         };
       };
 
+      "bazarr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "bazarr" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:6767";
+          proxyWebsockets = true;
+        };
+      };
+
       "calibre.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "calibre" ];
         # Kobo sync sends large JSON payloads in response headers; the
