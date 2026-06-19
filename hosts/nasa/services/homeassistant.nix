@@ -1,18 +1,4 @@
-{ pkgs-unstable, ... }: {
-  # Use the unstable music-assistant module — the 25.11 one's seccomp filter is
-  # missing `mbind`, which 2.7+ needs (service dies with SIGSYS on startup).
-  disabledModules = [ "services/audio/music-assistant.nix" ];
-  imports = [ "${pkgs-unstable.path}/nixos/modules/services/audio/music-assistant.nix" ];
-
-  # The unstable MA module references cliairplay/libraop bare from `pkgs`, but
-  # both packages only exist in nixpkgs-unstable. Pull them in via overlay so
-  # the airplay provider can resolve its runtime deps.
-  nixpkgs.overlays = [
-    (_: _: {
-      inherit (pkgs-unstable) cliairplay libraop;
-    })
-  ];
-
+{ ... }: {
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
 
@@ -59,21 +45,36 @@
   };
 
   # ── Music Assistant ───────────────────────────────────────────────────────────
-
-  services.music-assistant = {
-    enable = true;
-    # 25.11 ships 2.6.3, but the mobile app needs the auth API added in 2.7.0.
-    package = pkgs-unstable.music-assistant;
-    # apple_music is intentionally omitted — nixpkgs doesn't package pywidevine
-    # (Widevine CDM bindings), which the provider needs to import.
-    providers = [ "spotify" "jellyfin" "lastfm_scrobble" "sendspin" "airplay" "sonos" ];
-  };
-
-  # Point Python's TLS stack at the system trust store so the bundled certifi
-  # doesn't shadow our private CA when talking to internal HTTPS services.
-  systemd.services.music-assistant.environment = {
-    SSL_CERT_FILE      = "/etc/ssl/certs/ca-certificates.crt";
-    REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
+  # Runs from the official container image rather than the nixpkgs module: the
+  # community package omits pywidevine and the Widevine CDM, so the Apple Music
+  # provider can't import/authenticate under it. Upstream only supports the
+  # container / HA add-on anyway. Host networking is required for the :8095 UI
+  # plus mDNS-based airplay/sonos discovery on br0.
+  #
+  # Providers are configured through the web UI and persist in /data — this
+  # replaced the module's declarative `providers` list, so spotify, jellyfin,
+  # lastfm_scrobble, sendspin, airplay, and sonos must be re-added there on
+  # first boot (state does NOT carry over from the old /var/lib/music-assistant).
+  # apple_music can now be enabled too: the image bundles the CDM, so it just
+  # needs an Apple Music subscription to authenticate.
+  virtualisation.oci-containers.containers.music-assistant = {
+    image = "ghcr.io/music-assistant/server:2.8.9";
+    autoStart = true;
+    extraOptions = [ "--network=host" ];
+    volumes = [
+      "/Data/smb/Internal/Services/music-assistant:/data"
+      # Mount our CA bundle so the container's Python can verify internal HTTPS
+      # services signed by our private CA — the Alpine image's trust store lacks
+      # it. The SSL_CERT_FILE/REQUESTS_CA_BUNDLE env vars point the stdlib ssl
+      # and requests stacks at it (mirrors the old systemd-service env).
+      "/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro"
+      "/etc/localtime:/etc/localtime:ro"
+    ];
+    environment = {
+      TZ                 = "America/New_York";
+      SSL_CERT_FILE      = "/etc/ssl/certs/ca-certificates.crt";
+      REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
+    };
   };
 
   # ── PostgreSQL ────────────────────────────────────────────────────────────────
