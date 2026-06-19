@@ -1,9 +1,16 @@
 { config, pkgs, ... }:
 let
   # IPs for the veth pair that bridges the mullvad namespace to the host.
-  # nginx proxies to nsVethIP:8080 so qbittorrent stays reachable.
+  # nginx proxies to nsVethIP:<port> so the namespaced services stay reachable.
   hostVethIP = "10.200.200.1";
   nsVethIP   = "10.200.200.2";
+
+  # Local network the host sits on (br0 = 10.0.1.10/23).  Traffic to this
+  # subnet bypasses the VPN via the veth so the namespaced *arr stack can reach
+  # the host's reverse proxy (and each other through their *.nasa.jmalexan.com
+  # URLs, which resolve to the host).  Only RFC1918 LAN traffic bypasses; the
+  # default route stays on wg0, so public-internet egress is still VPN-only.
+  lanSubnet = "10.0.0.0/23";
 
   ip  = "${pkgs.iproute2}/bin/ip";
   wg  = "${pkgs.wireguard-tools}/bin/wg";
@@ -47,6 +54,10 @@ let
     ${ip} netns exec mullvad ${ip} route add default dev wg0
     # Traffic back to the host (nginx → qbittorrent) goes over the veth.
     ${ip} netns exec mullvad ${ip} route add ${hostVethIP}/32 dev veth-ns
+    # LAN bypass: reach the host (and LAN) directly over the veth instead of
+    # the tunnel, sourced from the veth IP so replies route back correctly.
+    # The default route above stays on wg0, so this only exempts LAN traffic.
+    ${ip} netns exec mullvad ${ip} route add ${lanSubnet} via ${hostVethIP} src ${nsVethIP}
 
     # ── DNS inside namespace (Mullvad's DNS, only reachable via tunnel) ──────
     mkdir -p /etc/netns/mullvad
