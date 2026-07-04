@@ -19,6 +19,11 @@
     "d /Data/smb/Internal                             0755 root        root  -"
     "d /Data/smb/Internal/Services                    0755 root        root  -"
     "d /Data/smb/Internal/Services/immich             0750 immich      root  -"
+    # Immich's dedicated Postgres and ML model cache (containerised). Created
+    # root-owned; the postgres entrypoint chowns its data dir to the image's
+    # postgres user on first init.
+    "d /Data/smb/Internal/Services/immich-postgres    0700 root        root  -"
+    "d /Data/smb/Internal/Services/immich-model-cache 0700 root        root  -"
     "d /Data/smb/Internal/Services/jellyfin           0750 jellyfin    root  -"
     "d /Data/smb/Internal/Services/homeassistant      0750 hass        root  -"
     "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root  -"
