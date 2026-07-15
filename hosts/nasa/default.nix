@@ -54,13 +54,11 @@
         "server min protocol" = "SMB2";
         "server max protocol" = "SMB3";
 
-        "socket options" = "TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=131072 SO_SNDBUF=131072";
-        "use sendfile" = "yes";
+        # Do NOT set SO_RCVBUF/SO_SNDBUF: fixed socket buffers disable the
+        # kernel's TCP window autotuning and cap throughput to window/RTT.
+        "socket options" = "TCP_NODELAY";
         "aio read size" = "1";
         "aio write size" = "1";
-        "read raw" = "yes";
-        "write raw" = "yes";
-        "getwd cache" = "yes";
 
         "log level" = "1";
       };
