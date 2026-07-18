@@ -12,7 +12,10 @@
 #
 # Manual deploys still work exactly as before:
 #   nixos-rebuild switch --flake .#<host>
-{ config, ... }:
+#
+# ...or force an early update check on the timer's behalf with `update-now`
+# (defined below), which pulls latest from GitHub and switches immediately.
+{ config, pkgs, ... }:
 
 {
   system.autoUpgrade = {
@@ -27,4 +30,14 @@
     operation = "switch";
     allowReboot = false;
   };
+
+  # Shortcut to force the update the timer would otherwise do on its next tick.
+  # nixos-rebuild picks the config attr from the hostname, so no #host needed.
+  # Extra args pass through, e.g. `update-now --show-trace`.
+  environment.systemPackages = [
+    (pkgs.writeShellScriptBin "update-now" ''
+      echo "→ Pulling latest config from GitHub and switching…"
+      exec sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix "$@"
+    '')
+  ];
 }

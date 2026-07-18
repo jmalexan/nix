@@ -28,6 +28,13 @@
   environment.systemPackages = [
     # Secrets management (CLI only — for managing NAS secrets from this machine)
     agenix.packages.${pkgs.stdenv.hostPlatform.system}.default
+
+    # Force an early update check (same name/behaviour as on the NixOS hosts).
+    # darwin-rebuild picks the config attr from the hostname ("Book").
+    (pkgs.writeShellScriptBin "update-now" ''
+      echo "→ Pulling latest config from GitHub and switching…"
+      exec sudo darwin-rebuild switch --refresh --flake github:jmalexan/nix "$@"
+    '')
   ];
 
   # ── Shell ─────────────────────────────────────────────────────────────────
