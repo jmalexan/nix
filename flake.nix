@@ -67,6 +67,26 @@
         ];
       };
 
+      # Home-theater PC (Minisforum UM760, AMD Radeon 780M).
+      # Tracks nixos-unstable so we get Plasma 6.7 (Bigscreen) plus the newest
+      # kernel/Mesa/amdgpu HDR work; nasa/book stay on stable nixpkgs.
+      # Deploy with: nixos-rebuild switch --flake .#htpc
+      nixosConfigurations.htpc = nixpkgs-unstable.lib.nixosSystem {
+        system = linuxSystem;
+        specialArgs = nixosSpecialArgs;
+        modules = commonModules ++ [
+          ./hosts/htpc/default.nix
+          disko.nixosModules.disko
+          ./hosts/htpc/disko.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.jmalexan = import ./home/linux.nix;
+          }
+        ];
+      };
+
       # macOS (Apple Silicon) MacBook.
       # Deploy with: darwin-rebuild switch --flake .#book
       darwinConfigurations.book = nix-darwin.lib.darwinSystem {
