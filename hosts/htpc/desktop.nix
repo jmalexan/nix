@@ -24,6 +24,11 @@
   # environment.systemPackages, otherwise the session dies to a black screen.
   environment.systemPackages = [ pkgs.kdePackages.plasma-bigscreen ];
 
+  # Bigscreen's homescreen imports QML modules that its nixpkgs package doesn't
+  # pull in itself. Each missing `module "..." is not installed` maps to a package:
+  #   org.kde.kdeconnect -> kdeconnect-kde (enabled below)
+  programs.kdeconnect.enable = true;
+
   # Boot straight into Bigscreen on the TV.
   services.displayManager.autoLogin = {
     enable = true;
