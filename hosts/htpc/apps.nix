@@ -8,6 +8,7 @@
     jellyfin-media-player # Jellyfin couch client (alias -> jellyfin-desktop v2 on 25.11)
     # jellyfin-mpv-shim   # alternative: mpv-based, strongest HDR playback engine
     mpv
+    firefox
   ];
 
   # gamescope is the cleanest way to get HDR for a single app without fighting
