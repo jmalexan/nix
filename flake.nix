@@ -38,7 +38,7 @@
         inherit agenix;
       };
 
-      commonModules = [ ./modules/common.nix agenix.nixosModules.default ];
+      commonModules = [ ./modules/common.nix ./modules/auto-upgrade.nix agenix.nixosModules.default ];
     in
     {
       # Run `nix develop` to get a shell with secrets management tools.
@@ -88,8 +88,10 @@
       };
 
       # macOS (Apple Silicon) MacBook.
-      # Deploy with: darwin-rebuild switch --flake .#book
-      darwinConfigurations.book = nix-darwin.lib.darwinSystem {
+      # Attr matches the hostname ("Book") so `darwin-rebuild switch --flake .`
+      # resolves it automatically; the explicit form still works:
+      # Deploy with: darwin-rebuild switch --flake .#Book
+      darwinConfigurations.Book = nix-darwin.lib.darwinSystem {
         specialArgs = darwinSpecialArgs;
         modules = [
           ./hosts/book/default.nix
