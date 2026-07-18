@@ -12,6 +12,15 @@
     settings.General.FastConnectable = true;
   };
 
+  # The internal MT7922 BT radio fails "Bluetooth: hci0: Opcode 0x0c03 failed:
+  # -110" (HCI_Reset timeout) on every boot. Ruled out: rfkill, driver rebind,
+  # USB reauthorize, kernel version (tried linuxPackages and _latest), a full
+  # power-unplug, stale firmware (already the newest MediaTek has shipped),
+  # and USB autosuspend (tested btusb.enable_autosuspend=0 live — no change).
+  # Conclusion: hardware/driver-level issue, not fixable from NixOS config.
+  # Working around it with an external USB Bluetooth dongle — no config
+  # changes needed for that; BlueZ picks up whatever adapter registers.
+
   # Best-in-class Bluetooth Xbox controller driver.
   hardware.xpadneo.enable = true;
 
