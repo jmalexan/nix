@@ -18,6 +18,12 @@
   # Register the Bigscreen Wayland session and make it the default.
   services.displayManager.sessionPackages = [ pkgs.kdePackages.plasma-bigscreen ];
 
+  # plasma-bigscreen's session launcher sources `plasma-bigscreen-common-env` by
+  # bare name, so the package's bin/ must be on the session PATH. Registering it
+  # only as a sessionPackage (above) doesn't do that — it must also be in
+  # environment.systemPackages, otherwise the session dies to a black screen.
+  environment.systemPackages = [ pkgs.kdePackages.plasma-bigscreen ];
+
   # Boot straight into Bigscreen on the TV.
   services.displayManager.autoLogin = {
     enable = true;
