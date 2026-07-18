@@ -108,6 +108,7 @@
       "google-chrome"
       "godot"
       "little-snitch"
+      "obs"
       "obsidian"
       "sf-symbols"
       "signal"

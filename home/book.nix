@@ -3,6 +3,10 @@
 {
   imports = [ ./common.nix ];
 
+  # ── Git ───────────────────────────────────────────────────────────────────
+
+  programs.git.settings.init.defaultBranch = "main";
+
   # ── Fish ──────────────────────────────────────────────────────────────────
 
   programs.fish.loginShellInit = ''
