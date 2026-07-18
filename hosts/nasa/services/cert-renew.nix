@@ -1,15 +1,35 @@
-{ config, pkgs, ... }: let
+{ config, lib, pkgs, ... }: let
   certDir = "/var/lib/nginx/certs";
   caCert  = ../certs/ca.crt;
   caKey   = config.age.secrets.step-ca-key.path;
 
   subject = "/CN=nasa.jmalexan.com/O=Personal/C=US/ST=Pennsylvania/L=Pittsburgh/emailAddress=me@jmalexan.com";
 
+  # ── SAN list ───────────────────────────────────────────────────────────────
+  # Derived from the actual nginx vhost config so adding a virtualHost (or a
+  # serverAlias) automatically extends the cert on next rebuild. The renew
+  # script below also re-issues if this list drifts from the cert in place,
+  # so changes propagate without manually deleting server.crt.
+  vhostNames = lib.flatten (lib.mapAttrsToList
+    (name: v: [ name ] ++ (v.serverAliases or []))
+    config.services.nginx.virtualHosts);
+
+  # Names that aren't tied to a local vhost (other hosts, future services,
+  # the wildcard, the apex).
+  extraNames = [
+    "nasa.jmalexan.com" "*.nasa.jmalexan.com"
+    "plex" "ddns" "truenas" "romm" "cobalt" "lyrion"
+    "tmm" "komga" "calibre-web" "open-webui" "freshrss"
+  ];
+
+  sanNames = lib.unique (extraNames ++ vhostNames);
+  sanList  = lib.concatMapStringsSep "," (n: "DNS:${n}") sanNames;
+
   sanExt = pkgs.writeText "cert-san.ext" ''
     authorityKeyIdentifier = keyid, issuer
     basicConstraints = CA:FALSE
     keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-    subjectAltName = DNS:nasa.jmalexan.com,DNS:*.nasa.jmalexan.com,DNS:plex,DNS:qbittorrent,DNS:torrent,DNS:homeassistant,DNS:ddns,DNS:immich,DNS:truenas,DNS:romm,DNS:cobalt,DNS:lyrion,DNS:jellyfin,DNS:tmm,DNS:komga,DNS:calibre,DNS:calibre-web,DNS:open-webui,DNS:freshrss,DNS:sonarr,DNS:radarr,DNS:lidarr,DNS:prowlarr,DNS:musicassistant
+    subjectAltName = ${sanList}
   '';
 
 in {
@@ -38,10 +58,30 @@ in {
       WorkingDirectory = certDir;
     };
     script = ''
-      # Skip if the cert exists and won't expire within 30 days.
-      if ${pkgs.openssl}/bin/openssl x509 -checkend 2592000 \
+      need_renew=0
+
+      # Reason 1: cert missing or expiring within 30 days.
+      if ! ${pkgs.openssl}/bin/openssl x509 -checkend 2592000 \
            -in ${certDir}/server.crt 2>/dev/null; then
-        echo "Certificate is valid, skipping renewal."
+        echo "Cert missing or near expiry — will renew."
+        need_renew=1
+      fi
+
+      # Reason 2: SAN list differs from what the cert currently has.
+      desired=$(printf '%s\n' ${lib.escapeShellArgs sanNames} | sort -u)
+      current=$(${pkgs.openssl}/bin/openssl x509 -in ${certDir}/server.crt \
+                  -noout -ext subjectAltName 2>/dev/null \
+                | ${pkgs.gnugrep}/bin/grep -oE 'DNS:[^,[:space:]]+' \
+                | ${pkgs.gnused}/bin/sed 's/^DNS://' \
+                | sort -u || true)
+
+      if [ "$desired" != "$current" ]; then
+        echo "SAN list changed — will renew."
+        need_renew=1
+      fi
+
+      if [ "$need_renew" -eq 0 ]; then
+        echo "Certificate is valid and SAN list unchanged, skipping renewal."
         exit 0
       fi
 

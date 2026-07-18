@@ -1,4 +1,4 @@
-{ pkgs, pkgs-unstable, home-manager-stable, ... }: {
+{ pkgs, pkgs-unstable, claude-code-pkg, home-manager-stable, ... }: {
   # ── Bridge networking ──────────────────────────────────────────────────────
   # enp5s0 joins br0 so nasa, the home container, and all LAN devices can
   # reach each other freely. NetworkManager is told to leave both interfaces
@@ -6,6 +6,11 @@
   networking.bridges.br0.interfaces = [ "enp5s0" ];
   networking.interfaces.br0.useDHCP = true;
   networking.networkmanager.unmanaged = [ "enp5s0" "br0" ];
+
+  # br0 is the trusted home LAN segment — skip firewall rules on it so
+  # LAN-only services (HomeKit bridges, Sonos UPnP, AirPlay, mDNS, etc.)
+  # don't need per-port allowlisting.
+  networking.firewall.trustedInterfaces = [ "br0" ];
 
   containers.home = {
     autoStart = true;
@@ -16,7 +21,7 @@
 
     config = { pkgs, ... }: {
       imports = [
-        (import ../../../modules/dev-environment.nix pkgs-unstable)
+        (import ../../../modules/dev-environment.nix pkgs-unstable claude-code-pkg)
         ../../../modules/linux-server.nix
         home-manager-stable.nixosModules.home-manager
       ];

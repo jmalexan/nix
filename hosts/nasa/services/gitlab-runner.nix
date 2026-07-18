@@ -1,9 +1,10 @@
-{ config, ... }: {
+{ config, pkgs, ... }: {
   age.secrets.gitlab-runner-token = {
     file = ../../../secrets/gitlab-runner-token.age;
   };
 
   virtualisation.docker.enable = true;
+  virtualisation.docker.package = pkgs.docker_29;
 
   users.users.gitlab-runner = {
     isSystemUser = true;

@@ -2,11 +2,11 @@
 # Pulls in the cross-platform dev environment and the Linux server defaults,
 # then adds the things every Linux host of mine wants: bootloader, network
 # manager, my user, and a couple of extra packages.
-{ config, lib, pkgs, pkgs-unstable, agenix, ... }:
+{ config, lib, pkgs, pkgs-unstable, claude-code-pkg, agenix, ... }:
 
 {
   imports = [
-    (import ./dev-environment.nix pkgs-unstable)
+    (import ./dev-environment.nix pkgs-unstable claude-code-pkg)
     ./linux-server.nix
   ];
 

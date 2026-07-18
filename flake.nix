@@ -14,9 +14,10 @@
     home-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
     home-manager-stable.url = "github:nix-community/home-manager/release-25.11";
     home-manager-stable.inputs.nixpkgs.follows = "nixpkgs";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, claude-code-nix, ... }:
     let
       mkUnstable = system: import nixpkgs-unstable {
         inherit system;
@@ -28,10 +29,12 @@
 
       nixosSpecialArgs = {
         pkgs-unstable = mkUnstable linuxSystem;
+        claude-code-pkg = claude-code-nix.packages.${linuxSystem}.default;
         inherit agenix home-manager-stable;
       };
       darwinSpecialArgs = {
         pkgs-unstable = mkUnstable darwinSystem;
+        claude-code-pkg = claude-code-nix.packages.${darwinSystem}.default;
         inherit agenix;
       };
 
@@ -56,6 +59,26 @@
           disko.nixosModules.disko
           ./hosts/nasa/disko.nix
           home-manager-stable.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.jmalexan = import ./home/linux.nix;
+          }
+        ];
+      };
+
+      # Home-theater PC (Minisforum UM760, AMD Radeon 780M).
+      # Tracks nixos-unstable so we get Plasma 6.7 (Bigscreen) plus the newest
+      # kernel/Mesa/amdgpu HDR work; nasa/book stay on stable nixpkgs.
+      # Deploy with: nixos-rebuild switch --flake .#htpc
+      nixosConfigurations.htpc = nixpkgs-unstable.lib.nixosSystem {
+        system = linuxSystem;
+        specialArgs = nixosSpecialArgs;
+        modules = commonModules ++ [
+          ./hosts/htpc/default.nix
+          disko.nixosModules.disko
+          ./hosts/htpc/disko.nix
+          home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;

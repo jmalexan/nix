@@ -44,10 +44,13 @@ in {
         };
       };
 
+      # prowlarr/sonarr/radarr/lidarr/bazarr run inside the Mullvad network
+      # namespace (see their service modules); reach them via the veth pair that
+      # bridges the namespace to the host, exactly like qbittorrent below.
       "prowlarr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "prowlarr" ];
         locations."/" = {
-          proxyPass       = "http://localhost:9696";
+          proxyPass       = "http://10.200.200.2:9696";
           proxyWebsockets = true;
         };
       };
@@ -55,7 +58,7 @@ in {
       "sonarr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "sonarr" ];
         locations."/" = {
-          proxyPass       = "http://localhost:8989";
+          proxyPass       = "http://10.200.200.2:8989";
           proxyWebsockets = true;
         };
       };
@@ -63,7 +66,15 @@ in {
       "radarr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "radarr" ];
         locations."/" = {
-          proxyPass       = "http://localhost:7878";
+          proxyPass       = "http://10.200.200.2:7878";
+          proxyWebsockets = true;
+        };
+      };
+
+      "bazarr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "bazarr" ];
+        locations."/" = {
+          proxyPass       = "http://10.200.200.2:6767";
           proxyWebsockets = true;
         };
       };
@@ -113,7 +124,7 @@ in {
       "lidarr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "lidarr" ];
         locations."/" = {
-          proxyPass       = "http://localhost:8686";
+          proxyPass       = "http://10.200.200.2:8686";
           proxyWebsockets = true;
         };
       };
