@@ -15,30 +15,28 @@
 
   # ── SSH ───────────────────────────────────────────────────────────────────
 
-  programs.ssh.matchBlocks = {
+  programs.ssh.settings = {
     "*" = {
-      identityFile = "~/.ssh/id_ed25519";
-      extraOptions = {
-        AddKeysToAgent = "yes";
-        UseKeychain = "yes";
-      };
+      IdentityFile = "~/.ssh/id_ed25519";
+      AddKeysToAgent = "yes";
+      UseKeychain = "yes";
     };
     "nasa nasa.lan" = {
-      hostname = "nasa.lan";
-      user = "jmalexan";
-      forwardAgent = true;
+      HostName = "nasa.lan";
+      User = "jmalexan";
+      ForwardAgent = true;
     };
     "home home.nasa.lan" = {
-      hostname = "home.nasa.lan";
-      user = "jmalexan";
+      HostName = "home.nasa.lan";
+      User = "jmalexan";
     };
     "htpc htpc.lan" = {
-      hostname = "htpc.lan";
-      user = "jmalexan";
+      HostName = "htpc.lan";
+      User = "jmalexan";
     };
     "pihole pihole.lan" = {
-      hostname = "pihole.lan";
-      user = "jmalexan";
+      HostName = "pihole.lan";
+      User = "jmalexan";
     };
   };
 
