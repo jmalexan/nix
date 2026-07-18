@@ -138,30 +138,9 @@
 
   # ── Auto-upgrade ──────────────────────────────────────────────────────────
   #
-  # nix-darwin has no `system.autoUpgrade`, so this is the pull-based equivalent
-  # of the NixOS `modules/auto-upgrade.nix`: a root launchd daemon that rebuilds
-  # this machine from the latest `main` on GitHub every 15 minutes.
-  #
-  # StartInterval fires every 900s while loaded; if the laptop was asleep,
-  # launchd coalesces the missed intervals into a single run on wake — so it
-  # catches up shortly after the machine comes back online. A failed build
-  # leaves the running generation untouched. Manual deploys still work:
-  #   darwin-rebuild switch --flake .
-
-  launchd.daemons.auto-upgrade = {
-    serviceConfig = {
-      RunAtLoad = false;        # don't fire during an activation/switch
-      StartInterval = 900;      # every 15 minutes
-      StandardOutPath = "/var/log/darwin-auto-upgrade.log";
-      StandardErrorPath = "/var/log/darwin-auto-upgrade.log";
-    };
-    script = ''
-      export PATH=/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH
-      # --refresh bypasses nix's 1h tarball cache so the 15-minute timer sees
-      # new commits instead of replaying a stale fetch.
-      exec darwin-rebuild switch --flake github:jmalexan/nix#Book --refresh
-    '';
-  };
+  # Deliberately none. Unlike the NixOS hosts (see `modules/auto-upgrade.nix`),
+  # this machine is updated by hand with `update-now` (defined above), because
+  # on macOS even a no-op `darwin-rebuild switch` causes minor UI disruptions.
 
   # ── System ────────────────────────────────────────────────────────────────
 
