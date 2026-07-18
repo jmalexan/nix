@@ -28,11 +28,15 @@
       user = "jmalexan";
       forwardAgent = true;
     };
-    home = {
+    "home home.nasa.lan" = {
       hostname = "home.nasa.lan";
       user = "jmalexan";
     };
-    pihole = {
+    "htpc htpc.lan" = {
+      hostname = "htpc.lan";
+      user = "jmalexan";
+    };
+    "pihole pihole.lan" = {
       hostname = "pihole.lan";
       user = "jmalexan";
     };
