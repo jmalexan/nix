@@ -57,10 +57,27 @@ in
     kodiJellyfin          # Kodi (Wayland) + Jellyfin add-on: browse UI + HDR playback
     kodiHdr               # `kodi-hdr` launcher: Kodi nested in gamescope w/ HDR
     kodiHdrDesktop        # "Kodi (HDR)" tile for the Bigscreen couch UI
-    jellyfin-mpv-shim     # mpv-based Jellyfin cast target — trial for HDR playback
+    jellyfin-mpv-shim     # mpv-based Jellyfin cast target (best HDR engine); run headless via the service below
     mpv
     firefox
   ];
+
+  # Keep jellyfin-mpv-shim running as a headless, self-healing cast target.
+  # It renders mpv into the Wayland session, so it's tied to graphical-session
+  # (started once the desktop is up, stopped on logout) and restarted if it dies.
+  # Its own config lives in ~/.config/jellyfin-mpv-shim/conf.json — the LAN HTTP
+  # server URL and the disabled GUI/menu are set there, not here.
+  systemd.user.services.jellyfin-mpv-shim = {
+    description = "Jellyfin MPV Shim cast target";
+    after    = [ "graphical-session.target" ];
+    partOf   = [ "graphical-session.target" ];
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig = {
+      ExecStart  = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
+      Restart    = "always";
+      RestartSec = 5;
+    };
+  };
 
   # Kodi bundles its own Python + certifi, which ignore the system CA trust
   # store — so the Jellyfin add-on (which verifies TLS by default) can't
