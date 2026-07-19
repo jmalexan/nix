@@ -44,6 +44,15 @@ in {
         };
       };
 
+      # Seerr runs on the host (not the Mullvad netns) and listens on 5055.
+      "seerr.nasa.jmalexan.com" = ssl // {
+        serverAliases = [ "seerr" ];
+        locations."/" = {
+          proxyPass       = "http://localhost:5055";
+          proxyWebsockets = true;
+        };
+      };
+
       # prowlarr/sonarr/radarr/lidarr/bazarr run inside the Mullvad network
       # namespace (see their service modules); reach them via the veth pair that
       # bridges the namespace to the host, exactly like qbittorrent below.
