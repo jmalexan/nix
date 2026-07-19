@@ -38,7 +38,7 @@
         inherit agenix;
       };
 
-      commonModules = [ ./modules/common.nix ./modules/auto-upgrade.nix agenix.nixosModules.default ];
+      commonModules = [ ./modules/common.nix ./modules/auto-upgrade.nix ./modules/trust-private-ca.nix agenix.nixosModules.default ];
     in
     {
       # Run `nix develop` to get a shell with secrets management tools.

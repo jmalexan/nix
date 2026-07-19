@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }: let
   certDir = "/var/lib/nginx/certs";
-  caCert  = ../certs/ca.crt;
+  caCert  = ../../../certs/ca.crt;
   caKey   = config.age.secrets.step-ca-key.path;
 
   subject = "/CN=nasa.jmalexan.com/O=Personal/C=US/ST=Pennsylvania/L=Pittsburgh/emailAddress=me@jmalexan.com";
@@ -33,9 +33,8 @@
   '';
 
 in {
-  # Trust our private CA host-wide so internal services (Music Assistant,
-  # scripts, anything using OpenSSL/Python) can verify certs issued by it.
-  security.pki.certificateFiles = [ caCert ];
+  # CA trust is host-wide via modules/trust-private-ca.nix (shared by all
+  # NixOS hosts). This module only issues/signs certs from that same CA.
 
   age.secrets.step-ca-key = {
     file = ../../../secrets/step-ca-key.age;
