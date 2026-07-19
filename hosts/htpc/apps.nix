@@ -57,6 +57,7 @@ in
     kodiJellyfin          # Kodi (Wayland) + Jellyfin add-on: browse UI + HDR playback
     kodiHdr               # `kodi-hdr` launcher: Kodi nested in gamescope w/ HDR
     kodiHdrDesktop        # "Kodi (HDR)" tile for the Bigscreen couch UI
+    jellyfin-mpv-shim     # mpv-based Jellyfin cast target — trial for HDR playback
     mpv
     firefox
   ];
