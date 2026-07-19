@@ -13,6 +13,10 @@ let
   # kodi-wayland is the ONLY Kodi variant that can output HDR (x11 and gbm
   # cannot), and the `jellyfin` add-on (Jellyfin for Kodi) syncs the library
   # into Kodi's own native UI so browsing feels first-class.
+  #
+  # TLS note: the add-on verifies certs by default and uses Kodi's bundled
+  # Python/certifi, so trust for our private-CA cert comes from the
+  # environment.sessionVariables set further down — not from anything here.
   kodiJellyfin = pkgs.kodi-wayland.withPackages (p: with p; [ jellyfin ]);
 
   # One-click HDR launch: nest Kodi inside gamescope so the HDR swapchain is
@@ -28,17 +32,6 @@ let
   # If gamescope's nested HDR ever misbehaves, launch Kodi's own plain tile
   # instead — it runs directly in the Plasma session as a fallback.
   kodiHdr = pkgs.writeShellScriptBin "kodi-hdr" ''
-    # Kodi ships its own Python + certifi, and the Jellyfin add-on verifies TLS
-    # by default (its `sslverify` setting defaults to true), so it rejects our
-    # private-CA cert on jellyfin.nasa.jmalexan.com unless its requests/libcurl
-    # stack is pointed at the system bundle (which trust-private-ca.nix has
-    # populated with our CA). We export these here, in the launcher, rather than
-    # relying only on environment.sessionVariables — those don't reliably reach
-    # a client nested inside a gamescope Wayland session, which was why the
-    # add-on still couldn't connect.
-    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-    export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-    export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
     exec ${pkgs.gamescope}/bin/gamescope \
       --hdr-enabled \
       --output-width 3840 --output-height 2160 \
@@ -69,11 +62,12 @@ in
   ];
 
   # Kodi bundles its own Python + certifi, which ignore the system CA trust
-  # store — so the Jellyfin add-on can't verify the private-CA cert on
-  # jellyfin.nasa.jmalexan.com and the connection fails. Point its TLS stack
-  # (Python `requests` and libcurl) at the system bundle, which
-  # trust-private-ca.nix has already populated with our CA. Same fix as the
-  # Home Assistant container in hosts/nasa/services/homeassistant.nix.
+  # store — so the Jellyfin add-on (which verifies TLS by default) can't
+  # validate the private-CA cert on jellyfin.nasa.jmalexan.com and the
+  # connection fails. Point its TLS stack (Python `requests` and libcurl) at the
+  # system bundle, which trust-private-ca.nix has already populated with our CA.
+  # This is what actually makes the connection work; same fix as the Home
+  # Assistant container in hosts/nasa/services/homeassistant.nix.
   environment.sessionVariables = {
     SSL_CERT_FILE      = "/etc/ssl/certs/ca-certificates.crt";
     REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
