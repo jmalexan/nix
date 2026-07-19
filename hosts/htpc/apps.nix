@@ -19,11 +19,21 @@ let
   # managed for us, independent of the session-wide Plasma HDR toggle. Capped at
   # 60 Hz for the same 4K60 clean-picture reason documented in desktop.nix
   # (native HDMI is stuck at 2.0 bandwidth until amdgpu FRL lands in Linux 7.2).
+  #
+  # The output *and* nested-render resolutions are pinned to native 4K: with
+  # only `-f` gamescope defaults its internal render size to 1280x720 and
+  # upscales, so Kodi's whole UI comes out at 720p. Setting --nested-width/height
+  # makes Kodi render its skin at full 3840x2160.
+  #
   # If gamescope's nested HDR ever misbehaves, launch Kodi's own plain tile
   # instead — it runs directly in the Plasma session as a fallback.
   kodiHdr = pkgs.writeShellScriptBin "kodi-hdr" ''
-    exec ${pkgs.gamescope}/bin/gamescope --hdr-enabled --nested-refresh 60 -f -- \
-      ${kodiJellyfin}/bin/kodi "$@"
+    exec ${pkgs.gamescope}/bin/gamescope \
+      --hdr-enabled \
+      --output-width 3840 --output-height 2160 \
+      --nested-width 3840 --nested-height 2160 \
+      --nested-refresh 60 \
+      -f -- ${kodiJellyfin}/bin/kodi "$@"
   '';
 
   # Bigscreen/SDDM tile so it launches from the couch UI without a terminal.
@@ -46,6 +56,18 @@ in
     mpv
     firefox
   ];
+
+  # Kodi bundles its own Python + certifi, which ignore the system CA trust
+  # store — so the Jellyfin add-on can't verify the private-CA cert on
+  # jellyfin.nasa.jmalexan.com and the connection fails. Point its TLS stack
+  # (Python `requests` and libcurl) at the system bundle, which
+  # trust-private-ca.nix has already populated with our CA. Same fix as the
+  # Home Assistant container in hosts/nasa/services/homeassistant.nix.
+  environment.sessionVariables = {
+    SSL_CERT_FILE      = "/etc/ssl/certs/ca-certificates.crt";
+    REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
+    CURL_CA_BUNDLE     = "/etc/ssl/certs/ca-certificates.crt";
+  };
 
   # gamescope is the cleanest way to get HDR for a single app without fighting
   # the session-wide toggle, e.g.:
