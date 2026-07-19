@@ -28,6 +28,17 @@ let
   # If gamescope's nested HDR ever misbehaves, launch Kodi's own plain tile
   # instead — it runs directly in the Plasma session as a fallback.
   kodiHdr = pkgs.writeShellScriptBin "kodi-hdr" ''
+    # Kodi ships its own Python + certifi, and the Jellyfin add-on verifies TLS
+    # by default (its `sslverify` setting defaults to true), so it rejects our
+    # private-CA cert on jellyfin.nasa.jmalexan.com unless its requests/libcurl
+    # stack is pointed at the system bundle (which trust-private-ca.nix has
+    # populated with our CA). We export these here, in the launcher, rather than
+    # relying only on environment.sessionVariables — those don't reliably reach
+    # a client nested inside a gamescope Wayland session, which was why the
+    # add-on still couldn't connect.
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+    export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
     exec ${pkgs.gamescope}/bin/gamescope \
       --hdr-enabled \
       --output-width 3840 --output-height 2160 \
