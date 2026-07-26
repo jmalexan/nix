@@ -84,7 +84,11 @@
   # suspend on idle" explicit at the system level (Plasma also won't auto-suspend
   # on AC by default; it just blanks the screen):
   services.logind.settings.Login.IdleAction = "ignore";
-  # If you later want true low-power S3 suspend with wake, the only reliable path
-  # is the Xbox Wireless Dongle (USB wake) — enable hardware.xone.enable and the
-  # wake udev rule in controller.nix. Bluetooth cannot do it.
+  # If you later want true low-power S3 suspend with wake, there are now two
+  # paths, both USB: the Flirc USB IR receiver (already wired up, including the
+  # wake udev rule — see remote.nix) or the Xbox Wireless Dongle (enable
+  # hardware.xone.enable plus the wake rule in controller.nix). Bluetooth cannot
+  # do it. With the Flirc in place, flipping IdleAction to "suspend" is viable —
+  # the remote wakes the box again — but it stays "ignore" until that's a
+  # deliberate choice rather than a side effect of setting the remote up.
 }

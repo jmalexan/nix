@@ -17,6 +17,9 @@
   # desktop, down on logout) and restarted if it dies. Its config — the LAN HTTP
   # server URL and the disabled GUI/menu — lives in
   # ~/.config/jellyfin-mpv-shim/conf.json; restart the service to pick up edits.
+  # Its mpv keybindings are the exception — those are declared in home/htpc.nix
+  # so the Skip 1s remote (remote.nix) drives the player sensibly. The shim's own
+  # `c` menu is the closest thing it has to a browse UI, so the remote gets it.
   systemd.user.services.jellyfin-mpv-shim = {
     description = "Jellyfin MPV Shim cast target";
     after    = [ "graphical-session.target" ];

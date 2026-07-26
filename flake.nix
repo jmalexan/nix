@@ -82,7 +82,7 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.jmalexan = import ./home/linux.nix;
+            home-manager.users.jmalexan = import ./home/htpc.nix;
           }
         ];
       };

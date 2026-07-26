@@ -6,6 +6,7 @@
     ./desktop.nix
     ./apps.nix
     ./controller.nix
+    ./remote.nix
   ];
 
   networking.hostName = "htpc";
