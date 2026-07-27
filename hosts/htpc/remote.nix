@@ -65,7 +65,15 @@ let
     { desc = "D-pad DOWN";     args = "record down";         note = "menu down / mpv -60s"; }
     { desc = "D-pad LEFT";     args = "record left";         note = "menu left / mpv -10s"; }
     { desc = "D-pad RIGHT";    args = "record right";        note = "menu right / mpv +10s"; }
-    { desc = "OK / SELECT";    args = "record enter";        note = "activate / mpv pause"; }
+    # Must be HID 40 = Keyboard Return, NOT flirc's `record enter`, which sends
+    # keypad Enter (HID 88). Qt treats those as two different keys —
+    # Qt::Key_Return vs Qt::Key_Enter — and every activation handler in
+    # plasma-bigscreen uses `Keys.onReturnPressed` or tests Qt.Key_Return
+    # (components/bigscreenplugin/qml/AbstractDelegate.qml, which the homescreen
+    # app tiles derive from). Nothing in the whole shell handles onEnterPressed,
+    # so keypad Enter silently does nothing on the homescreen while still working
+    # in Chromium-based apps like VacuumTube, which treat both as "Enter".
+    { desc = "OK / SELECT";    args = "record_api 0 40";     note = "Return - activate / mpv pause"; }
     { desc = "BACK";           args = "record escape";       note = "Bigscreen back, mpv stop"; }
     { desc = "HOME";           args = "record_api 8 18";     note = "Meta+O - Bigscreen home overlay"; }
     { desc = "MENU / CONTEXT"; args = "record_api 0 101";    note = "Menu - Bigscreen tasks overview"; }

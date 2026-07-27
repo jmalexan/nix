@@ -23,8 +23,12 @@ let
     UP        seek  60
     DOWN      seek -60
 
-    # OK / Select.
+    # OK / Select. remote.nix pairs this button with Return, so ENTER is the one
+    # that fires; KP_ENTER is insurance in case a button ever gets recorded with
+    # flirc's `record enter`, which emits keypad Enter instead. mpv, like Qt,
+    # treats the two as distinct keys.
     ENTER     cycle pause
+    KP_ENTER  cycle pause
 
     # Back. Stop playback rather than dropping out of fullscreen. For
     # jellyfin-mpv-shim this releases the cast session and idles the player.
