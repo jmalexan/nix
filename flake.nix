@@ -83,6 +83,14 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.users.jmalexan = import ./home/htpc.nix;
+            # Rename anything a newly-managed file would overwrite instead of
+            # aborting activation. Without this, the first time home-manager
+            # takes ownership of a path that already exists on disk — e.g.
+            # jellyfin-mpv-shim's runtime-written input.conf — the whole switch
+            # fails. That matters more here than elsewhere: auto-upgrade.nix
+            # rebuilds this host unattended every 15 minutes, so a single stray
+            # dotfile otherwise wedges every deploy until someone notices.
+            home-manager.backupFileExtension = "hm-bak";
           }
         ];
       };
