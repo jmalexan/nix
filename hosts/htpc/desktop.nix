@@ -76,6 +76,32 @@
   #   };
   # };
 
+  # ── Screen locking ───────────────────────────────────────────────────────────
+  # Autologin gets us to the couch UI without a password, but kscreenlocker then
+  # locks the session on its own. Two defaults are in play, both `true`, both
+  # wrong for a TV driven by a remote with no keyboard:
+  #   • LockOnResume — ksldapp.cpp locks on logind's PrepareForSleep, i.e. at
+  #     *suspend* time, which is why the password prompt is sitting there waiting
+  #     when the box wakes back up.
+  #   • Autolock — locks after Timeout (default 5) idle minutes, which this host
+  #     reaches routinely since it never suspends on idle (see below).
+  #
+  # Set as a system-wide KDE default rather than via home-manager: the plasma6
+  # module already puts /etc/xdg on XDG_CONFIG_DIRS, so KConfig reads this
+  # without anyone having to own ~/.config/kscreenlockerrc — a file Plasma
+  # rewrites at runtime. The `[$i]` kiosk markers make just these two keys
+  # immutable, so an existing user value can't shadow them while the rest of the
+  # group (greeter theme, wallpaper) stays editable in System Settings. Those two
+  # checkboxes will show as greyed out there, which is intended, not a bug.
+  #
+  # No real change in posture: autologin already means physical access is session
+  # access, and this box has no keyboard attached.
+  environment.etc."xdg/kscreenlockerrc".text = ''
+    [Daemon]
+    Autolock[$i]=false
+    LockOnResume[$i]=false
+  '';
+
   # ── Idle & wake-on-controller ────────────────────────────────────────────────
   # We deliberately do NOT S3-suspend the machine: a Bluetooth controller cannot
   # wake a suspended PC. Instead the box stays powered and only the *display*
