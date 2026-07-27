@@ -40,7 +40,7 @@ let
   #
   #   Home overlay ...... Meta+O        (apps, search, settings, running apps)
   #   Home screen ....... XF86HomePage  ← NOT reachable, see note below
-  #   Tasks overview .... Menu          (Qt::Key_Menu, HID "Application")
+  #   Tasks overview .... Menu          ← BROKEN UPSTREAM, see note below
   #   Settings overlay .. Qt::Key_Settings
   #   Back .............. Escape or XF86Back
   #   Navigate/select ... arrows + Return
@@ -76,7 +76,17 @@ let
     { desc = "OK / SELECT";    args = "record_api 0 40";     note = "Return - activate / mpv pause"; }
     { desc = "BACK";           args = "record escape";       note = "Bigscreen back, mpv stop"; }
     { desc = "HOME";           args = "record_api 8 18";     note = "Meta+O - Bigscreen home overlay"; }
-    { desc = "MENU / CONTEXT"; args = "record_api 0 101";    note = "Menu - Bigscreen tasks overview"; }
+    # NOT the Menu key (HID 101). Bigscreen 6.7.3 registers Qt::Key_Menu with
+    # KGlobalAccel for its "Tasks overview" and emits toggleTasksOverlay(), but
+    # no QML is connected to that signal — its three siblings (toggleHomeScreen,
+    # toggleHomeOverlay, toggleSettingsOverlay) all have Connections handlers,
+    # that one has none. So the key does nothing, and because kglobalaccel still
+    # *grabs* it, it never reaches the focused app either. Not fixable from here.
+    # The function itself is alive via the home overlay: Meta+O → "Tasks".
+    #
+    # Alt+F4 is a far better use of the button — Plasma's default Close Window,
+    # i.e. "quit this app and drop me back on the homescreen".
+    { desc = "CLOSE APP";      args = "record_api 4 61";     note = "Alt+F4 - close app, back to homescreen"; }
     { desc = "PLAY / PAUSE";   args = "record play/pause";   note = "mpv pause toggle"; }
     { desc = "STOP";           args = "record stop";         note = "mpv stop"; }
     { desc = "REWIND";         args = "record rewind";       note = "mpv -60s"; }
