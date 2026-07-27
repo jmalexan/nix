@@ -83,8 +83,8 @@ let
     { desc = "AUDIO TRACK";    args = "record_api 0 108";    note = "F17 - mpv cycle audio"; }
     { desc = "spare colour-wheel button, player MENU";
       args = "record c";       note = "jellyfin-mpv-shim menu; captions in VacuumTube"; }
-    { desc = "spare colour-wheel button, BACKSPACE";
-      args = "record backspace"; note = "back inside VacuumTube's YouTube UI"; }
+    # No separate back key needed for VacuumTube: its YouTube UI takes Escape,
+    # same as Bigscreen, so the one BACK button covers both.
     { desc = "POWER (see the caveat above)";
       args = "record suspend"; note = "HID System Sleep - logind suspends"; }
   ];
