@@ -5,7 +5,7 @@ let
   # floating tag never changes the systemd unit, so it would neither auto-update
   # nor stay reproducible. Bump both in lockstep (the server and machine-learning
   # image versions must match). See docs/immich upgrade notes before bumping.
-  immichVersion  = "v3.0.1";
+  immichVersion  = "v3.0.3";
 
   mediaLocation  = "/Data/smb/Internal/Services/immich";              # UPLOAD_LOCATION
   dbDataLocation = "/Data/smb/Internal/Services/immich-postgres";     # DB_DATA_LOCATION
