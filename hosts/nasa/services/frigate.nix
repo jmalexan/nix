@@ -28,6 +28,14 @@
       host: 127.0.0.1
       port: 1883
 
+    # Frigate's own nginx defaults to TLS on 8971 with a self-signed cert. Our
+    # nginx already terminates TLS with the private CA cert and reaches Frigate
+    # over loopback, so leaving this on just means proxying plain HTTP into an
+    # HTTPS listener — which fails with "400 The plain HTTP request was sent to
+    # HTTPS port". Upstream recommends disabling it for exactly this setup.
+    tls:
+      enabled: false
+
     auth:
       # nginx terminates TLS and proxies from the host, so without this every
       # login appears to come from 127.0.0.1 and a few failed attempts from one
