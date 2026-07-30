@@ -25,7 +25,9 @@
     # broker rather than the HTTP API. Broker is loopback-only, see mqtt.nix.
     mqtt:
       enabled: true
-      host: 127.0.0.1
+      # Frigate is bridged, so it reaches the broker over the docker gateway
+      # rather than the host's loopback (--add-host in frigate.nix maps this).
+      host: host.docker.internal
       port: 1883
 
     # Frigate's own nginx defaults to TLS on 8971 with a self-signed cert. Our
@@ -187,19 +189,24 @@ in {
 
     environment.TZ = "America/New_York";
 
+    # Bridge networking with every port bound to loopback. Do NOT switch this to
+    # --network=host: br0 is in networking.firewall.trustedInterfaces, so a
+    # host-networked container has ALL its ports reachable from the LAN no matter
+    # what allowedTCPPorts says — which would publish the completely
+    # unauthenticated API on :5000 to every device on the network. Binding to
+    # 127.0.0.1 is how calibre-desktop, open-webui and ollama stay private on
+    # this host, and it is the only thing that actually works here.
+    ports = [
+      "127.0.0.1:5000:5000"  # unauthenticated internal API — for the HA integration
+      "127.0.0.1:8971:8971"  # authenticated UI/API — nginx proxies to this one
+      "127.0.0.1:8554:8554"  # go2rtc RTSP restream — consumed by HA on this host
+    ];
+
     extraOptions = [
-      # Host networking, same as home-assistant and music-assistant on this box.
-      # Frigate needs it to reach the loopback-only MQTT broker (see mqtt.nix);
-      # a bridged container cannot see the host's 127.0.0.1. It also keeps the
-      # go2rtc restream and WebRTC ports reachable without port juggling.
-      #
-      # This binds 5000 (unauthenticated API), 8971 (authenticated UI), 8554
-      # (RTSP restream) and 8555 (WebRTC) on all interfaces. None of them are
-      # opened in the firewall, so the LAN can't reach them — nginx is the only
-      # public entrypoint, and it proxies 8971. Do not add these to
-      # networking.firewall.allowedTCPPorts: that would expose the unauthenticated
-      # API on :5000 to the whole network.
-      "--network=host"
+      # Bridged containers can't see the host's loopback, so the MQTT broker is
+      # reached over the docker gateway instead. See mqtt.nix for the matching
+      # listener; the seeded config points at `host.docker.internal`.
+      "--add-host=host.docker.internal:host-gateway"
       # CDI device injection, set up by hardware.nvidia-container-toolkit below.
       # Gives the container NVDEC for ffmpeg decoding and CUDA/TensorRT for the
       # optional ONNX detector.
