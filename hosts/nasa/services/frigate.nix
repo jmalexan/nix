@@ -133,7 +133,21 @@
               roles:
                 - detect
                 - record
+                # Audio capture opens its own ffmpeg connection. Pointing it at
+                # the restream rather than the camera is what upstream
+                # recommends, and avoids a second client on the camera itself.
+                - audio
+        # Audio event detection (bark/speech/scream/yell/fire_alarm). Defaults to
+        # false, and the toggle in the Frigate UI is runtime-only — Frigate
+        # re-derives the baseline from this file on every start and only spawns
+        # the audio process when it is true here. Setting it in the UI alone is
+        # wiped by the next container restart.
+        audio:
+          enabled: true
+
         detect:
+          # Same story: defaults to false, so without this line the camera gets
+          # motion detection but no object tracking at all.
           enabled: true
           # Match these to the stream's real resolution, or Frigate will scale
           # every frame. 5fps is plenty for detection and keeps the queue short.
