@@ -241,10 +241,11 @@ in
     ACTION=="add|change", SUBSYSTEM=="usb", DRIVERS=="usb", ATTRS{idVendor}=="20a0", ATTR{power/wakeup}="enabled"
   '';
 
-  # Deliberately NOT flipping `services.logind.settings.Login.IdleAction` here.
-  # desktop.nix keeps this box awake because a Bluetooth controller cannot wake
-  # it; the Flirc removes that constraint, so idle-suspend is now a real option,
-  # but that's a behaviour change rather than part of getting the remote working.
+  # This is what unblocked idle-suspend: desktop.nix used to keep the box awake
+  # only because a Bluetooth controller cannot wake it, and the Flirc removes
+  # that constraint. The idle timeouts live there; the wake path lives here, so
+  # if the box ever sleeps and won't come back, start with the BIOS settings
+  # above and `flirc_util sleep_detect enable`.
   # Suspending *on demand* from the remote already works with no host config:
   # a button recorded as `suspend` sends the HID System Sleep usage, which
   # logind handles via HandleSuspendKey (default: suspend).

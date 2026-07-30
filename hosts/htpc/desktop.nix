@@ -8,6 +8,43 @@
 # session from SDDM if Bigscreen ever misbehaves.
 { config, lib, pkgs, ... }:
 
+let
+  # ── Idle timeouts ───────────────────────────────────────────────────────────
+  # Screen off first, sleep a while later. Both clocks only advance while the
+  # session is actually idle — see the inhibitor notes further down.
+  screenOffSeconds = 15 * 60;
+  suspendSeconds = 30 * 60;
+
+  # Backstop for "only sleep when nothing is playing". kde-inhibit holds an
+  # org.freedesktop.PowerManagement.Inhibit for exactly as long as its child
+  # process runs, so the inhibition is re-taken in slices for as long as audio
+  # keeps flowing, and lapses on its own within one slice of the audio stopping
+  # (including if this service is killed — nothing can get stuck held).
+  audioHoldSeconds = 60;
+  audioPollSeconds = 30;
+
+  media-idle-inhibit = pkgs.writeShellApplication {
+    name = "media-idle-inhibit";
+    runtimeInputs = [ pkgs.pulseaudio pkgs.kdePackages.kde-cli-tools pkgs.coreutils ];
+    text = ''
+      # An *uncorked* sink input is the honest signal for "something is playing
+      # right now": a paused mpv or a finished stream corks itself, and an idle
+      # player has no sink input at all. LC_ALL=C because pactl localises the
+      # yes/no it prints here.
+      audio_playing() {
+        LC_ALL=C pactl list sink-inputs 2>/dev/null | grep -q '^[[:space:]]*Corked: no$'
+      }
+
+      while true; do
+        if audio_playing; then
+          kde-inhibit --power sleep ${toString audioHoldSeconds}
+        else
+          sleep ${toString audioPollSeconds}
+        fi
+      done
+    '';
+  };
+in
 {
   services.displayManager.sddm = {
     enable = true;
@@ -84,7 +121,7 @@
   #     *suspend* time, which is why the password prompt is sitting there waiting
   #     when the box wakes back up.
   #   • Autolock — locks after Timeout (default 5) idle minutes, which this host
-  #     reaches routinely since it never suspends on idle (see below).
+  #     reaches long before the idle timeouts below ever come into play.
   #
   # Set as a system-wide KDE default rather than via home-manager: the plasma6
   # module already puts /etc/xdg on XDG_CONFIG_DIRS, so KConfig reads this
@@ -102,19 +139,84 @@
     LockOnResume[$i]=false
   '';
 
-  # ── Idle & wake-on-controller ────────────────────────────────────────────────
-  # We deliberately do NOT S3-suspend the machine: a Bluetooth controller cannot
-  # wake a suspended PC. Instead the box stays powered and only the *display*
-  # sleeps (DPMS). When you turn the controller on it re-pairs and the first input
-  # wakes the screen — console-like, and it works over Bluetooth. Make "never auto
-  # suspend on idle" explicit at the system level (Plasma also won't auto-suspend
-  # on AC by default; it just blanks the screen):
+  # ── Idle: screen off, then sleep ─────────────────────────────────────────────
+  # This box does now suspend on idle. What kept it awake was never power, it was
+  # *wake-up*: a Bluetooth controller cannot wake a suspended PC. The Flirc USB
+  # IR receiver (remote.nix) can — it's a USB HID device, and with sleep
+  # detection enabled it emits a USB wakeup event instead of a keystroke — so the
+  # Skip 1s is what brings the box back, and any button on it will do.
+  #
+  # Two BIOS settings on the UM760 are load-bearing here. Without them the box
+  # sleeps and does not come back:
+  #   • enable "USB Wake Support"
+  #   • disable "ErP Ready"   (ErP cuts USB standby power, killing wake)
+  # Powering on the Xbox controller still won't wake it — reach for the remote.
+  # (The Xbox Wireless Dongle would also work; see controller.nix.)
+  #
+  # The idle timer belongs to PowerDevil, not logind. logind's IdleAction fires
+  # off the session's idle *hint*, which Plasma never sets — the session would
+  # read as busy forever — so leaving it "ignore" keeps exactly one idle clock in
+  # play rather than one working timer and one dead one.
   services.logind.settings.Login.IdleAction = "ignore";
-  # If you later want true low-power S3 suspend with wake, there are now two
-  # paths, both USB: the Flirc USB IR receiver (already wired up, including the
-  # wake udev rule — see remote.nix) or the Xbox Wireless Dongle (enable
-  # hardware.xone.enable plus the wake rule in controller.nix). Bluetooth cannot
-  # do it. With the Flirc in place, flipping IdleAction to "suspend" is viable —
-  # the remote wakes the box again — but it stays "ignore" until that's a
-  # deliberate choice rather than a side effect of setting the remote up.
+
+  # ── Not while something is playing ───────────────────────────────────────────
+  # PowerDevil doesn't run its own idle clock — it asks KWin, over
+  # ext-idle-notify-v1. KWin *pauses* those timers outright while any visible
+  # window holds a Wayland idle inhibitor (IdleDetector::setInhibited stops the
+  # timer rather than letting it expire), so an inhibitor suppresses the screen
+  # blanking and the suspend together. Every player here takes one while it is
+  # genuinely playing:
+  #   • mpv, and so jellyfin-mpv-shim — zwp_idle_inhibitor_v1, driven by
+  #     stop-screensaver. Dropped on pause, so a film left paused does
+  #     eventually sleep; that's the intended reading of "nothing is playing".
+  #   • VacuumTube (Electron) and Firefox — the same protocol, for video.
+  #   • moonlight-qt — SDL takes one for the duration of a stream.
+  # Note what is NOT activity: gamepad input. KWin's idle detection comes from
+  # libinput, which doesn't handle joysticks at all, so a controller alone never
+  # resets the clock — during a stream it's moonlight's inhibitor doing the work,
+  # not your thumbsticks.
+  #
+  # media-idle-inhibit is the backstop for anything that forgets to inhibit
+  # (an app under gamescope, say, whose nested compositor may not forward the
+  # protocol): while any audio stream is uncorked it holds a power-management
+  # inhibition, which blocks the suspend. It deliberately does not block the
+  # screen blanking — video apps keep the screen up themselves, and audio-only
+  # playback has no reason to hold a TV panel on.
+  systemd.user.services.media-idle-inhibit = {
+    description = "Inhibit auto-suspend while audio is playing";
+    after = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig = {
+      ExecStart = "${media-idle-inhibit}/bin/media-idle-inhibit";
+      Restart = "always";
+      RestartSec = 5;
+    };
+  };
+
+  # The timeouts themselves. Same /etc/xdg + kiosk-marker trick as
+  # kscreenlockerrc above, and for the same reason: these have to win over a
+  # ~/.config/powerdevilrc that Plasma rewrites at runtime. The Power Management
+  # page in System Settings will show them greyed out — change them here.
+  #
+  # Shape and units are PowerDevil 6's (PowerDevilProfileSettings.kcfg): nested
+  # <profile><group> headers, plain seconds, and AutoSuspendAction is a
+  # PowerButtonAction enum where 1 = Sleep and 0 = do nothing. "AC" is the
+  # profile a machine with no battery always runs. Dimming is off because
+  # PowerDevil would try it over DDC/CI on the TV; on a 10-foot UI that reads as
+  # a fault, not a warning.
+  environment.etc."xdg/powerdevilrc".text = ''
+    [AC][Display]
+    DimDisplayWhenIdle[$i]=false
+    TurnOffDisplayWhenIdle[$i]=true
+    TurnOffDisplayIdleTimeoutSec[$i]=${toString screenOffSeconds}
+    LockBeforeTurnOffDisplay[$i]=false
+
+    [AC][SuspendAndShutdown]
+    AutoSuspendAction[$i]=1
+    AutoSuspendIdleTimeoutSec[$i]=${toString suspendSeconds}
+    SleepMode[$i]=1
+  '';
+  # If resume ever misbehaves on this hardware, AutoSuspendAction=0 turns the
+  # sleep half off and leaves the screen blanking in place.
 }

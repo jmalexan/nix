@@ -8,7 +8,8 @@
     enable = true;
     powerOnBoot = true;
     # Keep the adapter quick to re-pair so the controller reconnects instantly
-    # when powered on (this is what "wakes" the screen — see desktop.nix idle notes).
+    # when powered on — its first input then wakes the *screen*. It cannot wake
+    # the box once it has suspended; that's the remote's job (desktop.nix).
     settings.General.FastConnectable = true;
   };
 
