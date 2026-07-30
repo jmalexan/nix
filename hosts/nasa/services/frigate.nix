@@ -117,6 +117,13 @@
         # if a camera's stream can't be opened, so it ships disabled.
         enabled: false
         ffmpeg:
+          output_args:
+            # Frigate's default record preset passes -an, which silently drops
+            # audio from every recording. This camera emits AAC, which is
+            # already mp4-native, so it copies straight through with no
+            # transcode. NOTE: a camera emitting PCM/G.711 instead would need
+            # preset-record-generic-audio-aac — mp4 can't carry raw PCM.
+            record: preset-record-generic-audio-copy
           # Pull from the go2rtc restream, not the camera directly.
           inputs:
             - path: rtsp://127.0.0.1:8554/eufy
