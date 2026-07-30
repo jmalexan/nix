@@ -26,6 +26,9 @@
     "d /Data/smb/Internal/Services/immich-model-cache 0700 root        root  -"
     "d /Data/smb/Internal/Services/jellyfin           0750 jellyfin    root  -"
     "d /Data/smb/Internal/Services/homeassistant      0750 hass        root  -"
+    # Frigate runs as root inside its container. The config/ and media/ subdirs
+    # plus the seeded config.yml are created in services/frigate.nix.
+    "d /Data/smb/Internal/Services/frigate            0750 root        root  -"
     "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root  -"
     # The *arr module tmpfiles rules use single-quoted paths which systemd-tmpfiles
     # does not support, so we create these directories explicitly here instead.
