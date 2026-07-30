@@ -20,11 +20,20 @@
     # Seeded once by hosts/nasa/services/frigate.nix. Safe to edit in place or
     # via the Frigate UI — NixOS will not overwrite it on later rebuilds.
 
-    # No MQTT broker on this host. Home Assistant talks to Frigate over its HTTP
-    # API instead; enable this if you ever add a broker (it makes HA state
-    # updates near-instant rather than polled).
+    # Required by the Home Assistant Frigate integration — it refuses to load
+    # without MQTT, and Frigate publishes detection/occupancy state over the
+    # broker rather than the HTTP API. Broker is loopback-only, see mqtt.nix.
     mqtt:
-      enabled: false
+      enabled: true
+      host: 127.0.0.1
+      port: 1883
+
+    auth:
+      # nginx terminates TLS and proxies from the host, so without this every
+      # login appears to come from 127.0.0.1 and a few failed attempts from one
+      # device would rate-limit everyone out of the UI.
+      trusted_proxies:
+        - 127.0.0.1
 
     ffmpeg:
       # Decode on the RTX 3080 via NVDEC instead of burning CPU. This is the
@@ -149,21 +158,11 @@ in {
   # neither auto-update nor stay reproducible.
   #
   # Home Assistant consumes this through the HACS "Frigate" integration pointed
-  # at http://127.0.0.1:5000 — HA is host-networked, so it reaches the loopback
-  # port binding below directly.
+  # at http://127.0.0.1:5000, plus the MQTT broker in mqtt.nix — the integration
+  # requires both. HA is host-networked too, so loopback reaches this directly.
   virtualisation.oci-containers.containers.frigate = {
     image = "ghcr.io/blakeblackshear/frigate:0.17.2-tensorrt";
     autoStart = true;
-
-    # Bridge networking (not host, unlike home-assistant/music-assistant): Frigate
-    # needs no mDNS or broadcast discovery, so we can bind its ports to loopback
-    # and keep the unauthenticated API off the LAN entirely. Nothing here needs a
-    # firewall opening — nginx is the only public entrypoint.
-    ports = [
-      "127.0.0.1:5000:5000"  # unauthenticated internal API — for the HA integration
-      "127.0.0.1:8971:8971"  # authenticated UI/API — nginx proxies to this one
-      "127.0.0.1:8554:8554"  # go2rtc RTSP restream — consumed by HA on this host
-    ];
 
     volumes = [
       "${stateDir}/config:/config"
@@ -174,6 +173,18 @@ in {
     environment.TZ = "America/New_York";
 
     extraOptions = [
+      # Host networking, same as home-assistant and music-assistant on this box.
+      # Frigate needs it to reach the loopback-only MQTT broker (see mqtt.nix);
+      # a bridged container cannot see the host's 127.0.0.1. It also keeps the
+      # go2rtc restream and WebRTC ports reachable without port juggling.
+      #
+      # This binds 5000 (unauthenticated API), 8971 (authenticated UI), 8554
+      # (RTSP restream) and 8555 (WebRTC) on all interfaces. None of them are
+      # opened in the firewall, so the LAN can't reach them — nginx is the only
+      # public entrypoint, and it proxies 8971. Do not add these to
+      # networking.firewall.allowedTCPPorts: that would expose the unauthenticated
+      # API on :5000 to the whole network.
+      "--network=host"
       # CDI device injection, set up by hardware.nvidia-container-toolkit below.
       # Gives the container NVDEC for ffmpeg decoding and CUDA/TensorRT for the
       # optional ONNX detector.
