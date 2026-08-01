@@ -453,15 +453,13 @@ in
       "systemsettings"
       "kdesystemsettings"
       # "Manage Printing" — CUPS ships its own desktop entry pointing at the
-      # web UI on :631, and it is the only thing on the box with that name
-      # (print-manager's two entries are both NoDisplay). Unconfirmed: it was
-      # not in /run/current-system/sw/share/applications, so it is arriving
-      # from another XDG data dir. Confirm the real basename with
-      #   grep -rl '^Name=Manage Printing$' \
-      #     /run/current-system/sw/share/applications \
-      #     /etc/profiles/per-user/$USER/share/applications \
-      #     ~/.local/share/applications
-      # and correct this line if it comes back as something other than cups.
+      # web UI on :631 (print-manager's two are both NoDisplay, so they never
+      # reach the grid). Confirmed as cups-*/share/applications/cups.desktop:
+      # note that this arrives on XDG_DATA_DIRS as a bare store path rather
+      # than through /run/current-system/sw, which is why searching the system
+      # profile alone does not turn it up. To locate an entry by its visible
+      # name, take the search path from the running session instead:
+      #   systemctl --user show-environment | grep ^XDG_DATA_DIRS=
       "cups"
       "org.kde.kinfocenter"
       "org.kde.plasma-systemmonitor"
