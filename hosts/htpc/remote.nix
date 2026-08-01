@@ -60,6 +60,21 @@ let
   #
   # F13-F17 are deliberate: nothing else on the system claims them, so they are
   # safe to route to app-specific actions via mpv's input.conf (home/htpc.nix).
+  #
+  # Two things had to be true on the host side before any of this reached mpv,
+  # both fixed in home/htpc.nix and both worth knowing before re-recording a
+  # button here in the belief that the pairing is at fault:
+  #
+  #   • F13-F24 are not F13-F24 in the default keymap. xkeyboard-config's
+  #     `inet(evdev)` symbols reuse those keycodes for vendor hotkeys, so the
+  #     five buttons below arrived as XF86Tools/XF86Launch5-8. The keymap
+  #     option `fkeys:basic_13-24` (kxkbrc) restores them.
+  #   • The media/transport keysyms are grabbed session-wide by Plasma's MPRIS
+  #     KDED module, which then does nothing with them because mpv publishes no
+  #     MPRIS interface. Clearing the `mediacontrol` shortcuts frees them.
+  #
+  # The moral for anything added here: a plain keyboard usage that Plasma has
+  # no opinion about is the reliable choice, and a media usage is not.
   buttons = [
     { desc = "D-pad UP";       args = "record up";           note = "menu up / mpv +60s"; }
     { desc = "D-pad DOWN";     args = "record down";         note = "menu down / mpv -60s"; }
@@ -87,6 +102,11 @@ let
     # Alt+F4 is a far better use of the button — Plasma's default Close Window,
     # i.e. "quit this app and drop me back on the homescreen".
     { desc = "CLOSE APP";      args = "record_api 4 61";     note = "Alt+F4 - close app, back to homescreen"; }
+    # The four transport keys arrive as HID *consumer* usages, not keyboard
+    # ones: play/pause becomes XF86AudioPlay (mpv's PLAY — there is no evdev
+    # route to mpv's PLAYPAUSE), stop XF86AudioStop, and the other two
+    # XF86AudioRewind/XF86AudioForward. All four are grabbed by Plasma's MPRIS
+    # shortcuts unless those are cleared; see home/htpc.nix.
     { desc = "PLAY / PAUSE";   args = "record play/pause";   note = "mpv pause toggle"; }
     { desc = "STOP";           args = "record stop";         note = "mpv stop"; }
     { desc = "REWIND";         args = "record rewind";       note = "mpv -60s"; }
