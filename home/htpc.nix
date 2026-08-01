@@ -382,9 +382,9 @@ in
   #    goes because the gamescope/HDR entry above replaces it — drop that line
   #    to get both back.
   #
-  #    Deliberately left visible: firefox, VacuumTube, plasma-bigscreen-swap-
-  #    session (the escape hatch to a normal desktop session), and Bigscreen's
-  #    own org.kde.plasma.keyboard / uvcviewer.
+  #    Deliberately left visible: VacuumTube, the Moonlight (HDR) entry above,
+  #    and Bigscreen's own org.kde.plasma.keyboard (the on-screen keyboard the
+  #    search field needs).
   xdg.configFile."applications-blacklistrc".text = ''
     [Applications]
     blacklist=${lib.concatStringsSep "," [
@@ -392,6 +392,15 @@ in
       "org.kde.kdeconnect.app"
       "org.kde.kdeconnect.sms"
       "org.kde.kdeconnect.nonplasma"
+      # Bigscreen's own extras. plasma-bigscreen-swap-session is the "Plasma
+      # Bigscreen" tile — it switches *into* this session, so it is a no-op from
+      # inside it (an earlier revision of this list kept it, on the mistaken
+      # reading that it switched out to the desktop; that direction is SDDM's
+      # job). uvcviewer is a webcam viewer for a box with no webcam.
+      "plasma-bigscreen-swap-session"
+      "org.kde.plasma.bigscreen.uvcviewer"
+      # Browser, off for now — re-enable by dropping this line.
+      "firefox"
       # Players/viewers with no job on the home grid.
       "mpv"
       "umpv"
@@ -418,10 +427,24 @@ in
       "org.kde.plasmawindowed"
       "org.kde.qrca"
       "nixos-manual"
+      # Post-mortem UI for crashed apps ("Crashed Processes Viewer"). The crash
+      # handler still runs; this is only its browser, which is a laptop tool.
+      "org.kde.drkonqi.coredump.gui"
       # Settings front-ends. Bigscreen has its own, on the remote's Settings
       # button (kcm_mediacenter_* are the pages it shows).
       "systemsettings"
       "kdesystemsettings"
+      # "Manage Printing" — CUPS ships its own desktop entry pointing at the
+      # web UI on :631, and it is the only thing on the box with that name
+      # (print-manager's two entries are both NoDisplay). Unconfirmed: it was
+      # not in /run/current-system/sw/share/applications, so it is arriving
+      # from another XDG data dir. Confirm the real basename with
+      #   grep -rl '^Name=Manage Printing$' \
+      #     /run/current-system/sw/share/applications \
+      #     /etc/profiles/per-user/$USER/share/applications \
+      #     ~/.local/share/applications
+      # and correct this line if it comes back as something other than cups.
+      "cups"
       "org.kde.kinfocenter"
       "org.kde.plasma-systemmonitor"
       "breezestyleconfig"
