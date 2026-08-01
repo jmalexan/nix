@@ -26,6 +26,16 @@
     partOf   = [ "graphical-session.target" ];
     wantedBy = [ "graphical-session.target" ];
     serviceConfig = {
+      # The autologin session (desktop.nix) is up seconds into boot, while
+      # NetworkManager is still doing DHCP — so the shim used to start with no
+      # resolv.conf yet, fail to resolve the server's hostname, and log its way
+      # through a few restart cycles before the link settled. A user unit can't
+      # order itself after the system's network-online.target (the user manager
+      # can't see system units), so block here instead: nm-online exits as soon
+      # as NetworkManager reports connectivity, i.e. DHCP is done and DNS is
+      # usable. The 60s cap stays under the 90s default TimeoutStartSec; if it
+      # ever expires, Restart=always just tries again 5s later.
+      ExecStartPre = "${pkgs.networkmanager}/bin/nm-online -q -t 60";
       ExecStart  = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
       Restart    = "always";
       RestartSec = 5;
