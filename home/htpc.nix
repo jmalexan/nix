@@ -350,10 +350,20 @@ in
   #
   #    gamescope is called by bare name on purpose: programs.gamescope with
   #    capSysNice installs a setcap wrapper, and the plain store path would run
-  #    without the nice permissions it needs. 60 Hz, not the 120 in that
-  #    comment, because the native HDMI port is capped at HDMI 2.0 bandwidth
-  #    until amdgpu lands FRL — see desktop.nix, where 4K60 is the mode that
-  #    fits without chroma subsampling.
+  #    without the nice permissions it needs.
+  #
+  #    -W/-H are not optional. gamescope's nested Wayland backend defaults
+  #    g_nOutputHeight to 720 when -H is absent and then derives the width as
+  #    720*16/9 (Backends/WaylandBackend.cpp, CWaylandBackend::Init), and the
+  #    game surface inherits the output size when -w/-h are unset (main.cpp) —
+  #    so without these the stream ran at 1280x720 and -f simply stretched it
+  #    over the whole 4K panel. Setting the output size is enough; -w/-h would
+  #    be redundant. gamescope rejects -W without -H, so they travel together.
+  #
+  #    3840x2160 at 60 Hz, not the 120 in apps.nix's comment, because the
+  #    native HDMI port is capped at HDMI 2.0 bandwidth until amdgpu lands FRL
+  #    — see desktop.nix, where 4K60 is the mode that fits without chroma
+  #    subsampling. If the TV or its mode ever changes, this is the line.
   #
   #    Named plainly "Moonlight" because it is the only one on the grid: the
   #    stock com.moonlight_stream.Moonlight tile is blacklisted below, so there
@@ -369,7 +379,7 @@ in
     name = "Moonlight";
     genericName = "Game Streaming";
     comment = "Stream games from a PC, nested in gamescope so HDR survives";
-    exec = "gamescope --hdr-enabled -f --nested-refresh 60 -- ${pkgs.moonlight-qt}/bin/moonlight";
+    exec = "gamescope --hdr-enabled -f -W 3840 -H 2160 --nested-refresh 60 -- ${pkgs.moonlight-qt}/bin/moonlight";
     icon = "moonlight";
     terminal = false;
     categories = [ "Game" "AudioVideo" ];
