@@ -53,13 +53,18 @@ in {
         };
       };
 
-      # prowlarr/sonarr/radarr/lidarr/bazarr run inside the Mullvad network
-      # namespace (see their service modules); reach them via the veth pair that
-      # bridges the namespace to the host, exactly like qbittorrent below.
+      # sonarr/radarr/lidarr/bazarr run inside the Mullvad network namespace
+      # (see their service modules); reach them via the veth pair that bridges
+      # the namespace to the host, exactly like qbittorrent below.
+      #
+      # Prowlarr is the exception: it runs on the host so that it shares an
+      # egress IP with FlareSolverr (see prowlarr.nix for why).  It is still
+      # addressed over the veth, but at the *host* end of the pair — it binds
+      # 10.200.200.1 rather than a wildcard to stay off the trusted br0.
       "prowlarr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "prowlarr" ];
         locations."/" = {
-          proxyPass       = "http://10.200.200.2:9696";
+          proxyPass       = "http://10.200.200.1:9696";
           proxyWebsockets = true;
         };
       };

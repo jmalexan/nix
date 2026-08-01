@@ -50,15 +50,49 @@
     unitConfig.AssertPathIsMountPoint = "/Data/smb";
   }];
 
-  # Prowlarr is the app that actually queries the torrent indexers/trackers, so
-  # route it through the Mullvad VPN namespace (the same one qbittorrent uses)
-  # to keep those queries off the ISP link.  nginx reaches the web UI via the
-  # veth at 10.200.200.2:9696; the *arr apps reach it on localhost (shared netns).
+  # ── Deliberately NOT in the Mullvad namespace ─────────────────────────────
+  #
+  # Prowlarr used to run inside the netns to keep indexer queries off the ISP
+  # link.  It has to leave for the same reason FlareSolverr did, but the
+  # mechanism is subtler: Cloudflare binds the cf_clearance cookie to the IP
+  # that solved the challenge.  With FlareSolverr on the host and Prowlarr in
+  # the tunnel, the challenge was solved from the ISP address and then replayed
+  # from the Mullvad exit — Cloudflare saw the clearance presented by a
+  # different IP and rejected it, which surfaces as "Cloudflare protection
+  # detected" even though FlareSolverr logged a clean solve.
+  #
+  # Whatever obtains the clearance and whatever uses it must share an egress
+  # address.  Both in the tunnel means challenges never solve at all, so the
+  # only working arrangement is both on the host.
+  #
+  # Torrent traffic is unaffected: qbittorrent is the only thing here that
+  # joins a swarm and it stays namespaced (see qbittorrent.nix).  Prowlarr only
+  # makes HTTPS requests to indexer web servers.
   systemd.services.prowlarr = {
+    # Still ordered after mullvad-netns despite leaving the namespace: the
+    # bind address below is the host end of that unit's veth pair, so it does
+    # not exist until the unit has run.  partOf as well, because a netns
+    # restart recreates veth-host and would strand the listening socket.
     after    = [ "mullvad-netns.service" "var-lib-private-prowlarr.mount" ];
     requires = [ "mullvad-netns.service" "var-lib-private-prowlarr.mount" ];
+    partOf   = [ "mullvad-netns.service" ];
     # Refuse to start on a data dir that is not the one on the pool.
     unitConfig.AssertPathIsMountPoint = "/var/lib/private/prowlarr";
-    serviceConfig.NetworkNamespacePath = "/run/netns/mullvad";
   };
+
+  # Bound to the host end of the veth pair rather than the "*" the servarr
+  # default uses.  br0 is in networking.firewall.trustedInterfaces, so a
+  # wildcard bind would publish the web UI to every device on the LAN and the
+  # firewall would not stop it.  10.200.200.1 is reachable from this host (for
+  # nginx) and from inside the namespace (for the *arr apps), which is exactly
+  # the set of clients that need it.  (Address is hostVethIP in mullvad.nix.)
+  services.prowlarr.settings.server.bindaddress = "10.200.200.1";
+
+  # sonarr/radarr/lidarr/bazarr are still namespaced and no longer share a
+  # localhost with Prowlarr.  They normally reach it through nginx via
+  # prowlarr.nasa.jmalexan.com over the LAN bypass, which needs no rule here —
+  # but opening 9696 on the veth keeps the direct 10.200.200.1:9696 path
+  # working too, whichever way they happen to be configured.  Scoped to
+  # veth-host, so this does not expose Prowlarr on br0.
+  networking.firewall.interfaces.veth-host.allowedTCPPorts = [ 9696 ];
 }
