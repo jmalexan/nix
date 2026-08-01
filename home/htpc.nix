@@ -21,6 +21,13 @@ let
     # Managed by home/htpc.nix — see hosts/htpc/remote.nix for the remote map.
 
     # D-pad. Wider steps than mpv's 5s/60s defaults; 10s suits a TV better.
+    #
+    # These four govern *standalone* mpv only. jellyfin-mpv-shim force-binds the
+    # arrows to its own handlers (kb_menu_left/right/up/down in conf.json), which
+    # drive the OSD menu while it is open and otherwise seek by the shim's own
+    # seek_left/seek_right/seek_up/seek_down — conf.json values that default to
+    # ∓5s and ±60s. A force-mode script binding outranks input.conf, so under the
+    # shim LEFT/RIGHT move 5s, not the 10s below; retune them there, not here.
     LEFT      seek -10
     RIGHT     seek  10
     UP        seek  60
@@ -65,6 +72,40 @@ let
     F16       cycle sub
     F17       cycle audio
   '';
+
+  # ── Key repeat while a button is held ───────────────────────────────────────
+  # mpv runs its own auto-repeat rather than following the compositor's: the
+  # Wayland backend adopts wl_keyboard's repeat_info only when
+  # --native-keyrepeat is set, and that defaults to no. So these two options —
+  # not Plasma's keyboard settings — are what the remote's held buttons obey.
+  #
+  # mpv's defaults are tuned for a keyboard and are wrong for an IR remote:
+  #
+  #   input-ar-delay=200   A deliberate thumb press outlasts 200ms easily, and
+  #                        the Flirc keeps the key held for as long as IR repeat
+  #                        frames keep arriving — so one press became two seeks.
+  #   input-ar-rate=40     Forty repeats a second against a 60s seek is forty
+  #                        minutes of video per second held. Uncontrollable.
+  #
+  # 800ms is longer than any single press (the dongle drops the key well before
+  # then), so a tap is always exactly one seek. Hold past it and repeats start
+  # at 2/s: two minutes of video per second on REWIND/FORWARD, a minute on the
+  # Skip keys. Raise the delay if a press still double-fires; raise the rate to
+  # scrub faster.
+  #
+  # The d-pad is deliberately absent from that list — it does not repeat at all
+  # under the shim, and no value here will change that. Those arrows are script
+  # bindings (see above), and while mpv does emit repeat events for them
+  # (script-binding is allow_auto_repeat), python-mpv discards them: its
+  # on_key_press takes a `repetition` flag, defaulting to False, that the shim
+  # never sets, so only the initial down event reaches the handler. Freeing the
+  # arrows by clearing kb_menu_* in conf.json would restore native repeat — at
+  # the cost of leaving the shim's OSD menu with no way to navigate it.
+  mpvConf = ''
+    # Managed by home/htpc.nix — see hosts/htpc/remote.nix for the remote map.
+    input-ar-delay=800
+    input-ar-rate=2
+  '';
 in
 {
   imports = [ ./linux.nix ];
@@ -72,17 +113,20 @@ in
   # Standalone mpv (apps.nix installs it system-wide, so just drop the config in
   # rather than pulling a second copy in through programs.mpv).
   xdg.configFile."mpv/input.conf".text = mpvInputConf;
+  xdg.configFile."mpv/mpv.conf".text = mpvConf;
 
   # jellyfin-mpv-shim embeds mpv and reads mpv.conf/input.conf from its own
-  # config directory, alongside the conf.json that apps.nix describes. Only
-  # input.conf is managed here — conf.json holds the server URL and auth token
-  # and stays runtime-owned.
+  # config directory, alongside the conf.json that apps.nix describes. Both of
+  # those are managed here — conf.json holds the server URL and auth token and
+  # stays runtime-owned. The shim only ensures mpv.conf exists (an existing
+  # symlink satisfies that), and passes config-dir to mpv, which loads it.
   #
   # The shim also layers its own keybinds on top (kb_* in conf.json). The one
   # worth knowing from the couch is `c`, which opens the shim's on-screen menu —
   # track selection and library browsing, i.e. the browse UI the shim otherwise
   # lacks. remote.nix puts that on a spare colour-wheel button.
   xdg.configFile."jellyfin-mpv-shim/input.conf".text = mpvInputConf;
+  xdg.configFile."jellyfin-mpv-shim/mpv.conf".text = mpvConf;
 
   # ── Make F13-F24 exist at all ───────────────────────────────────────────────
   # The Flirc sends real HID F13-F17 usages and the kernel turns them into
