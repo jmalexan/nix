@@ -33,8 +33,9 @@ let
     ENTER     cycle pause
     KP_ENTER  cycle pause
 
-    # Back. Stop playback rather than dropping out of fullscreen. For
-    # jellyfin-mpv-shim this releases the cast session and idles the player.
+    # Back. Stop playback rather than dropping out of fullscreen. This line is
+    # what standalone mpv uses; under jellyfin-mpv-shim the equivalent comes
+    # from conf.json's kb_stop, which the shim binds over the top of this one.
     ESC       stop
 
     # Transport keys the Flirc emits as consumer/media usages.
@@ -160,6 +161,33 @@ let
     # remote's mapping is meaningless if this key moves.
     kb_menu = "c";
 
+    # ── BACK stops playback instead of un-fullscreening the player ────────────
+    # Upstream binds ESC to kb_menu_esc, whose no-menu branch runs
+    #   self._player.command("set", "fullscreen", "no")
+    #   self.fullscreen_disable = True
+    # and that flag is sticky: every later item checks `if settings.fullscreen
+    # and not self.fullscreen_disable` before going fullscreen, and only
+    # toggle_fullscreen clears it — which lives on kb_fullscreen ("f"), a key
+    # this remote does not send. So one press of BACK during playback left the
+    # player windowed for the rest of the session with no way back from the
+    # sofa. The `ESC stop` line in input.conf never got a chance to prevent it;
+    # a script binding beats input.conf.
+    #
+    # Pointing kb_stop at ESC hands the button to handle_stop -> stop_and_close,
+    # which is the same teardown the STOP button already uses and a cleaner one
+    # than input.conf's raw `stop` — it releases the cast session rather than
+    # leaving the shim to notice after the fact.
+    #
+    # kb_menu_esc has to move off "esc" for that to take: player.py registers
+    # kb_stop first and kb_menu_esc second, so a shared key would go to the
+    # menu. F24 is a real mpv key name (`mpv --input-keylist`) that nothing here
+    # can produce — it must be *some* valid name, since the registration is
+    # unguarded and a null would fail conf.json's schema outright. The cost is
+    # "back one level" inside the OSD menu; `c` still toggles the whole menu
+    # shut from any depth, which is the way out.
+    kb_stop = "esc";
+    kb_menu_esc = "F24";
+
     # A cast target has no reason not to take the screen.
     fullscreen = true;
 
@@ -203,13 +231,11 @@ in
   # config is read. Two consequences worth knowing from the couch:
   #   • the D-pad seek steps come from conf.json's seek_* , not from the `seek`
   #     lines above; they are pinned to match in jellyfinShimSettings.
-  #   • ESC is bound by the shim to kb_menu_esc, so BACK closes the shim's menu
-  #     when it is open and otherwise merely leaves fullscreen — the `ESC stop`
-  #     line above never fires under the shim. Freeing it means setting
-  #     kb_menu_esc to something the remote can't send, which costs you
-  #     "back one level" inside the menu (the `c` button still toggles the whole
-  #     menu shut). Left as-is; flip it in jellyfinShimSettings if the trade
-  #     looks right from the sofa.
+  #   • ESC likewise never reaches the `ESC stop` line above. Upstream binds it
+  #     to kb_menu_esc, which un-fullscreens the player for the rest of the
+  #     session; jellyfinShimSettings moves that binding aside and points
+  #     kb_stop at ESC instead, so BACK stops playback the way the line above
+  #     always meant it to. The reasoning is at those two settings.
   # `c` opens that menu — track selection and library browsing, i.e. the browse
   # UI the shim otherwise lacks. remote.nix puts it on a spare colour-wheel
   # button.
