@@ -298,17 +298,69 @@ in
   #    to the 10-foot shell — everything here is still launchable from a normal
   #    Plasma session, which desktop.nix keeps available as a fallback.
   #
-  #    Names are desktop file basenames without the extension; an entry that
-  #    isn't installed is simply ignored, so the list is safe to over-specify.
-  #    To see what is actually on offer:
+  #    Names are desktop file basenames without the extension, checked against
+  #    the real listing on the box:
   #      ls /run/current-system/sw/share/applications
+  #    An entry that isn't installed is simply ignored, so this is safe to
+  #    over-specify — but everything below is actually present. Bigscreen
+  #    already drops NoDisplay entries, Terminal=true entries and non-
+  #    applications on its own, so the ~90 kcm_*, akonadi_* and daemon files in
+  #    that directory need no help from us; what is left is the desktop apps
+  #    Plasma 6 drags in, none of which are drivable from a remote.
   #
   #    kdeconnect is here because programs.kdeconnect.enable exists only to
   #    satisfy a QML import in Bigscreen's homescreen (desktop.nix) — nobody is
-  #    pairing a phone to send SMS from the sofa.
+  #    pairing a phone to send SMS from the sofa. mpv/umpv are hidden because a
+  #    tile that opens an idle player with no file is useless; mpv is still the
+  #    handler for video files via xdg.mimeApps above. The stock Moonlight tile
+  #    goes because the gamescope/HDR entry above replaces it — drop that line
+  #    to get both back.
+  #
+  #    Deliberately left visible: firefox, VacuumTube, plasma-bigscreen-swap-
+  #    session (the escape hatch to a normal desktop session), and Bigscreen's
+  #    own org.kde.plasma.keyboard / uvcviewer.
   xdg.configFile."applications-blacklistrc".text = ''
     [Applications]
-    blacklist=org.kde.kdeconnect.app,org.kde.kdeconnect.sms,org.kde.kdeconnect.settings,org.kde.kdeconnect.nonplasma,org.kde.konsole,org.kde.dolphin,org.kde.kate,org.kde.ark,org.kde.spectacle,org.kde.discover,org.kde.kinfocenter,org.kde.plasma-systemmonitor,org.kde.kwalletmanager5,org.kde.plasma.emojier,systemsettings,com.moonlight_stream.Moonlight
+    blacklist=${lib.concatStringsSep "," [
+      # Bolted on for a QML import, not for use.
+      "org.kde.kdeconnect.app"
+      "org.kde.kdeconnect.sms"
+      "org.kde.kdeconnect.nonplasma"
+      # Players/viewers with no job on the home grid.
+      "mpv"
+      "umpv"
+      "org.kde.elisa"
+      "org.kde.gwenview"
+      "org.kde.okular"
+      "com.moonlight_stream.Moonlight"
+      # Desktop furniture Plasma 6 ships.
+      "org.kde.dolphin"
+      "org.kde.konsole"
+      "org.kde.kate"
+      "org.kde.kwrite"
+      "org.kde.ark"
+      "org.kde.spectacle"
+      "org.kde.discover"
+      "org.kde.khelpcenter"
+      "org.kde.kmenuedit"
+      "org.kde.knetattach"
+      "org.kde.kwalletmanager"
+      "org.kde.kcolorschemeeditor"
+      "org.kde.kfontview"
+      "org.kde.plasma.emojier"
+      "org.kde.plasma-interactiveconsole"
+      "org.kde.plasmawindowed"
+      "org.kde.qrca"
+      "nixos-manual"
+      # Settings front-ends. Bigscreen has its own, on the remote's Settings
+      # button (kcm_mediacenter_* are the pages it shows).
+      "systemsettings"
+      "kdesystemsettings"
+      "org.kde.kinfocenter"
+      "org.kde.plasma-systemmonitor"
+      "breezestyleconfig"
+      "kwincompositing"
+    ]}
   '';
 
   # ── Default applications ────────────────────────────────────────────────────
