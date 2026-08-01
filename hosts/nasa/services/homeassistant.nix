@@ -40,7 +40,9 @@
     # link-local traffic to, the post-commission CASE interview can't reach the
     # device and times out. Pin it to br0 — the host's L3 LAN interface
     # (enp5s0 is only a bridge slave and carries no addresses).
-    extraArgs = [ "--primary-interface" "br0" ];
+    # 26.05 changed extraArgs from a list of flags to an attrset that
+    # lib.cli.toCommandLineGNU renders; this still emits `--primary-interface br0`.
+    extraArgs = { primary-interface = "br0"; };
     logLevel = "debug"; # TEMP: diagnosing operational-interview timeout
   };
 

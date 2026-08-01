@@ -1,4 +1,4 @@
-{ ... }: let
+{ pkgs, ... }: let
   ssl = {
     forceSSL          = true;
     sslCertificate    = "/var/lib/nginx/certs/server.crt";
@@ -19,7 +19,9 @@ in {
   # the tailnet.
   services.ollama = {
     enable = true;
-    acceleration = "cuda";
+    # 26.05 dropped `acceleration`; the backend is chosen by picking the
+    # matching package variant instead.
+    package = pkgs.ollama-cuda;
     host = "127.0.0.1";
     port = 11434;
 
