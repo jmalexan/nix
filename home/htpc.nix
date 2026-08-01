@@ -341,18 +341,36 @@ in
   # to ship. Two levers, both declarative:
   #
   # 1. A launcher for the gamescope-wrapped Moonlight that apps.nix only
-  #    described in a comment. gamescope is called by bare name on purpose:
-  #    programs.gamescope with capSysNice installs a setcap wrapper, and the
-  #    plain store path would run without the nice permissions it needs.
-  #    60 Hz, not the 120 in that comment, because the native HDMI port is
-  #    capped at HDMI 2.0 bandwidth until amdgpu lands FRL — see desktop.nix,
-  #    where 4K60 is the mode that fits without chroma subsampling.
+  #    described in a comment. Moonlight renders through SDL, which does not
+  #    negotiate Wayland colour management, so its window is an SDR window
+  #    whatever the stream carries; gamescope is a nested compositor that does
+  #    speak the protocol and hands KWin a correctly tagged HDR surface on
+  #    Moonlight's behalf. (mpv needs none of this — vo=gpu-next talks colour
+  #    management itself, which is what target-colorspace-hint above turns on.)
+  #
+  #    gamescope is called by bare name on purpose: programs.gamescope with
+  #    capSysNice installs a setcap wrapper, and the plain store path would run
+  #    without the nice permissions it needs. 60 Hz, not the 120 in that
+  #    comment, because the native HDMI port is capped at HDMI 2.0 bandwidth
+  #    until amdgpu lands FRL — see desktop.nix, where 4K60 is the mode that
+  #    fits without chroma subsampling.
+  #
+  #    Named plainly "Moonlight" because it is the only one on the grid: the
+  #    stock com.moonlight_stream.Moonlight tile is blacklisted below, so there
+  #    is nothing to disambiguate it from. The attribute name stays
+  #    moonlight-hdr — that is the desktop *id*, invisible on the tile, and
+  #    keeping it distinct is what stops it colliding with the stock entry.
+  #
+  #    The icon is the theme name "moonlight", which is what the stock entry
+  #    uses and what nixpkgs actually installs
+  #    (share/icons/hicolor/scalable/apps/moonlight.svg). It is *not* named
+  #    after the desktop file; assuming so is what left this tile blank.
   xdg.desktopEntries.moonlight-hdr = {
-    name = "Moonlight (HDR)";
+    name = "Moonlight";
     genericName = "Game Streaming";
     comment = "Stream games from a PC, nested in gamescope so HDR survives";
     exec = "gamescope --hdr-enabled -f --nested-refresh 60 -- ${pkgs.moonlight-qt}/bin/moonlight";
-    icon = "com.moonlight_stream.Moonlight";
+    icon = "moonlight";
     terminal = false;
     categories = [ "Game" "AudioVideo" ];
   };
