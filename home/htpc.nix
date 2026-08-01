@@ -421,12 +421,15 @@ in
       # Bigscreen's home overlay — the HOME button (Meta+O), registered in
       # plasma-bigscreen's containments/homescreen/plugin/shortcuts.cpp as an
       # action named "Toggle Bigscreen Home Overlay". The component is
-      # plasmashell because the containment plugin creates its QActions without
-      # a KActionCollection, so KGlobalAccel falls back to the host
-      # application's name. Worth confirming on the box once:
-      #   grep -A6 '^\[plasmashell\]' ~/.config/kglobalshortcutsrc
-      # If the group turns out to be named something else, move this line under
-      # that name — a wrong component is inert, not harmful.
+      # plasmashell, not plasma-bigscreen: the containment plugin creates its
+      # QActions without a KActionCollection, so KGlobalAccel falls back to the
+      # host application's name. Confirmed against the running box, where
+      # kglobalshortcutsrc carries it as
+      #   [plasmashell]
+      #   Toggle Bigscreen Home Overlay=Meta+O,Meta+O,Toggle Bigscreen Home Overlay
+      # We write only the first of those three fields (`Meta+O,,`), which is the
+      # one kglobalaccel grabs; plasmashell fills the default and the friendly
+      # name back in when it re-registers the action at the next login.
       plasmashell."Toggle Bigscreen Home Overlay" = "Meta+O";
     };
   };
