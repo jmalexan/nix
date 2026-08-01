@@ -21,6 +21,13 @@ let
     # Managed by home/htpc.nix — see hosts/htpc/remote.nix for the remote map.
 
     # D-pad. Wider steps than mpv's 5s/60s defaults; 10s suits a TV better.
+    #
+    # These four govern *standalone* mpv only. jellyfin-mpv-shim force-binds the
+    # arrows to its own handlers (kb_menu_left/right/up/down in conf.json), which
+    # drive the OSD menu while it is open and otherwise seek by the shim's own
+    # seek_left/seek_right/seek_up/seek_down — conf.json values that default to
+    # ∓5s and ±60s. A force-mode script binding outranks input.conf, so under the
+    # shim LEFT/RIGHT move 5s, not the 10s below; retune them there, not here.
     LEFT      seek -10
     RIGHT     seek  10
     UP        seek  60
@@ -82,9 +89,18 @@ let
   #
   # 800ms is longer than any single press (the dongle drops the key well before
   # then), so a tap is always exactly one seek. Hold past it and repeats start
-  # at 2/s: two minutes of video per second on REWIND/FORWARD, 20s on the d-pad,
-  # a minute on the Skip keys. Raise the delay if a press still double-fires;
-  # raise the rate to scrub faster.
+  # at 2/s: two minutes of video per second on REWIND/FORWARD, a minute on the
+  # Skip keys. Raise the delay if a press still double-fires; raise the rate to
+  # scrub faster.
+  #
+  # The d-pad is deliberately absent from that list — it does not repeat at all
+  # under the shim, and no value here will change that. Those arrows are script
+  # bindings (see above), and while mpv does emit repeat events for them
+  # (script-binding is allow_auto_repeat), python-mpv discards them: its
+  # on_key_press takes a `repetition` flag, defaulting to False, that the shim
+  # never sets, so only the initial down event reaches the handler. Freeing the
+  # arrows by clearing kb_menu_* in conf.json would restore native repeat — at
+  # the cost of leaving the shim's OSD menu with no way to navigate it.
   mpvConf = ''
     # Managed by home/htpc.nix — see hosts/htpc/remote.nix for the remote map.
     input-ar-delay=800
