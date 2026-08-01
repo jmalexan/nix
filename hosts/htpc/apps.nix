@@ -14,12 +14,16 @@
   # own — so you play by casting to it from another Jellyfin client (phone/web).
   # Kept as a self-healing user service rather than a CLI on PATH: it renders
   # mpv into the Wayland session, so it's tied to graphical-session (up with the
-  # desktop, down on logout) and restarted if it dies. Its config — the LAN HTTP
-  # server URL and the disabled GUI/menu — lives in
-  # ~/.config/jellyfin-mpv-shim/conf.json; restart the service to pick up edits.
-  # Its mpv keybindings are the exception — those are declared in home/htpc.nix
-  # so the Skip 1s remote (remote.nix) drives the player sensibly. The shim's own
-  # `c` menu is the closest thing it has to a browse UI, so the remote gets it.
+  # desktop, down on logout) and restarted if it dies. Its settings live in
+  # ~/.config/jellyfin-mpv-shim/conf.json, and the ones this host has an opinion
+  # about — transcoding policy, seek steps, the `c` menu key — are declared in
+  # home/htpc.nix and merged into that file on every activation; restart the
+  # service to pick them up. What stays runtime-owned is users.json beside it,
+  # which is where the server URL and access token actually live — conf.json
+  # holds no credentials. The player's mpv config is declared in home/htpc.nix
+  # too (input.conf for the Skip 1s remote, mpv.conf for the HDR output path),
+  # so the remote drives the player sensibly. The shim's own `c` menu is the
+  # closest thing it has to a browse UI, so the remote gets it.
   systemd.user.services.jellyfin-mpv-shim = {
     description = "Jellyfin MPV Shim cast target";
     after    = [ "graphical-session.target" ];

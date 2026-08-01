@@ -14,10 +14,15 @@
     home-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
     home-manager-stable.url = "github:nix-community/home-manager/release-26.05";
     home-manager-stable.inputs.nixpkgs.follows = "nixpkgs";
+    # Declarative KDE Plasma config. Only htpc uses it — it is the supported
+    # home for the kglobalshortcutsrc surgery the remote depends on.
+    plasma-manager.url = "github:nix-community/plasma-manager";
+    plasma-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    plasma-manager.inputs.home-manager.follows = "home-manager";
     claude-code-nix.url = "github:sadjow/claude-code-nix";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, claude-code-nix, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, plasma-manager, claude-code-nix, ... }:
     let
       mkUnstable = system: import nixpkgs-unstable {
         inherit system;
@@ -83,6 +88,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.users.jmalexan = import ./home/htpc.nix;
+            home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
             # Rename anything a newly-managed file would overwrite instead of
             # aborting activation. Without this, the first time home-manager
             # takes ownership of a path that already exists on disk — e.g.
