@@ -131,10 +131,15 @@
         # trying to plumb the Home Assistant camera entity into Frigate.
         #
         # TODO: fill in the five credentials — see the runbook at the bottom of
-        # this file. protocols=WEB_RTC is correct for the battery Nest Doorbell
-        # and the 2nd-gen wired one (anything managed by the Google Home app).
-        # A 1st-gen wired Nest Hello still on the old Nest app can use
-        # protocols=RTSP instead, which is markedly more stable if it applies.
+        # this file.
+        #
+        # protocols=WEB_RTC is correct here: SDM lists WebRTC as the only
+        # stream format for the wired Nest Doorbell. RTSP is not a wired-vs-
+        # battery or 1st-vs-2nd-gen distinction — it is only offered to devices
+        # still managed by the old Nest app, which report as the legacy device
+        # type. Anything migrated to the Google Home app is WebRTC-only. The
+        # runbook below has a one-liner to confirm from supportedProtocols
+        # rather than inferring it from the model.
         front_door:
           - nest:?client_id=<CLIENT_ID>&client_secret=<CLIENT_SECRET>&refresh_token=<REFRESH_TOKEN>&project_id=<PROJECT_ID>&device_id=<DEVICE_ID>&protocols=WEB_RTC&video=h264&audio=opus
 
@@ -200,12 +205,20 @@
           retain:
             default: 14
 
-      # ── Front door: Nest doorbell ──────────────────────────────────────────
-      # Enabled continuously, which is fine for a WIRED Nest doorbell. If this
-      # is the BATTERY model, do not leave it like this: SDM live streaming
-      # flattens that battery in days. Give it the same treatment as the Ring
-      # above — set `enabled: false` and drive it from an HA automation on the
-      # Nest integration's doorbell/motion events.
+      # ── Front door: Nest doorbell (wired) ──────────────────────────────────
+      # Runs continuously, unlike the Ring above, and that is safe here for two
+      # independent reasons:
+      #
+      #   * Mains power, so there is no battery to flatten.
+      #   * The wired doorbell supports SDM's ExtendWebRtcStream command, so
+      #     go2rtc renews the 5-minute WebRTC session in place and the stream
+      #     survives indefinitely. The BATTERY doorbell cannot do this at all —
+      #     Google's docs are explicit that its streams can only be stopped and
+      #     regenerated — which is what makes that model such a poor Frigate
+      #     citizen and this one a reasonable choice.
+      #
+      # Nest does not suppress motion events while streaming the way Ring does,
+      # so there is no reason to gate this behind an automation.
       front_door:
         enabled: true
         ffmpeg:
@@ -425,9 +438,16 @@ in {
   #        | jq -r .access_token)
   #      curl -s -H "Authorization: Bearer $ACCESS" \
   #        "https://smartdevicemanagement.googleapis.com/v1/enterprises/<PROJECT_ID>/devices" \
-  #        | jq -r '.devices[] | "\(.type)\t\(.name)"'
+  #        | jq -r '.devices[] | "\(.type)\t\(.name)\t\(
+  #            .traits."sdm.devices.traits.CameraLiveStream".supportedProtocols)"'
   #
   #    Take the trailing segment of `name` (after .../devices/).
+  #
+  #    The third column is the authoritative answer to WEB_RTC vs RTSP — do not
+  #    infer it from the model. Expect ["WEB_RTC"] for this doorbell; if it
+  #    unexpectedly reports ["RTSP"], the device is still on the legacy Nest
+  #    app, and switching the stream above to protocols=RTSP is worth doing
+  #    (plain RTSP needs no session renewal at all).
   #
   # Notes on sharing one refresh token between HA and go2rtc:
   #  - It works. Google does not rotate refresh tokens on use, so both clients
