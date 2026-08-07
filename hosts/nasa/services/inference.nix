@@ -51,11 +51,13 @@ in {
 
       # Pin the context rather than letting Ollama auto-pick from free VRAM;
       # auto-sizing is exactly the fragile behaviour to avoid on a shared GPU.
-      # At q8_0 KV this costs ~460 MiB for the 7B and ~1.2 GiB for qwen3:8b.
-      # Raise toward 32768 if `nvidia-smi` shows spare headroom in practice.
+      # At q8_0 KV this costs roughly 0.5–1 GiB depending on the model. Raise
+      # toward 32768 only if `nvidia-smi` shows spare headroom in practice;
+      # qwen3.5:9b is close enough to the budget that context is the first
+      # thing to cut if it starts offloading.
       OLLAMA_CONTEXT_LENGTH = "16384";
 
-      # Release VRAM back to Frigate promptly. Reloading ~5 GiB from page
+      # Release VRAM back to Frigate promptly. Reloading a few GiB from page
       # cache costs a few seconds, which is the right trade against holding
       # the card idle for half an hour.
       OLLAMA_KEEP_ALIVE = "5m";
@@ -63,18 +65,32 @@ in {
 
     # Pre-pull on activation; ad-hoc `ollama pull <name>` still works.
     #
-    # Sized to fit the ~8 GiB budget with headroom. The previous
-    # qwen2.5-coder:14b is 9.0 GiB of weights alone and could not fit, so it
-    # was always running partly on CPU.
+    # Sized to fit the ~8 GiB budget. The previous qwen2.5-coder:14b is 9.0 GiB
+    # of weights alone and could not fit, so it always ran partly on CPU.
+    # Models are loaded on demand and evicted to make room, so each only has to
+    # fit individually — the combined footprint here is not a constraint.
     #
-    # Qwen3-Coder would be the natural upgrade but ships no variant below
-    # 30B-A3B (19 GiB) — too large for both this VRAM and the ~16 GiB of
-    # system RAM left after the ZFS ARC cap, so it cannot be usefully
-    # offloaded either. qwen2.5-coder:7b remains the best coder model that
-    # fits this card.
+    # Ruled out as too large for this card: qwen3.5:27b (17 GiB), qwen3.6
+    # (27B/35B), qwen3-coder (no variant below 30B-A3B at 19 GiB), gemma4:12b,
+    # devstral and codestral. None can be usefully offloaded to RAM either —
+    # the ZFS ARC cap leaves only ~16 GiB of system memory for every service
+    # on the host.
     loadModels = [
-      "qwen2.5-coder:7b" # 4.7 GiB — code completion and single-file edits
-      "qwen3:8b" # 5.2 GiB — newer general/reasoning model, replaces llama3.1
+      # 6.6 GiB — current-gen general/agentic model, tool calling + thinking
+      # modes, which is what the harness actually exercises. Supersedes both
+      # llama3.1:8b and qwen3:8b. This is the largest model that fits, so
+      # confirm it stays 100% GPU at the context set above before trusting it.
+      "qwen3.5:9b"
+
+      # 4.7 GiB — kept despite its age specifically for fill-in-middle, which
+      # editor autocomplete needs and general instruct models are not trained
+      # for. Qwen3.5-Coder does ship 7B/14B tiers upstream but has no official
+      # Ollama packaging yet; revisit this pin once it lands.
+      "qwen2.5-coder:7b"
+
+      # 3.4 GiB — current-gen small model with room to spare, for when the 9B
+      # is too tight alongside camera activity or a faster reply matters.
+      "qwen3.5:4b"
     ];
   };
 
