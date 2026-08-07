@@ -102,56 +102,152 @@
 
     # Restreaming: Frigate opens ONE connection to the camera and every consumer
     # (the Frigate UI, the Home Assistant card, VLC) pulls from go2rtc instead.
-    # This matters a lot for Eufy — those cameras allow very few simultaneous
-    # RTSP clients before refusing new ones.
+    # This matters enormously for both cameras here: they are cloud-brokered
+    # doorbells, so every extra "connection" is a metered session against
+    # Ring's or Google's servers, not a cheap LAN socket.
     go2rtc:
       streams:
-        eufy:
-          # TODO: replace with the real URL from the Eufy app
-          # (camera -> Settings -> Storage -> NAS/RTSP). Via a HomeBase this is
-          # usually rtsp://<user>:<pass>@<homebase-ip>:554/live0 ; a standalone
-          # camera exposes its own IP and path instead.
-          - rtsp://USER:PASSWORD@CAMERA-OR-HOMEBASE-IP:554/live0
+        # ── Back door: Ring doorbell ──────────────────────────────────────────
+        # Ring has no local RTSP/ONVIF/snapshot API — everything is brokered
+        # through Ring's cloud — so this comes via the ring-mqtt container
+        # (services/ring-mqtt.nix), which translates Ring's protocol into RTSP.
+        #
+        # Port 8555, not 8554: our own go2rtc (below) already owns 8554 on this
+        # host, so ring-mqtt's gateway is published one port over. Reached via
+        # host.docker.internal because both containers are bridged and neither
+        # can see the other's loopback.
+        #
+        # TODO: replace <RING_DEVICE_ID> with the real Ring device id. Get it
+        # from `docker logs ring-mqtt` after completing the account link — see
+        # the runbook in services/ring-mqtt.nix.
+        back_door:
+          - rtsp://frigate:frigate@host.docker.internal:8555/<RING_DEVICE_ID>_live
+
+        # ── Front door: Nest doorbell ─────────────────────────────────────────
+        # Also cloud-only. Google's Smart Device Management (SDM) API hands out
+        # a WebRTC stream, which go2rtc terminates and re-offers as RTSP. The
+        # SDM WebRTC session expires every ~5 minutes; go2rtc renews it, which
+        # is the whole reason for using its native `nest:` source rather than
+        # trying to plumb the Home Assistant camera entity into Frigate.
+        #
+        # TODO: fill in the five credentials — see the runbook at the bottom of
+        # this file. protocols=WEB_RTC is correct for the battery Nest Doorbell
+        # and the 2nd-gen wired one (anything managed by the Google Home app).
+        # A 1st-gen wired Nest Hello still on the old Nest app can use
+        # protocols=RTSP instead, which is markedly more stable if it applies.
+        front_door:
+          - nest:?client_id=<CLIENT_ID>&client_secret=<CLIENT_SECRET>&refresh_token=<REFRESH_TOKEN>&project_id=<PROJECT_ID>&device_id=<DEVICE_ID>&protocols=WEB_RTC&video=h264&audio=opus
 
     cameras:
-      eufy:
-        # Flip to true once the URL above is filled in. Frigate refuses to start
-        # if a camera's stream can't be opened, so it ships disabled.
+      # ── Back door: Ring doorbell ───────────────────────────────────────────
+      # Ships DISABLED on purpose, and is meant to stay that way at rest. This
+      # is not a "fill in the URL and flip it to true" placeholder.
+      #
+      # Ring suppresses motion and ding events for as long as a stream is
+      # open, so a permanently-enabled Frigate camera here would silently kill
+      # doorbell notifications — plus drain the battery and risk overheating
+      # the device. Instead, a Home Assistant automation flips this camera on
+      # for ~3 minutes when ring-mqtt reports a ding or motion, by publishing
+      # to frigate/back_door/enabled/set. The automation is in the runbook in
+      # services/ring-mqtt.nix.
+      #
+      # Frigate does not start ffmpeg for a disabled camera, so the unresolved
+      # <RING_DEVICE_ID> placeholder above will not stop Frigate booting.
+      back_door:
         enabled: false
         ffmpeg:
           output_args:
-            # Frigate's default record preset passes -an, which silently drops
-            # audio from every recording. This camera emits AAC, which is
-            # already mp4-native, so it copies straight through with no
-            # transcode. NOTE: a camera emitting PCM/G.711 instead would need
-            # preset-record-generic-audio-aac — mp4 can't carry raw PCM.
-            record: preset-record-generic-audio-copy
-          # Pull from the go2rtc restream, not the camera directly.
+            # Ring sends Opus audio. mp4 can technically carry Opus but few
+            # players will touch it, so transcode to AAC rather than using the
+            # copy preset.
+            record: preset-record-generic-audio-aac
+          # Pull from the go2rtc restream, not ring-mqtt directly — that keeps
+          # exactly one Ring session open no matter how many things are
+          # watching, which matters a lot given Ring's session limits.
           inputs:
-            - path: rtsp://127.0.0.1:8554/eufy
+            - path: rtsp://127.0.0.1:8554/back_door
               input_args: preset-rtsp-restream
               roles:
                 - detect
                 - record
         detect:
           enabled: true
-          # Match these to the stream's real resolution, or Frigate will scale
-          # every frame. 5fps is plenty for detection and keeps the queue short.
+          # TODO: match to the stream's real resolution or Frigate rescales
+          # every frame. Ring models differ — the 1080p doorbells are
+          # 1920x1080, but the Pro 2 and similar use a square 1536x1536 sensor.
+          # Check with ffprobe against the go2rtc path once it is up.
           width: 1920
           height: 1080
           fps: 5
         objects:
           track:
             - person
-            - car
             - dog
             - cat
         record:
           enabled: true
-          # Event-triggered recording rather than 24/7. This is the right
-          # default for a battery camera (it simply has no continuous stream to
-          # record), and keeps ZFS usage bounded. For a mains-powered camera,
-          # set continuous.days to however many days you want to keep.
+          # No continuous recording — there is no continuous stream to record.
+          continuous:
+            days: 0
+          alerts:
+            retain:
+              days: 14
+          detections:
+            retain:
+              days: 14
+        snapshots:
+          enabled: true
+          retain:
+            default: 14
+
+      # ── Front door: Nest doorbell ──────────────────────────────────────────
+      # Enabled continuously, which is fine for a WIRED Nest doorbell. If this
+      # is the BATTERY model, do not leave it like this: SDM live streaming
+      # flattens that battery in days. Give it the same treatment as the Ring
+      # above — set `enabled: false` and drive it from an HA automation on the
+      # Nest integration's doorbell/motion events.
+      front_door:
+        enabled: true
+        ffmpeg:
+          output_args:
+            # Nest also sends Opus; same reasoning as the Ring above.
+            record: preset-record-generic-audio-aac
+          inputs:
+            - path: rtsp://127.0.0.1:8554/front_door
+              # Not preset-rtsp-restream: the WebRTC-backed stream needs a
+              # longer probe before ffmpeg commits to a format, and a generous
+              # socket timeout so a mid-session WebRTC renegotiation is not
+              # treated as the stream dying. Spelled as a list rather than a
+              # string so there is no dependence on how Frigate word-splits it.
+              input_args:
+                - -rtsp_transport
+                - tcp
+                - -analyzeduration
+                - 5M
+                - -probesize
+                - 5M
+                - -timeout
+                - "60000000"
+              roles:
+                - detect
+                - record
+        detect:
+          enabled: true
+          # SDM exposes no lower-resolution substream, so detection runs on the
+          # full-size frame. TODO: confirm with ffprobe — Nest doorbells are
+          # tall-aspect (e.g. 1600x1200), not 16:9.
+          width: 1920
+          height: 1080
+          fps: 5
+        objects:
+          track:
+            - person
+            - dog
+            - cat
+        record:
+          enabled: true
+          # Bump this once you trust the stream — a wired doorbell can happily
+          # do continuous recording, it just costs pool space.
           continuous:
             days: 0
           alerts:
@@ -200,6 +296,11 @@ in {
       "127.0.0.1:5000:5000"  # unauthenticated internal API — for the HA integration
       "127.0.0.1:8971:8971"  # authenticated UI/API — nginx proxies to this one
       "127.0.0.1:8554:8554"  # go2rtc RTSP restream — consumed by HA on this host
+      # go2rtc's own web UI. Unauthenticated, hence loopback like :5000, but
+      # worth having published: for the cloud-brokered doorbells it is the only
+      # place that shows *why* a stream failed (expired Nest token, Ring session
+      # refused) instead of a generic ffmpeg read error.
+      "127.0.0.1:1984:1984"
     ];
 
     extraOptions = [
@@ -254,4 +355,69 @@ in {
       proxyWebsockets = true;
     };
   };
+
+  # ── ⚠️  Applying camera changes to an ALREADY-DEPLOYED host ───────────────────
+  #
+  # The tmpfiles rule above is `C` (copy-if-absent). Once Frigate has booted on
+  # this host even once, config.yml exists and NIXOS WILL NEVER OVERWRITE IT.
+  # Editing seedConfig in this file therefore has no effect on a running NAS —
+  # it only changes what a rebuilt-from-scratch host would start with.
+  #
+  # That is deliberate (Frigate rewrites config.yml itself from the UI editor),
+  # but it means the camera blocks above must be mirrored by hand:
+  #
+  #   sudo cp /Data/smb/Internal/Services/frigate/config/config.yml{,.bak}
+  #   sudo $EDITOR /Data/smb/Internal/Services/frigate/config/config.yml
+  #   sudo systemctl restart docker-frigate
+  #
+  # Keeping the two in sync by hand is the cost of a UI-editable config. If they
+  # ever drift badly, delete config.yml and let the seed re-copy on restart —
+  # but that discards any masks/zones drawn in the UI.
+  #
+  # ── Nest credentials runbook ──────────────────────────────────────────────────
+  #
+  # The five values in the `front_door` go2rtc stream go in the NAS copy of
+  # config.yml, NOT in this file — client_secret and refresh_token are live
+  # credentials and this repo is committed to git. (Same reasoning as the note
+  # at the top of seedConfig.)
+  #
+  # Google gates Nest camera access behind the Smart Device Management API, and
+  # there is no way around it — no local RTSP, no ONVIF. Expect ~30 minutes:
+  #
+  # 1. Device Access Console (https://console.nest.google.com/device-access):
+  #    accept the terms and pay the one-time US$5 registration fee. This
+  #    requires a PERSONAL Google account — Workspace accounts cannot complete
+  #    the OAuth flow at all, so use the gmail.com account that owns the
+  #    doorbell. Note the Project ID it issues -> project_id.
+  #
+  # 2. Google Cloud Console: create a project, enable the "Smart Device
+  #    Management API", and create an OAuth 2.0 Client ID of type "Web
+  #    application" -> client_id and client_secret.
+  #
+  #    Set the OAuth consent screen's Publishing Status to "In production".
+  #    Left "In testing", Google expires the refresh token after 7 DAYS and the
+  #    stream dies every week — this is the single most common way this setup
+  #    rots. It does not require Google verification for personal use.
+  #
+  # 3. Run the OAuth flow once to exchange an authorisation code for a refresh
+  #    token -> refresh_token. The Home Assistant Nest docs walk through this
+  #    step by step: https://www.home-assistant.io/integrations/nest/
+  #
+  # 4. Get device_id by listing the devices on the project:
+  #
+  #      curl -H "Authorization: Bearer <access_token>" \
+  #        "https://smartdevicemanagement.googleapis.com/v1/enterprises/<project_id>/devices"
+  #
+  #    Use the trailing segment of the device's `name` field.
+  #
+  # 5. Do step 1-3 ONCE and reuse the same project for the Home Assistant Nest
+  #    integration — it wants the identical client_id/client_secret/project_id.
+  #    Set HA up too: go2rtc gives Frigate pixels, but only the HA integration
+  #    delivers the doorbell-press event, and a press is not a motion event.
+  #    Pub/Sub is required for those events to arrive in real time; HA's config
+  #    flow provisions the subscription for you.
+  #
+  # Verify before wiring Frigate up — go2rtc's own UI at http://127.0.0.1:1984
+  # (ssh -N -L 1984:127.0.0.1:1984 nasa) will show the stream and any auth error
+  # far more legibly than Frigate's ffmpeg logs will.
 }

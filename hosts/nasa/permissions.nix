@@ -29,6 +29,11 @@
     # Frigate runs as root inside its container. The config/ and media/ subdirs
     # plus the seeded config.yml are created in services/frigate.nix.
     "d /Data/smb/Internal/Services/frigate            0750 root        root  -"
+    # ring-mqtt also runs as root in its container. Holds the seeded
+    # config.json (created in services/ring-mqtt.nix) and ring-state.json,
+    # which contains the Ring account refresh token — hence 0700 rather than
+    # the 0750 used for state dirs with nothing sensitive in them.
+    "d /Data/smb/Internal/Services/ring-mqtt          0700 root        root  -"
     "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root  -"
     # The *arr module tmpfiles rules use single-quoted paths which systemd-tmpfiles
     # does not support, so we create these directories explicitly here instead.
