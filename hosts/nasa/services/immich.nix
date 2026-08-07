@@ -109,7 +109,9 @@ in {
       image = "docker.io/alangrainger/immich-public-proxy:2.4.1@sha256:3ec4c1becf885cb9d70214eac5ccf11ac9bfe4f361a604fd7075df340ec320f9";
       autoStart = true;
       dependsOn = [ "immich-server" ];
-      ports = [ "127.0.0.1:3000:3000" ];
+      # Port 3000 on the host is already used by eufy-security-ws. Keep the
+      # proxy's native container port while assigning it a private host port.
+      ports = [ "127.0.0.1:2284:3000" ];
       environment = {
         IMMICH_URL      = "http://immich-server:2283";
         PUBLIC_BASE_URL = "https://photos.jmalexan.com";
