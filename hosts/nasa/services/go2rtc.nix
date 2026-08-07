@@ -121,6 +121,18 @@ in {
     ];
   };
 
+  # Publishing on 172.17.0.1 is necessary but NOT sufficient. Docker's DNAT
+  # rules deliberately skip traffic arriving from docker0, so a container
+  # dialling the gateway address terminates on the host's own listening socket
+  # — which means it traverses the INPUT chain, not FORWARD. docker0 is not in
+  # networking.firewall.trustedInterfaces, so without this the packets are
+  # silently DROPPED and the caller sees a connect timeout (not a refusal,
+  # which is what makes it look like a routing problem rather than a firewall
+  # one). Exactly the same rule mqtt.nix needs for the broker on 1883.
+  #
+  # Scoped to docker0, so this does not expose 8556 on br0 / the LAN.
+  networking.firewall.interfaces.docker0.allowedTCPPorts = [ 8556 ];
+
   # Seeded from the unit's own preStart rather than a systemd.tmpfiles `C` rule,
   # for the same reason as ring-mqtt.nix: on `nixos-rebuild switch` the
   # container unit and systemd-tmpfiles-resetup.service are pulled in with no

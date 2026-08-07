@@ -130,6 +130,17 @@ in {
     ];
   };
 
+  # Publishing the RTSP gateway on 172.17.0.1 gets it listening, but Frigate
+  # still cannot reach it without this. A container dialling the docker0
+  # gateway lands on the host's own socket and therefore traverses INPUT, not
+  # FORWARD (Docker's DNAT rules skip traffic coming from docker0), and docker0
+  # is not a trusted interface. Without the opening the packets are dropped and
+  # go2rtc reports a connect timeout rather than a refusal. Same rule as
+  # mqtt.nix needs for 1883.
+  #
+  # Scoped to docker0, so 8555 stays off br0 / the LAN.
+  networking.firewall.interfaces.docker0.allowedTCPPorts = [ 8555 ];
+
   # Seed config.json from the container's OWN unit rather than from a
   # systemd.tmpfiles `C` rule, because a tmpfiles rule loses a race here.
   #
