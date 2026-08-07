@@ -34,6 +34,10 @@
     # which contains the Ring account refresh token — hence 0700 rather than
     # the 0750 used for state dirs with nothing sensitive in them.
     "d /Data/smb/Internal/Services/ring-mqtt          0700 root        root  -"
+    # Standalone go2rtc for the Nest doorbell. 0700 because its go2rtc.yaml
+    # holds the Nest OAuth client secret and refresh token. The config itself
+    # is seeded from the unit's preStart in services/go2rtc.nix.
+    "d /Data/smb/Internal/Services/go2rtc             0700 root        root  -"
     "d /Data/smb/Internal/Services/qbittorrent        0750 qbittorrent root  -"
     # The *arr module tmpfiles rules use single-quoted paths which systemd-tmpfiles
     # does not support, so we create these directories explicitly here instead.

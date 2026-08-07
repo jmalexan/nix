@@ -124,24 +124,22 @@
           - rtsp://frigate:frigate@host.docker.internal:8555/<RING_DEVICE_ID>_live
 
         # ── Front door: Nest doorbell ─────────────────────────────────────────
-        # Also cloud-only. Google's Smart Device Management (SDM) API hands out
-        # a WebRTC stream, which go2rtc terminates and re-offers as RTSP. The
-        # SDM WebRTC session expires every ~5 minutes; go2rtc renews it, which
-        # is the whole reason for using its native `nest:` source rather than
-        # trying to plumb the Home Assistant camera entity into Frigate.
+        # Deliberately NOT a `nest:` source, even though this go2rtc supports
+        # one. The Nest stream is produced by the standalone go2rtc container in
+        # services/go2rtc.nix and arrives here as ordinary RTSP.
         #
-        # TODO: fill in the five credentials — see the runbook at the bottom of
-        # this file.
+        # Frigate 0.17.2 bundles go2rtc v1.9.10, and the `preload` setting that
+        # makes a Nest doorbell usable only exists from v1.9.11. Without it the
+        # consumer binds to a video track that Nest abandons during its initial
+        # WebRTC renegotiation, and ffmpeg dies with "Video: h264, none ...
+        # unspecified size" forever. The full diagnosis is in the seeded config
+        # in services/go2rtc.nix.
         #
-        # protocols=WEB_RTC is correct here: SDM lists WebRTC as the only
-        # stream format for the wired Nest Doorbell. RTSP is not a wired-vs-
-        # battery or 1st-vs-2nd-gen distinction — it is only offered to devices
-        # still managed by the old Nest app, which report as the legacy device
-        # type. Anything migrated to the Google Home app is WebRTC-only. The
-        # runbook below has a one-liner to confirm from supportedProtocols
-        # rather than inferring it from the model.
+        # Plain RTSP in, so nothing here has to care about WebRTC sessions,
+        # token refresh, or track renegotiation — that all stays on the far side
+        # of this hop, held stable by preload.
         front_door:
-          - nest:?client_id=<CLIENT_ID>&client_secret=<CLIENT_SECRET>&refresh_token=<REFRESH_TOKEN>&project_id=<PROJECT_ID>&device_id=<DEVICE_ID>&protocols=WEB_RTC&video=h264&audio=opus
+          - rtsp://host.docker.internal:8556/front_door
 
     cameras:
       # ── Back door: Ring doorbell ───────────────────────────────────────────
@@ -233,19 +231,18 @@
               # treated as the stream dying. Spelled as a list rather than a
               # string so there is no dependence on how Frigate word-splits it.
               #
-              # analyzeduration is 10s (the unit is MICROseconds, so 10M), up
-              # from the 5s that was not enough. go2rtc only builds the Nest
-              # producer when a consumer connects, and that cold start is an
-              # OAuth token fetch, then GenerateWebRtcStream, then ICE — which
-              # overruns 5s often enough that ffmpeg gave up before any SPS/PPS
-              # arrived and died with "Could not find codec parameters ...
-              # unspecified size".
+              # analyzeduration is 10s — the unit is MICROseconds, so 10M, not
+              # 10 megabytes. Treat this as insurance for the first connect
+              # after a restart, NOT as the fix for anything: the original
+              # "Could not find codec parameters ... unspecified size" failure
+              # was a track-binding bug in go2rtc and no probe window ever
+              # solved it. That story is in services/go2rtc.nix.
               #
-              # Do not push this much past 10s: Frigate's own watchdog kills
-              # ffmpeg after 20s without a frame, so too patient a probe just
-              # trades one failure mode for another. Raising it is otherwise
-              # free — analyzeduration is a ceiling, not a fixed wait, so a
-              # warm stream still starts as fast as it ever did.
+              # Do not raise it much past 10s regardless. Frigate's own watchdog
+              # kills ffmpeg after 20s without a frame, so a longer probe only
+              # guarantees the watchdog reaps the process mid-probe. Raising it
+              # this far is otherwise free — analyzeduration is a ceiling, not
+              # a fixed wait, so a warm stream starts as fast as it ever did.
               input_args:
                 - -rtsp_transport
                 - tcp
