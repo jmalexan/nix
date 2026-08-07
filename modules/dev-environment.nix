@@ -17,6 +17,7 @@ pkgs-unstable: claude-code-pkg: { pkgs, ... }: {
     htop
     nano
     tree
+    pkgs-unstable.codex
     claude-code-pkg
   ];
 }
