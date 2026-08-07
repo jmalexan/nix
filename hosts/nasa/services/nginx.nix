@@ -37,6 +37,9 @@ in {
           port = 8443;
           ssl = true;
         }];
+        # This also tells the NixOS nginx module to render the certificate
+        # directives; the explicit listen above still controls the sole port.
+        onlySSL = true;
         useACMEHost = "photos.jmalexan.com";
         extraConfig = ''
           proxy_buffering    off;
@@ -60,7 +63,7 @@ in {
           send_timeout         600s;
         '';
         locations."/" = {
-          proxyPass       = "http://localhost:2283";
+          proxyPass       = "http://127.0.0.1:2283";
           proxyWebsockets = true;
         };
       };
@@ -68,7 +71,7 @@ in {
       "jellyfin.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "jellyfin" ];
         locations."/" = {
-          proxyPass       = "http://localhost:8096";
+          proxyPass       = "http://127.0.0.1:8096";
           proxyWebsockets = true;
         };
       };
@@ -76,7 +79,7 @@ in {
       "homeassistant.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "homeassistant" ];
         locations."/" = {
-          proxyPass       = "http://localhost:8123";
+          proxyPass       = "http://127.0.0.1:8123";
           proxyWebsockets = true;
         };
       };
@@ -85,7 +88,7 @@ in {
       "seerr.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "seerr" ];
         locations."/" = {
-          proxyPass       = "http://localhost:5055";
+          proxyPass       = "http://127.0.0.1:5055";
           proxyWebsockets = true;
         };
       };
@@ -183,7 +186,7 @@ in {
       "musicassistant.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "musicassistant" ];
         locations."/" = {
-          proxyPass       = "http://localhost:8095";
+          proxyPass       = "http://127.0.0.1:8095";
           proxyWebsockets = true;
         };
       };
