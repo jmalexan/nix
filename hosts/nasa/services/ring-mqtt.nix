@@ -104,7 +104,19 @@ in {
       # RTSP gateway. Published on 8555 rather than 8554 because Frigate's own
       # go2rtc already owns 8554 on this host — a well-known collision between
       # these two services. The container side stays 8554.
+      #
+      # Two host addresses, and both are required:
+      #   127.0.0.1  — for ffprobe/`ssh -L` verification from the host
+      #   172.17.0.1 — the docker0 gateway, the only address the bridged
+      #                Frigate container can actually reach
+      #
+      # Frigate dials host.docker.internal:8555, which resolves to the docker
+      # gateway rather than the host's loopback. Publish on loopback alone and
+      # Frigate's go2rtc silently fails to dial and returns 404 on every
+      # DESCRIBE, indistinguishable from a missing stream. Same reasoning as
+      # the 172.17.0.1 mosquitto listener in mqtt.nix.
       "127.0.0.1:8555:8554"
+      "172.17.0.1:8555:8554"
       # Token-generation web UI. NO AUTHENTICATION of any kind, and it is the
       # front door to the Ring account, so it stays strictly on loopback — see
       # the setup runbook below for how to reach it.

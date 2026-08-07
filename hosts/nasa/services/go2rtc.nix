@@ -88,8 +88,25 @@ in {
     # 8554 is Frigate's go2rtc, 8555 is ring-mqtt's RTSP gateway, 1984 is
     # Frigate's go2rtc API.
     ports = [
-      "127.0.0.1:8556:8554"  # RTSP — consumed by Frigate's go2rtc
-      "127.0.0.1:1985:1984"  # API/web UI — unauthenticated, hence loopback
+      # RTSP, published on TWO host addresses, and it needs both:
+      #
+      #   127.0.0.1  — for `ssh -L` debugging and ffprobe from the host
+      #   172.17.0.1 — the docker0 gateway, which is the ONLY way the bridged
+      #                Frigate container can reach this one
+      #
+      # Frigate resolves host.docker.internal to the docker gateway, not to the
+      # host's loopback, so a loopback-only publish is invisible to it: go2rtc
+      # fails to dial its producer and every DESCRIBE comes back 404 — which
+      # looks exactly like the stream not existing. Same reasoning as the
+      # 172.17.0.1 mosquitto listener in mqtt.nix.
+      #
+      # Binding the gateway address exposes this to containers on the default
+      # bridge and to the host, but NOT to br0 / the LAN.
+      "127.0.0.1:8556:8554"
+      "172.17.0.1:8556:8554"
+      # API/web UI. Unauthenticated, and nothing in a container needs it, so
+      # this one stays strictly on loopback.
+      "127.0.0.1:1985:1984"
     ];
 
     # The container's own WebRTC listener (8555/tcp+udp) is deliberately NOT
