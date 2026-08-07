@@ -106,7 +106,9 @@ in {
     # nginx/public ingress will be added separately after local compatibility
     # with the deployed Immich version has been verified.
     immich-public-proxy = {
-      image = "docker.io/alangrainger/immich-public-proxy:2.4.1@sha256:3ec4c1becf885cb9d70214eac5ccf11ac9bfe4f361a604fd7075df340ec320f9";
+      # IPP 2.x is incompatible with Immich 3.x and crashes while reading
+      # shared-album assets. Keep this on a 3.x release and pin the amd64 image.
+      image = "docker.io/alangrainger/immich-public-proxy:3.2.0@sha256:c10298f420b216e666afaf6f99271f36cce3feade1be1ff0930fd8b9d819b854";
       autoStart = true;
       dependsOn = [ "immich-server" ];
       # Port 3000 on the host is already used by eufy-security-ws. Keep the
