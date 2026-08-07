@@ -19,6 +19,14 @@
     # Attach the container's veth to br0, putting it on the same LAN segment.
     hostBridge = "br0";
 
+    # Expose nasa's persistent journal read-only. This lets development tools
+    # in the home container inspect host/service logs without giving the
+    # container an SSH credential or write access to the host.
+    bindMounts."/var/log/nasa-journal" = {
+      hostPath = "/var/log/journal";
+      isReadOnly = true;
+    };
+
     config = { pkgs, ... }: {
       imports = [
         (import ../../../modules/dev-environment.nix pkgs-unstable claude-code-pkg)
@@ -36,10 +44,16 @@
 
       users.users.jmalexan = {
         isNormalUser = true;
-        extraGroups = [ "wheel" ];
+        extraGroups = [ "wheel" "systemd-journal" ];
         shell = pkgs.fish;
         openssh.authorizedKeys.keys = import ../../../users/authorized-keys.nix;
       };
+
+      environment.systemPackages = [
+        (pkgs.writeShellScriptBin "nasa-journalctl" ''
+          exec ${pkgs.systemd}/bin/journalctl --directory=/var/log/nasa-journal "$@"
+        '')
+      ];
 
       home-manager = {
         useGlobalPkgs = true;
@@ -57,4 +71,9 @@
       system.stateVersion = "25.11";
     };
   };
+
+  # Ensure the directory shared above exists and survives reboots.
+  services.journald.extraConfig = ''
+    Storage=persistent
+  '';
 }
