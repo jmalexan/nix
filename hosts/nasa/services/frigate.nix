@@ -185,6 +185,20 @@
           # If Frigate ever HANGS on startup for this camera, that is the known
           # 0.17 case of a camera not advertising its resolution properly — set
           # them explicitly then, to whatever ffprobe reports, and not before.
+          #
+          # fps, unlike width/height, is stated deliberately even though 5 is
+          # already the default. It is not a guess that can be wrong: Frigate
+          # drops frames to hit this rate regardless of what the camera sends,
+          # so it can never mismatch the stream. It is pinned here because the
+          # detector choice above depends on it — the CPU detector comfortably
+          # handles a couple of cameras at 5fps and not much more.
+          #
+          # Upstream is clear that above 5 buys little on most scenes and 10 is
+          # the ceiling worth considering, only for objects crossing the frame
+          # very fast. A doorbell arguably qualifies — someone walks up close
+          # and fills the frame quickly — but raising it would double detector
+          # load on a CPU detector, so leave it until there is evidence of
+          # missed tracks, and move detection to the 3080 first if so.
           fps: 5
         objects:
           track:
@@ -269,6 +283,11 @@
           # doorbells are tall-aspect (commonly 1600x1200), so any 16:9 guess
           # would be wrong and would cost a rescale on every frame. See the
           # matching note on back_door for the one case that needs them set.
+          #
+          # fps is kept explicit for the reason spelled out on back_door: it
+          # cannot mismatch the stream (Frigate drops frames to hit it), and 5
+          # is what the CPU detector is sized for. This camera runs 24/7, so it
+          # is the one carrying that load continuously.
           fps: 5
         objects:
           track:
