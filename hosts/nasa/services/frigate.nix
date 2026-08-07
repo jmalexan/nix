@@ -377,11 +377,25 @@ in {
   # it only changes what a rebuilt-from-scratch host would start with.
   #
   # That is deliberate (Frigate rewrites config.yml itself from the UI editor),
-  # but it means the camera blocks above must be mirrored by hand:
+  # but it means the camera blocks above must be mirrored onto the live host.
+  #
+  # PREFER THE FRIGATE UI for this — Settings, then the raw YAML editor. It
+  # validates before it will restart, which matters more than convenience here:
+  # an invalid config sends Frigate into safe mode, and safe mode used to force
+  # record retention to 0 days and wipe recordings while you debugged. That bug
+  # was fixed in 0.17.1 and this host is pinned to 0.17.2, so it is no longer a
+  # live hazard — but hand-editing the file still bypasses the one check that
+  # stops a typo from taking the NVR down. Use the editor.
+  #
+  # If you do edit on disk, take a backup first and restart explicitly:
   #
   #   sudo cp /Data/smb/Internal/Services/frigate/config/config.yml{,.bak}
   #   sudo $EDITOR /Data/smb/Internal/Services/frigate/config/config.yml
   #   sudo systemctl restart docker-frigate
+  #
+  # Note that go2rtc stream changes always need a full restart either way —
+  # go2rtc runs as a child process configured at Frigate startup. Camera, zone
+  # and mask edits do apply live in 0.17.
   #
   # Keeping the two in sync by hand is the cost of a UI-editable config. If they
   # ever drift badly, delete config.yml and let the seed re-copy on restart —
