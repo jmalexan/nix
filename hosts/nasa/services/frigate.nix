@@ -232,13 +232,27 @@
               # socket timeout so a mid-session WebRTC renegotiation is not
               # treated as the stream dying. Spelled as a list rather than a
               # string so there is no dependence on how Frigate word-splits it.
+              #
+              # analyzeduration is 10s (the unit is MICROseconds, so 10M), up
+              # from the 5s that was not enough. go2rtc only builds the Nest
+              # producer when a consumer connects, and that cold start is an
+              # OAuth token fetch, then GenerateWebRtcStream, then ICE — which
+              # overruns 5s often enough that ffmpeg gave up before any SPS/PPS
+              # arrived and died with "Could not find codec parameters ...
+              # unspecified size".
+              #
+              # Do not push this much past 10s: Frigate's own watchdog kills
+              # ffmpeg after 20s without a frame, so too patient a probe just
+              # trades one failure mode for another. Raising it is otherwise
+              # free — analyzeduration is a ceiling, not a fixed wait, so a
+              # warm stream still starts as fast as it ever did.
               input_args:
                 - -rtsp_transport
                 - tcp
                 - -analyzeduration
-                - 5M
+                - 10M
                 - -probesize
-                - 5M
+                - 10M
                 - -timeout
                 - "60000000"
               roles:
