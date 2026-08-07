@@ -143,8 +143,9 @@
 
     cameras:
       # ── Back door: Ring doorbell ───────────────────────────────────────────
-      # Ships DISABLED on purpose, and is meant to stay that way at rest. This
-      # is not a "fill in the URL and flip it to true" placeholder.
+      # Must be enabled in the static config so Frigate registers the camera
+      # and permits the runtime MQTT enabled/set control. It is switched OFF
+      # at rest by the Home Assistant automation in the ring-mqtt runbook.
       #
       # Ring suppresses motion and ding events for as long as a stream is
       # open, so a permanently-enabled Frigate camera here would silently kill
@@ -154,10 +155,12 @@
       # to frigate/back_door/enabled/set. The automation is in the runbook in
       # services/ring-mqtt.nix.
       #
-      # Frigate does not start ffmpeg for a disabled camera, so the unresolved
-      # <RING_DEVICE_ID> placeholder above will not stop Frigate booting.
+      # Runtime enable/disable state does not survive a Frigate restart. The
+      # companion startup automation therefore publishes OFF whenever Frigate
+      # announces that it is online. There can be a brief stream attempt during
+      # startup before that MQTT command arrives.
       back_door:
-        enabled: false
+        enabled: true
         ffmpeg:
           output_args:
             # Ring sends Opus audio. mp4 can technically carry Opus but few

@@ -75,10 +75,11 @@ in {
   #   3. Sustained streaming can overheat the device.
   #   4. Ring caps interactive sessions at roughly 10 minutes anyway.
   #
-  # So the Ring camera is defined in Frigate with `enabled: false` and woken
-  # on demand by a Home Assistant automation — see the block at the bottom of
-  # this file. That trades "always recording" for "records the event and keeps
-  # the doorbell working", which is the only sane trade here.
+  # So the Ring camera is enabled in Frigate's static config (required for MQTT
+  # runtime control), immediately switched OFF over MQTT at startup, and woken
+  # on demand by Home Assistant — see the automations at the bottom of this
+  # file. That trades "always recording" for "records the event and keeps the
+  # doorbell working", which is the only sane trade here.
   virtualisation.oci-containers.containers.ring-mqtt = {
     # Pinned to an exact release for the same reason as frigate/immich: under
     # oci-containers a floating tag never changes the systemd unit, so it would
@@ -206,11 +207,29 @@ in {
   #    (the broker in mqtt.nix is already shared with Frigate). Nothing to add
   #    on the HA side beyond having the MQTT integration configured.
   #
-  # 4. Add the on-demand automation below so Frigate only streams during an
-  #    event. HA's config dir is app-owned (not Nix-managed), so paste this
+  # 4. Add the two automations below so Frigate only streams during an event.
+  #    HA's config dir is app-owned (not Nix-managed), so paste these
   #    into /Data/smb/Internal/Services/homeassistant/config/automations.yaml
   #    or build it in the UI. Adjust the entity ids to match whatever
   #    ring-mqtt actually named the device.
+  #
+  #      - alias: "Frigate: keep back door camera off after startup"
+  #        mode: restart
+  #        triggers:
+  #          # Runtime camera state is reset whenever Frigate restarts.
+  #          - trigger: mqtt
+  #            topic: frigate/available
+  #            payload: "online"
+  #          # Also enforce the safe state when HA starts after Frigate.
+  #          - trigger: homeassistant
+  #            event: start
+  #        actions:
+  #          # Give MQTT integrations/subscriptions a moment to settle.
+  #          - delay: "00:00:05"
+  #          - action: mqtt.publish
+  #            data:
+  #              topic: frigate/back_door/enabled/set
+  #              payload: "OFF"
   #
   #      - alias: "Frigate: wake back door camera on Ring event"
   #        # `restart` so repeated motion keeps pushing the shutoff back
