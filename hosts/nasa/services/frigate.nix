@@ -175,12 +175,16 @@
                 - record
         detect:
           enabled: true
-          # TODO: match to the stream's real resolution or Frigate rescales
-          # every frame. Ring models differ — the 1080p doorbells are
-          # 1920x1080, but the Pro 2 and similar use a square 1536x1536 sensor.
-          # Check with ffprobe against the go2rtc path once it is up.
-          width: 1920
-          height: 1080
+          # width/height are deliberately omitted — they are optional and
+          # Frigate auto-detects them from the stream. Hardcoding a guess is
+          # actively worse than omitting: a mismatch makes Frigate rescale
+          # every single frame. That matters here because Ring models vary a
+          # lot (the 1080p doorbells are 16:9, the Pro 2 and friends use a
+          # square 1536x1536 sensor).
+          #
+          # If Frigate ever HANGS on startup for this camera, that is the known
+          # 0.17 case of a camera not advertising its resolution properly — set
+          # them explicitly then, to whatever ffprobe reports, and not before.
           fps: 5
         objects:
           track:
@@ -258,10 +262,13 @@
         detect:
           enabled: true
           # SDM exposes no lower-resolution substream, so detection runs on the
-          # full-size frame. TODO: confirm with ffprobe — Nest doorbells are
-          # tall-aspect (e.g. 1600x1200), not 16:9.
-          width: 1920
-          height: 1080
+          # full-size frame either way.
+          #
+          # width/height omitted on purpose — optional, and Frigate auto-detects
+          # from the stream. Worth leaving alone here in particular: Nest
+          # doorbells are tall-aspect (commonly 1600x1200), so any 16:9 guess
+          # would be wrong and would cost a rescale on every frame. See the
+          # matching note on back_door for the one case that needs them set.
           fps: 5
         objects:
           track:
