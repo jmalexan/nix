@@ -392,6 +392,10 @@ in {
   services.nginx.virtualHosts."frigate.nasa.jmalexan.com" = ssl // {
     serverAliases = [ "frigate" ];
     extraConfig = ''
+      # Frigate accepts image uploads up to 20 MB. Leave room for multipart
+      # request overhead so nginx does not reject an otherwise valid image.
+      client_max_body_size 25M;
+
       # Live view and the event clip player hold long-lived connections, and
       # buffering a video stream through nginx just adds latency.
       proxy_buffering    off;
