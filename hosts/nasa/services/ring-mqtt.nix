@@ -118,12 +118,36 @@ in {
     ];
   };
 
-  # `C` copies only when the destination does not already exist, so this seeds a
-  # working config on first boot and then leaves later edits alone. The parent
-  # dir is created in permissions.nix alongside every other service's state dir.
-  systemd.tmpfiles.rules = [
-    "C ${stateDir}/config.json 0640 root root - ${seedConfig}"
-  ];
+  # Seed config.json from the container's OWN unit rather than from a
+  # systemd.tmpfiles `C` rule, because a tmpfiles rule loses a race here.
+  #
+  # ring-mqtt reads /data/config.json at startup and calls process.exit(1) if it
+  # is absent, so the seed is a hard precondition for the container starting at
+  # all. On `nixos-rebuild switch` the new docker-ring-mqtt.service and
+  # systemd-tmpfiles-resetup.service are both pulled in during activation with
+  # no ordering between them, so the container's first start can — and does —
+  # beat the seed into place and land in a crash loop. (A tmpfiles rule is fine
+  # on a cold boot, where tmpfiles-setup runs back at sysinit; it is only the
+  # activation path that races. That is why frigate.nix has never tripped over
+  # this: its config.yml was seeded on some earlier boot.)
+  #
+  # Doing it in preStart makes the precondition the responsibility of the unit
+  # that actually depends on it, which removes the race by construction instead
+  # of papering over it with an ordering edge. The oci-containers module sets
+  # serviceConfig.ExecStartPre directly and leaves preStart empty, and
+  # unitOption merges lists, so this appends rather than clobbering the
+  # module's own pre-start.
+  #
+  # Still copy-once: the `-e` guard means later hand edits to config.json (say,
+  # pinning location_ids) survive every rebuild, matching the tmpfiles `C`
+  # semantics used elsewhere on this host.
+  systemd.services.docker-ring-mqtt.preStart = ''
+    ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root ${stateDir}
+    if [ ! -e ${stateDir}/config.json ]; then
+      ${pkgs.coreutils}/bin/install -m 0640 -o root -g root \
+        ${seedConfig} ${stateDir}/config.json
+    fi
+  '';
 
   # ── One-time setup runbook ────────────────────────────────────────────────────
   #
