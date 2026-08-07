@@ -140,9 +140,20 @@ in {
         requires = [ "immich-network.service" ];
       } // lib.optionalAttrs (unit == "docker-immich-server") {
         # Docker accepts only one network at container creation. Attach the
-        # already-running server to the public-edge bridge after every start;
-        # the guard keeps restarts idempotent.
+        # server to the public-edge bridge after every start. ExecStartPost can
+        # race `docker run` before it has created the container, so wait for the
+        # container to exist before inspecting or connecting it.
         postStart = ''
+          attempt=0
+          until ${docker} container inspect immich-server >/dev/null 2>&1; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 300 ]; then
+              echo "Timed out waiting for the immich-server container" >&2
+              exit 1
+            fi
+            ${pkgs.coreutils}/bin/sleep 0.1
+          done
+
           if ! ${docker} network inspect ${publicNetwork} \
             --format '{{range .Containers}}{{println .Name}}{{end}}' \
             | ${pkgs.gnugrep}/bin/grep -Fxq immich-server; then
