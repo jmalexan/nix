@@ -133,6 +133,23 @@ in {
       '';
       locations."/" = {
         proxyPass = "http://127.0.0.1:11434";
+        # Ollama validates the Host header and rejects anything that isn't
+        # loopback with a bare 403 — no body, and nothing in nginx's error log,
+        # because nginx proxied happily and simply relayed upstream's refusal.
+        # recommendedProxySettings sends `Host $host`, so every request through
+        # this vhost arrived as ollama.nasa.jmalexan.com and was refused.
+        #
+        # Overriding Host in extraConfig does not work: the module emits
+        # locations.<n>.extraConfig *before* the recommended-settings include,
+        # so `Host $host` would win. Disable the include for this location and
+        # set the forwarding headers explicitly instead.
+        recommendedProxySettings = false;
+        extraConfig = ''
+          proxy_set_header Host localhost:11434;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        '';
       };
     };
   };
