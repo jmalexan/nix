@@ -10,9 +10,15 @@
   # serverAlias) automatically extends the cert on next rebuild. The renew
   # script below also re-issues if this list drifts from the cert in place,
   # so changes propagate without manually deleting server.crt.
+  # Public vhosts with their own ACME certificate must not be folded into the
+  # private-CA certificate used by the LAN-only vhosts.
+  privateVhosts = lib.filterAttrs
+    (_: v: (v.useACMEHost or null) == null && !(v.enableACME or false))
+    config.services.nginx.virtualHosts;
+
   vhostNames = lib.flatten (lib.mapAttrsToList
     (name: v: [ name ] ++ (v.serverAliases or []))
-    config.services.nginx.virtualHosts);
+    privateVhosts);
 
   # Names that aren't tied to a local vhost (other hosts, future services,
   # the wildcard, the apex).

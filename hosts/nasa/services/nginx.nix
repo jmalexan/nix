@@ -1,10 +1,24 @@
-{ ... }: let
+{ config, ... }: let
   ssl = {
     forceSSL          = true;
     sslCertificate    = "/var/lib/nginx/certs/server.crt";
     sslCertificateKey = "/var/lib/nginx/certs/server.key";
   };
 in {
+  # Public certificate issuance uses DNS-01, so neither certificate creation
+  # nor renewal depends on forwarding WAN port 80. The existing Cloudflare
+  # token is already restricted to root and used for DNS updates.
+  security.acme = {
+    acceptTerms = true;
+    defaults.email = "me@jmalexan.com";
+    certs."photos.jmalexan.com" = {
+      dnsProvider = "cloudflare";
+      group = "nginx";
+      credentialFiles.CLOUDFLARE_DNS_API_TOKEN_FILE =
+        config.age.secrets.cloudflare-token.path;
+    };
+  };
+
   services.nginx = {
     enable = true;
 
@@ -14,6 +28,29 @@ in {
     recommendedTlsSettings   = true;
 
     virtualHosts = {
+      # The router maps public TCP 443 to this dedicated listener. Keeping it
+      # off nginx's normal 443 listener prevents any private vhost from being
+      # selected by a public request, regardless of its Host/SNI value.
+      "photos.jmalexan.com" = {
+        listen = [{
+          addr = "0.0.0.0";
+          port = 8443;
+          ssl = true;
+        }];
+        useACMEHost = "photos.jmalexan.com";
+        extraConfig = ''
+          proxy_buffering    off;
+          proxy_read_timeout 600s;
+          proxy_send_timeout 600s;
+          send_timeout       600s;
+
+          add_header Strict-Transport-Security "max-age=31536000" always;
+        '';
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:2284";
+        };
+      };
+
       "immich.nasa.jmalexan.com" = ssl // {
         serverAliases = [ "immich" ];
         extraConfig = ''
@@ -171,5 +208,5 @@ in {
     };
   };
 
-  networking.firewall.allowedTCPPorts = [ 80 443 ];
+  networking.firewall.allowedTCPPorts = [ 80 443 8443 ];
 }
