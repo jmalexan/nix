@@ -376,46 +376,76 @@ in {
   #
   # ── Nest credentials runbook ──────────────────────────────────────────────────
   #
-  # The five values in the `front_door` go2rtc stream go in the NAS copy of
-  # config.yml, NOT in this file — client_secret and refresh_token are live
-  # credentials and this repo is committed to git. (Same reasoning as the note
-  # at the top of seedConfig.)
+  # The Home Assistant Nest integration is ALREADY SET UP on this host, and it
+  # needed the exact same five values. So there is nothing to register and
+  # nothing to pay for — lift the credentials out of HA rather than repeating
+  # the Device Access / Google Cloud dance.
   #
-  # Google gates Nest camera access behind the Smart Device Management API, and
-  # there is no way around it — no local RTSP, no ONVIF. Expect ~30 minutes:
+  # They go in the NAS copy of config.yml, NOT in this file: client_secret and
+  # refresh_token are live credentials and this repo is committed to git. (Same
+  # reasoning as the note at the top of seedConfig.)
   #
-  # 1. Device Access Console (https://console.nest.google.com/device-access):
-  #    accept the terms and pay the one-time US$5 registration fee. This
-  #    requires a PERSONAL Google account — Workspace accounts cannot complete
-  #    the OAuth flow at all, so use the gmail.com account that owns the
-  #    doorbell. Note the Project ID it issues -> project_id.
+  # ⚠️  Do NOT "simplify" this to go2rtc's hass:// source.
+  # It looks like the obvious move — point go2rtc at the camera entity HA
+  # already has and skip the credentials entirely — and it is a trap. The
+  # hass:// source hands Frigate a raw SDM stream URL, and the Nest API only
+  # issues those for 5 minutes with no renewal. Upstream's wording is blunt:
+  # "Do not use this with Frigate! If the stream expires, Frigate will consume
+  # all available RAM on your machine within seconds." The nest:// source
+  # configured above exists precisely because it extends the session before it
+  # expires. Same reason rules out felipecrs/hass-expose-camera-stream-source,
+  # which explicitly does not support Google-Home-migrated (WebRTC) Nest cams.
   #
-  # 2. Google Cloud Console: create a project, enable the "Smart Device
-  #    Management API", and create an OAuth 2.0 Client ID of type "Web
-  #    application" -> client_id and client_secret.
+  # Extract the values from HA's config dir
+  # (/Data/smb/Internal/Services/homeassistant/config):
   #
-  #    Set the OAuth consent screen's Publishing Status to "In production".
-  #    Left "In testing", Google expires the refresh token after 7 DAYS and the
-  #    stream dies every week — this is the single most common way this setup
-  #    rots. It does not require Google verification for personal use.
+  # 1. project_id + refresh_token, from the Nest config entry:
   #
-  # 3. Run the OAuth flow once to exchange an authorisation code for a refresh
-  #    token -> refresh_token. The Home Assistant Nest docs walk through this
-  #    step by step: https://www.home-assistant.io/integrations/nest/
+  #      sudo jq -r '.data.entries[] | select(.domain=="nest") | .data
+  #                  | {project_id, refresh_token: .token.refresh_token}' \
+  #        .storage/core.config_entries
   #
-  # 4. Get device_id by listing the devices on the project:
+  # 2. client_id + client_secret. Modern HA keeps these in the Application
+  #    Credentials store, not the config entry:
   #
-  #      curl -H "Authorization: Bearer <access_token>" \
-  #        "https://smartdevicemanagement.googleapis.com/v1/enterprises/<project_id>/devices"
+  #      sudo jq -r '.data.items[] | select(.domain=="nest")
+  #                  | {client_id, client_secret}' \
+  #        .storage/application_credentials
   #
-  #    Use the trailing segment of the device's `name` field.
+  #    (Older HA releases inlined these in the config entry instead, so if that
+  #    file has no nest item, re-run the step 1 query without the field filter
+  #    and look for client_id/client_secret in the entry data.)
   #
-  # 5. Do step 1-3 ONCE and reuse the same project for the Home Assistant Nest
-  #    integration — it wants the identical client_id/client_secret/project_id.
-  #    Set HA up too: go2rtc gives Frigate pixels, but only the HA integration
-  #    delivers the doorbell-press event, and a press is not a motion event.
-  #    Pub/Sub is required for those events to arrive in real time; HA's config
-  #    flow provisions the subscription for you.
+  # 3. device_id — ask the API rather than guessing, since HA's device registry
+  #    stores the fully-qualified name and go2rtc wants only the last segment:
+  #
+  #      ACCESS=$(curl -s -X POST https://oauth2.googleapis.com/token \
+  #        -d client_id=<CLIENT_ID> -d client_secret=<CLIENT_SECRET> \
+  #        -d refresh_token=<REFRESH_TOKEN> -d grant_type=refresh_token \
+  #        | jq -r .access_token)
+  #      curl -s -H "Authorization: Bearer $ACCESS" \
+  #        "https://smartdevicemanagement.googleapis.com/v1/enterprises/<PROJECT_ID>/devices" \
+  #        | jq -r '.devices[] | "\(.type)\t\(.name)"'
+  #
+  #    Take the trailing segment of `name` (after .../devices/).
+  #
+  # Notes on sharing one refresh token between HA and go2rtc:
+  #  - It works. Google does not rotate refresh tokens on use, so both clients
+  #    can hold the same one indefinitely; go2rtc's copy is an independent
+  #    snapshot and will keep working even if HA later re-authenticates.
+  #  - Revoking the app's access in the Google account, or deleting the OAuth
+  #    client, kills BOTH at once. That is the intended blast radius.
+  #  - If the OAuth consent screen is still in "Testing", Google expires the
+  #    refresh token after 7 days and both HA and this stream die weekly. Since
+  #    the HA integration has been running longer than that, it is presumably
+  #    already "In production" — worth confirming while you are in the console.
+  #  - Both clients now poll the same SDM project, so the API quota is shared.
+  #    It is generous for two consumers, but if streams start failing with 429s
+  #    this is where to look first.
+  #
+  # Keep the HA integration regardless of Frigate: go2rtc supplies pixels, but
+  # only HA delivers the doorbell-press event over Pub/Sub — and a press is not
+  # a motion event, so Frigate alone will never tell you someone rang the bell.
   #
   # Verify before wiring Frigate up — go2rtc's own UI at http://127.0.0.1:1984
   # (ssh -N -L 1984:127.0.0.1:1984 nasa) will show the stream and any auth error
