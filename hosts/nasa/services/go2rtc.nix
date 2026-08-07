@@ -107,6 +107,28 @@ in {
       # API/web UI. Unauthenticated, and nothing in a container needs it, so
       # this one stays strictly on loopback.
       "127.0.0.1:1985:1984"
+
+      # BOTH ports a THIRD time, on the 127.0.0.2 loopback alias, at go2rtc's
+      # DEFAULT numbers. This pair exists solely for the eufy_security
+      # integration (see services/eufy-security.nix), which hard-codes 1984 and
+      # 8554 and lets you configure only the address — so the shifted ports
+      # above are unusable to it, and 127.0.0.1 at the default ports is already
+      # Frigate's bundled go2rtc. A loopback alias is the cheapest way to give
+      # it a correct address without a third go2rtc instance or moving Frigate.
+      #
+      # Loopback, not the docker gateway, because unlike Frigate the consumer
+      # here is Home Assistant, which runs with host networking — so 127.0.0.2
+      # resolves for it and the unauthenticated API stays off br0 AND off the
+      # default bridge.
+      #
+      # Reusing this instance rather than adding another is deliberate: the
+      # reason this container exists at all (the `preload` feature) is
+      # orthogonal to eufy, and eufy's streams are created/destroyed through the
+      # API at turn_on/turn_off time, so they cannot collide with `front_door`.
+      # The cost is coupling: restarting this container for Nest reasons also
+      # drops any live eufy stream (a camera.turn_off/turn_on cycle restores it).
+      "127.0.0.2:8554:8554"  # RTSP — read by HA as rtsp://127.0.0.2:8554/<serial>
+      "127.0.0.2:1984:1984"  # API — eufy_security POSTs H264 bytes here
     ];
 
     # The container's own WebRTC listener (8555/tcp+udp) is deliberately NOT

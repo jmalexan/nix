@@ -16,4 +16,5 @@ in {
   "secrets/gitlab-runner-token.age".publicKeys  = allKeys;
   "secrets/calibre-desktop-password.age".publicKeys = allKeys;
   "secrets/immich-db-password.age".publicKeys       = allKeys;
+  "secrets/eufy-credentials.age".publicKeys         = allKeys;
 }

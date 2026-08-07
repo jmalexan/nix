@@ -24,6 +24,23 @@
     environment.TZ = "America/New_York";
   };
 
+  # ── HACS ──────────────────────────────────────────────────────────────────────
+  # HACS (Home Assistant Community Store) is already installed in the config dir
+  # and is deliberately NOT managed from here. It is itself a custom integration,
+  # living in <config>/custom_components/hacs, and it updates ITSELF in place from
+  # its own UI — so a Nix-managed copy would either fight those self-updates or
+  # be a permanent no-op. Same posture as the rest of this config dir: Nix
+  # provisions the infrastructure, the app owns its own config afterwards.
+  #
+  # It is covered by backup.nix (which sweeps all of /Data/smb with no exclusion
+  # under homeassistant/), so rebuilding this host from scratch restores HACS
+  # along with everything else in <config>.
+  #
+  # Integrations installed through it that DO need host-side infrastructure get
+  # their own module — see services/eufy-security.nix for the eufy cameras, which
+  # need a companion eufy-security-ws container plus a go2rtc endpoint, neither
+  # of which HACS can provide.
+
   networking.firewall.allowedTCPPorts = [ 8123 ];
 
   # ── Matter server ─────────────────────────────────────────────────────────────
