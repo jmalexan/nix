@@ -42,6 +42,20 @@
       "--exclude=/Data/smb/Internal/Services/immich/encoded-video"
       "--exclude=/Data/smb/Internal/Services/immich-postgres"
       "--exclude=/Data/smb/Internal/Services/immich-model-cache"
+      # Frigate's recordings and snapshots. Deliberately NOT backed up: they
+      # are surveillance video with a 14-day retention policy configured in
+      # frigate.nix, they churn completely every fortnight, and they dedup
+      # badly, so they would dominate both the B2 bill and the backup window.
+      #
+      # Worse, backing them up quietly defeats the retention policy — the prune
+      # schedule here keeps 14 daily / 8 weekly / 12 monthly snapshots, so
+      # footage Frigate deleted after two weeks would survive in Backblaze for
+      # up to a year.
+      #
+      # Only media/ is excluded. frigate/config/ stays in the backup and very
+      # much needs to: config.yml is UI-editable and is the real source of
+      # truth for the cameras (the Nix seed only bootstraps a fresh host).
+      "--exclude=/Data/smb/Internal/Services/frigate/media"
     ];
   };
 }
