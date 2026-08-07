@@ -1,4 +1,4 @@
-{ lib, config, ... }:
+{ lib, config, pkgs, ... }:
 let
   # Immich's two application images move together and are pinned to an exact
   # patch release — NOT a floating `v3`/`release` tag. Under oci-containers a
@@ -12,6 +12,11 @@ let
   modelCache     = "/Data/smb/Internal/Services/immich-model-cache";  # ML model-cache
 
   docker = "${config.virtualisation.docker.package}/bin/docker";
+
+  # Keep the database/cache network inaccessible to the public-facing proxy.
+  # immich-server is the only container attached to both networks.
+  backendNetwork = "immich";
+  publicNetwork  = "immich-public-edge";
 in {
   # Pin UID/GID so file ownership stays consistent across rebuilds and
   # migrations. The nixpkgs module used to create this user; we still declare it
@@ -32,8 +37,9 @@ in {
   # ── Container network ──────────────────────────────────────────────────────
   # oci-containers doesn't manage docker networks, but the containers must
   # resolve each other by name (DB_HOSTNAME=immich-postgres, REDIS_HOSTNAME=
-  # immich-redis). Create a user-defined bridge once; every container joins it
-  # via `--network=immich` below. Mirrors the oneshot pattern in mullvad.nix.
+  # immich-redis). A second bridge contains only immich-server and the read-only
+  # public share proxy, so compromising the proxy does not provide network
+  # access to Postgres, Redis, or machine learning.
   #
   # docker.enable / oci-containers.backend are set repo-wide in calibre.nix — do
   # NOT redeclare them here (scalar options error if defined twice).
@@ -53,20 +59,20 @@ in {
       };
       environmentFiles = [ config.age.secrets.immich-db-password.path ];
       volumes = [ "${dbDataLocation}:/var/lib/postgresql/data" ];
-      extraOptions = [ "--network=immich" "--shm-size=128m" ];
+      extraOptions = [ "--network=${backendNetwork}" "--shm-size=128m" ];
     };
 
     immich-redis = {
       image = "docker.io/valkey/valkey:9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9";
       autoStart = true;
-      extraOptions = [ "--network=immich" ];
+      extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-machine-learning = {
       image = "ghcr.io/immich-app/immich-machine-learning:${immichVersion}";
       autoStart = true;
       volumes = [ "${modelCache}:/cache" ];
-      extraOptions = [ "--network=immich" ];
+      extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-server = {
@@ -92,22 +98,72 @@ in {
       # ownership on ZFS (matching the existing files). Upstream runs the server
       # as root; if it refuses to start as non-root, drop this option and
       # one-time `chown -R immich:immich` the media dir instead.
-      extraOptions = [ "--network=immich" "--user=998:998" ];
+      extraOptions = [ "--network=${backendNetwork}" "--user=998:998" ];
+    };
+
+    # Read-only public gallery frontend. It deliberately receives no API key,
+    # volumes, Docker socket, host networking, or access to the backend network.
+    # nginx/public ingress will be added separately after local compatibility
+    # with the deployed Immich version has been verified.
+    immich-public-proxy = {
+      image = "docker.io/alangrainger/immich-public-proxy:2.4.1@sha256:3ec4c1becf885cb9d70214eac5ccf11ac9bfe4f361a604fd7075df340ec320f9";
+      autoStart = true;
+      dependsOn = [ "immich-server" ];
+      ports = [ "127.0.0.1:3000:3000" ];
+      environment = {
+        IMMICH_URL      = "http://immich-server:2283";
+        PUBLIC_BASE_URL = "https://photos.jmalexan.com";
+      };
+      extraOptions = [
+        "--network=${publicNetwork}"
+        "--cap-drop=ALL"
+        "--security-opt=no-new-privileges:true"
+        "--read-only"
+        "--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m"
+        "--pids-limit=256"
+        "--health-cmd=curl -fsS http://127.0.0.1:3000/share/healthcheck"
+        "--health-interval=30s"
+        "--health-timeout=5s"
+        "--health-retries=3"
+        "--health-start-period=10s"
+      ];
     };
   };
 
   systemd.services =
-    # Every container comes up only after the shared network exists.
+    # Backend containers come up only after both bridges exist.
     (lib.genAttrs
       (map (n: "docker-${n}")
         [ "immich-postgres" "immich-redis" "immich-machine-learning" "immich-server" ])
-      (_: {
+      (unit: {
         after    = [ "immich-network.service" ];
         requires = [ "immich-network.service" ];
+      } // lib.optionalAttrs (unit == "docker-immich-server") {
+        # Docker accepts only one network at container creation. Attach the
+        # already-running server to the public-edge bridge after every start;
+        # the guard keeps restarts idempotent.
+        postStart = ''
+          if ! ${docker} network inspect ${publicNetwork} \
+            --format '{{range .Containers}}{{println .Name}}{{end}}' \
+            | ${pkgs.gnugrep}/bin/grep -Fxq immich-server; then
+            ${docker} network connect ${publicNetwork} immich-server
+          fi
+        '';
       }))
     // {
+      docker-immich-public-proxy = {
+        after = [
+          "immich-network.service"
+          "docker-immich-server.service"
+        ];
+        requires = [
+          "immich-network.service"
+          "docker-immich-server.service"
+        ];
+      };
+
       immich-network = {
-        description = "Immich container network";
+        description = "Immich private container networks";
         after    = [ "docker.service" "docker.socket" ];
         requires = [ "docker.service" ];
         wantedBy = [ "multi-user.target" ];
@@ -116,8 +172,10 @@ in {
           RemainAfterExit = true;
         };
         script = ''
-          ${docker} network inspect immich >/dev/null 2>&1 || \
-            ${docker} network create immich
+          ${docker} network inspect ${backendNetwork} >/dev/null 2>&1 || \
+            ${docker} network create ${backendNetwork}
+          ${docker} network inspect ${publicNetwork} >/dev/null 2>&1 || \
+            ${docker} network create ${publicNetwork}
         '';
       };
     };
