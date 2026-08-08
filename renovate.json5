@@ -20,6 +20,12 @@
   "nix": {
     "enabled": true
   },
+  // Digest pinning is a manager capability, not only a Docker datasource
+  // policy. The explicit regex setting lets the custom manager insert an
+  // initial @sha256 value and then verify it while generating the branch.
+  "regex": {
+    "pinDigests": true
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 6am on the first day of the month"]
