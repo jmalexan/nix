@@ -71,7 +71,7 @@ in
 
     immich-redis = {
       # renovate: datasource=docker depName=docker.io/valkey/valkey
-      image = "docker.io/valkey/valkey:9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9";
+      image = "docker.io/valkey/valkey:9@sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd";
       autoStart = true;
       extraOptions = [ "--network=${backendNetwork}" ];
     };
