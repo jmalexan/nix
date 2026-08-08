@@ -40,9 +40,12 @@
       "description": "Container images declared in Nix modules",
       "managerFilePatterns": ["/\\.nix$/"],
       "matchStrings": [
-        "(?<annotation># renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?)[\\t ]*\\r?\\n(?<indentation>[\\t ]+)(?<field>image|dockerImage)[\\t ]*=[\\t ]*\"(?<imageName>[^\"\\n]+?):(?<currentValue>[^\"@\\n]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?\";"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?[\\t ]*\\r?\\n(?<indentation>[\\t ]+)(?<depType>image|dockerImage)[\\t ]*=[\\t ]*\"(?<packageName>[^\"\\n]+?):(?<currentValue>[^\"@\\n]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?\";"
       ],
-      "autoReplaceStringTemplate": "{{{annotation}}}\n{{{indentation}}}{{{field}}} = \"{{{imageName}}}:{{{newValue}}}{{#if newDigest}}@{{{newDigest}}}{{/if}}\";",
+      // Templates only retain Renovate's documented capture fields. Rebuild
+      // the annotation from those fields and preserve the declared image name
+      // so re-extraction keeps the same dependency at the same index.
+      "autoReplaceStringTemplate": "# renovate: datasource={{{datasource}}} depName={{{depName}}}{{#if versioning}} versioning={{{versioning}}}{{/if}}\n{{{indentation}}}{{{depType}}} = \"{{{packageName}}}:{{{newValue}}}{{#if newDigest}}@{{{newDigest}}}{{/if}}\";",
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}docker{{/if}}"
     }
   ],
