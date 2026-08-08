@@ -150,6 +150,7 @@
         modules = commonModules ++ [
           ./hosts/nasa/default.nix
           ./modules/auto-upgrade.nix
+          ./modules/ssh-deploy.nix
           ./modules/trust-private-ca.nix
           disko.nixosModules.disko
           ./hosts/nasa/disko.nix
@@ -173,6 +174,7 @@
         modules = commonModules ++ [
           ./hosts/htpc/default.nix
           ./modules/auto-upgrade.nix
+          ./modules/ssh-deploy.nix
           ./modules/trust-private-ca.nix
           disko.nixosModules.disko
           ./hosts/htpc/disko.nix

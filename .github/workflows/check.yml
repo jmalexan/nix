@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,3 +23,48 @@ jobs:
           nix eval --raw .#nixosConfigurations.htpc.config.system.build.toplevel.drvPath
       - name: Run Linux repository checks
         run: nix build .#checks.x86_64-linux.lint
+
+  deploy:
+    name: Deploy ${{ matrix.host }}
+    needs: nix
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && vars.AUTO_DEPLOY_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: production-${{ matrix.host }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [nasa, htpc]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Join deployment network
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ matrix.host }}
+
+      - name: Configure deployment SSH identity
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          install -m 600 /dev/null "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          install -m 600 /dev/null "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Activate tested revision
+        env:
+          DEPLOY_HOST: ${{ matrix.host }}
+          DEPLOY_REVISION: ${{ github.sha }}
+        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=15 "deploy@$DEPLOY_HOST" \
+            "sudo nixos-rebuild switch --refresh --flake 'github:jmalexan/nix/$DEPLOY_REVISION#$DEPLOY_HOST'"

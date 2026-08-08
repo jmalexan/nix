@@ -24,9 +24,12 @@ nix build .#checks.x86_64-linux.lint
 nix run .#package-diff -- nasa
 ```
 
-Deploy NixOS with `sudo nixos-rebuild switch --flake .#nasa` (or `.#htpc`).
-Deploy the Mac with `darwin-rebuild switch --flake .#Book`. The `update-now`
-command on a host pulls and activates the configured GitHub branch.
+Successful pushes to `main` deploy the exact tested revision to `nasa` and
+`htpc` through an ephemeral Tailscale GitHub Actions runner. The current host
+timers remain enabled as a fallback until that workflow has completed its
+bootstrap run; see `docs/updates.md`. Deploy the Mac separately with
+`darwin-rebuild switch --flake .#Book`; its `update-now` command remains the
+manual shortcut.
 
 ## Updates
 

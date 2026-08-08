@@ -14,6 +14,14 @@
 
   networking.hostName = "htpc";
 
+  # Gives the ephemeral GitHub Actions deployment runner a private route to
+  # this host. Authenticate it once with `sudo tailscale up`; subsequent
+  # deployment access is controlled by the tailnet policy and SSH key.
+  services.tailscale = {
+    enable = true;
+    openFirewall = true;
+  };
+
   # ── Kernel ──────────────────────────────────────────────────────────────────
   # Latest stable mainline for the newest amdgpu + HDR colour-pipeline work on
   # the Radeon 780M (RDNA3). NOTE on 4K120 over HDMI: native HDMI 2.1 FRL is an
