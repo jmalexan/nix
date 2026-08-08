@@ -1,4 +1,11 @@
-{ config, ... }: {
+{ config, pkgs, ... }:
+
+let
+  databaseBackupDir = "/Data/smb/Internal/Backups/databases";
+  docker = "${config.virtualisation.docker.package}/bin/docker";
+  pgDump = "${config.services.postgresql.package}/bin/pg_dump";
+in
+{
   age.secrets.backblaze-env = {
     file = ../../../secrets/backblaze-env.age;
     # Decrypted to /run/agenix/backblaze-env (root-readable only)
@@ -9,15 +16,15 @@
 
   services.restic.backups.backblaze = {
     repository = "s3:https://s3.us-east-005.backblazeb2.com/jmalexan-nasa";
-    paths      = [ "/Data/smb" ];
+    paths = [ "/Data/smb" ];
 
     # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY for the B2 bucket
     environmentFile = config.age.secrets.backblaze-env.path;
-    passwordFile    = config.age.secrets.restic-password.path;
+    passwordFile = config.age.secrets.restic-password.path;
 
     timerConfig = {
       OnCalendar = "daily";
-      Persistent = true;   # catch up if the machine was off at midnight
+      Persistent = true; # catch up if the machine was off at midnight
     };
 
     initialize = true;
@@ -32,10 +39,9 @@
     # are rebuilt automatically after a restore.
     #
     # immich-postgres holds a LIVE Postgres data dir: rsync/restic would copy a
-    # torn, unrestorable snapshot, so exclude it. The DB is therefore NOT in this
-    # backup — same as before the containerisation (it lived in the host's
-    # /var/lib/postgresql, also outside /Data/smb). TODO: add a pg_dump timer
-    # writing a consistent dump under /Data/smb so the DB is captured here.
+    # torn, unrestorable snapshot, so exclude it. `database-backup.service`
+    # writes a consistent logical dump under /Data/smb immediately before this
+    # backup starts. It also captures Home Assistant's host PostgreSQL database.
     # immich-model-cache is downloaded models — regenerable, so skip it too.
     extraBackupArgs = [
       "--exclude=/Data/smb/Internal/Services/immich/thumbs"
@@ -57,5 +63,50 @@
       # truth for the cameras (the Nix seed only bootstraps a fresh host).
       "--exclude=/Data/smb/Internal/Services/frigate/media"
     ];
+  };
+
+  # Capture databases transaction-consistently before Restic walks /Data/smb.
+  # Restic requires this oneshot, so a failed dump makes the backup fail loudly
+  # rather than recording a snapshot that looks successful but lacks databases.
+  systemd.services.database-backup = {
+    description = "Create logical PostgreSQL dumps for the Restic backup";
+    after = [
+      "postgresql.service"
+      "docker-immich-postgres.service"
+    ];
+    requires = [
+      "postgresql.service"
+      "docker-immich-postgres.service"
+    ];
+    unitConfig.AssertPathIsMountPoint = "/Data/smb";
+    serviceConfig.Type = "oneshot";
+    script = ''
+      set -euo pipefail
+
+      ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root ${databaseBackupDir}
+
+      hass_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.hass.XXXXXX)
+      immich_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.immich.XXXXXX)
+      cleanup() {
+        ${pkgs.coreutils}/bin/rm -f "$hass_tmp" "$immich_tmp"
+      }
+      trap cleanup EXIT
+
+      ${pkgs.util-linux}/bin/runuser -u postgres -- \
+        ${pgDump} --format=custom --clean --if-exists hass > "$hass_tmp"
+      ${docker} exec immich-postgres \
+        pg_dump --username=postgres --format=custom --clean --if-exists immich \
+        > "$immich_tmp"
+
+      ${pkgs.coreutils}/bin/chmod 0600 "$hass_tmp" "$immich_tmp"
+      ${pkgs.coreutils}/bin/mv "$hass_tmp" ${databaseBackupDir}/hass.dump
+      ${pkgs.coreutils}/bin/mv "$immich_tmp" ${databaseBackupDir}/immich.dump
+      trap - EXIT
+    '';
+  };
+
+  systemd.services.restic-backups-backblaze = {
+    after = [ "database-backup.service" ];
+    requires = [ "database-backup.service" ];
   };
 }

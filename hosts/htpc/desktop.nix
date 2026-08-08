@@ -6,7 +6,10 @@
 # this host is built from nixpkgs-unstable in flake.nix. The base Plasma 6 desktop
 # is still enabled underneath, so you can drop to a normal "Plasma (Wayland)"
 # session from SDDM if Bigscreen ever misbehaves.
-{ config, lib, pkgs, ... }:
+{
+  pkgs,
+  ...
+}:
 
 let
   # ── Idle timeouts ───────────────────────────────────────────────────────────
@@ -25,7 +28,11 @@ let
 
   media-idle-inhibit = pkgs.writeShellApplication {
     name = "media-idle-inhibit";
-    runtimeInputs = [ pkgs.pulseaudio pkgs.kdePackages.kde-cli-tools pkgs.coreutils ];
+    runtimeInputs = [
+      pkgs.pulseaudio
+      pkgs.kdePackages.kde-cli-tools
+      pkgs.coreutils
+    ];
     text = ''
       # An *uncorked* sink input is the honest signal for "something is playing
       # right now": a paused mpv or a finished stream corks itself, and an idle

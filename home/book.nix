@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ ... }:
 
 {
   imports = [ ./common.nix ];
@@ -44,11 +44,14 @@
 
   programs.ghostty = {
     enable = true;
-    package = null;  # installed via Homebrew cask on macOS
+    package = null; # installed via Homebrew cask on macOS
     settings = {
       theme = "dark:One Half Dark,light:One Half Light";
       font-family = "Fira Code Retina";
       shell-integration-features = "ssh-env";
     };
   };
+
+  # Set at first activation; do not change during upgrades.
+  home.stateVersion = "25.11";
 }

@@ -1,4 +1,5 @@
-{ pkgs, config, ... }: let
+{ pkgs, config, ... }:
+let
   stateDir = "/Data/smb/Internal/Services/eufy-security-ws";
 
   # Label this bridge shows up as in the eufy app's "trusted devices" list
@@ -12,7 +13,8 @@
   # integration found no devices", so it lives in plain sight rather than
   # inside the encrypted env file.
   country = "US";
-in {
+in
+{
   # ── eufy-security-ws ──────────────────────────────────────────────────────────
   # Bridges eufy Security devices (cameras, doorbells, locks, entry sensors)
   # into Home Assistant. Same shape as ring-mqtt.nix on this host: eufy exposes
@@ -61,6 +63,7 @@ in {
     # Pinned exactly, like every other container on this host — under
     # oci-containers a floating tag never changes the systemd unit, so it would
     # neither auto-update nor stay reproducible.
+    # renovate: datasource=docker depName=docker.io/bropat/eufy-security-ws
     image = "bropat/eufy-security-ws:3.1.0";
     autoStart = true;
 
@@ -75,9 +78,9 @@ in {
     environmentFiles = [ config.age.secrets.eufy-credentials.path ];
 
     environment = {
-      TZ                  = "America/New_York";
-      COUNTRY             = country;
-      PORT                = "3000";
+      TZ = "America/New_York";
+      COUNTRY = country;
+      PORT = "3000";
       TRUSTED_DEVICE_NAME = trustedDeviceName;
       # How long a motion/person/ding event stays "on" in HA before it resets.
       # The upstream default is 10s; these are push events with no explicit

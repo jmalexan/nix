@@ -15,17 +15,22 @@
 #
 # ...or force an early update check on the timer's behalf with `update-now`
 # (defined below), which pulls latest from GitHub and switches immediately.
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  vars,
+  ...
+}:
 
 {
   system.autoUpgrade = {
     enable = true;
 
-    flake = "github:jmalexan/nix#${config.networking.hostName}";
+    flake = "${vars.repository}#${config.networking.hostName}";
 
     # NOTE: the module already appends `--refresh` for flake upgrades, so the
     # 15-minute timer bypasses nix's 1h tarball cache and sees new commits.
-    dates = "*:0/15";        # every 15 minutes
+    dates = "*:0/15"; # every 15 minutes
     randomizedDelaySec = "45";
     operation = "switch";
     allowReboot = false;
@@ -37,7 +42,7 @@
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "update-now" ''
       echo "→ Pulling latest config from GitHub and switching…"
-      exec sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix "$@"
+      exec sudo nixos-rebuild switch --refresh --flake ${vars.repository} "$@"
     '')
   ];
 }

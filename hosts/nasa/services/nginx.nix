@@ -1,10 +1,21 @@
-{ config, ... }: let
+{ config, vars, ... }:
+let
+  internalHost = name: "${name}.${vars.nasa.domain}";
   ssl = {
-    forceSSL          = true;
-    sslCertificate    = "/var/lib/nginx/certs/server.crt";
+    forceSSL = true;
+    sslCertificate = "/var/lib/nginx/certs/server.crt";
     sslCertificateKey = "/var/lib/nginx/certs/server.key";
   };
-in {
+
+  # Streaming LLM responses need buffering off and long timeouts so tokens
+  # reach the client live instead of being held by nginx.
+  streamingProxy = ''
+    proxy_buffering      off;
+    proxy_read_timeout   600s;
+    proxy_send_timeout   600s;
+  '';
+in
+{
   # Public certificate issuance uses DNS-01, so neither certificate creation
   # nor renewal depends on forwarding WAN port 80. The existing Cloudflare
   # token is already restricted to root and used for DNS updates.
@@ -14,29 +25,30 @@ in {
     certs."photos.jmalexan.com" = {
       dnsProvider = "cloudflare";
       group = "nginx";
-      credentialFiles.CLOUDFLARE_DNS_API_TOKEN_FILE =
-        config.age.secrets.cloudflare-token.path;
+      credentialFiles.CLOUDFLARE_DNS_API_TOKEN_FILE = config.age.secrets.cloudflare-token.path;
     };
   };
 
   services.nginx = {
     enable = true;
 
-    recommendedGzipSettings  = true;
-    recommendedOptimisation  = true;
+    recommendedGzipSettings = true;
+    recommendedOptimisation = true;
     recommendedProxySettings = true;
-    recommendedTlsSettings   = true;
+    recommendedTlsSettings = true;
 
     virtualHosts = {
       # The router maps public TCP 443 to this dedicated listener. Keeping it
       # off nginx's normal 443 listener prevents any private vhost from being
       # selected by a public request, regardless of its Host/SNI value.
       "photos.jmalexan.com" = {
-        listen = [{
-          addr = "0.0.0.0";
-          port = 8443;
-          ssl = true;
-        }];
+        listen = [
+          {
+            addr = "0.0.0.0";
+            port = 8443;
+            ssl = true;
+          }
+        ];
         # This also tells the NixOS nginx module to render the certificate
         # directives; the explicit listen above still controls the sole port.
         onlySSL = true;
@@ -54,7 +66,7 @@ in {
         };
       };
 
-      "immich.nasa.jmalexan.com" = ssl // {
+      "${internalHost "immich"}" = ssl // {
         serverAliases = [ "immich" ];
         extraConfig = ''
           client_max_body_size 50000M;
@@ -63,32 +75,32 @@ in {
           send_timeout         600s;
         '';
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:2283";
+          proxyPass = "http://127.0.0.1:2283";
           proxyWebsockets = true;
         };
       };
 
-      "jellyfin.nasa.jmalexan.com" = ssl // {
+      "${internalHost "jellyfin"}" = ssl // {
         serverAliases = [ "jellyfin" ];
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:8096";
+          proxyPass = "http://127.0.0.1:8096";
           proxyWebsockets = true;
         };
       };
 
-      "homeassistant.nasa.jmalexan.com" = ssl // {
+      "${internalHost "homeassistant"}" = ssl // {
         serverAliases = [ "homeassistant" ];
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:8123";
+          proxyPass = "http://127.0.0.1:8123";
           proxyWebsockets = true;
         };
       };
 
       # Seerr runs on the host (not the Mullvad netns) and listens on 5055.
-      "seerr.nasa.jmalexan.com" = ssl // {
+      "${internalHost "seerr"}" = ssl // {
         serverAliases = [ "seerr" ];
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:5055";
+          proxyPass = "http://127.0.0.1:5055";
           proxyWebsockets = true;
         };
       };
@@ -101,39 +113,39 @@ in {
       # egress IP with FlareSolverr (see prowlarr.nix for why).  It is still
       # addressed over the veth, but at the *host* end of the pair — it binds
       # 10.200.200.1 rather than a wildcard to stay off the trusted br0.
-      "prowlarr.nasa.jmalexan.com" = ssl // {
+      "${internalHost "prowlarr"}" = ssl // {
         serverAliases = [ "prowlarr" ];
         locations."/" = {
-          proxyPass       = "http://10.200.200.1:9696";
+          proxyPass = "http://${vars.nasa.hostVethIP}:9696";
           proxyWebsockets = true;
         };
       };
 
-      "sonarr.nasa.jmalexan.com" = ssl // {
+      "${internalHost "sonarr"}" = ssl // {
         serverAliases = [ "sonarr" ];
         locations."/" = {
-          proxyPass       = "http://10.200.200.2:8989";
+          proxyPass = "http://${vars.nasa.namespaceVethIP}:8989";
           proxyWebsockets = true;
         };
       };
 
-      "radarr.nasa.jmalexan.com" = ssl // {
+      "${internalHost "radarr"}" = ssl // {
         serverAliases = [ "radarr" ];
         locations."/" = {
-          proxyPass       = "http://10.200.200.2:7878";
+          proxyPass = "http://${vars.nasa.namespaceVethIP}:7878";
           proxyWebsockets = true;
         };
       };
 
-      "bazarr.nasa.jmalexan.com" = ssl // {
+      "${internalHost "bazarr"}" = ssl // {
         serverAliases = [ "bazarr" ];
         locations."/" = {
-          proxyPass       = "http://10.200.200.2:6767";
+          proxyPass = "http://${vars.nasa.namespaceVethIP}:6767";
           proxyWebsockets = true;
         };
       };
 
-      "calibre.nasa.jmalexan.com" = ssl // {
+      "${internalHost "calibre"}" = ssl // {
         serverAliases = [ "calibre" ];
         # Kobo sync sends large JSON payloads in response headers; the
         # defaults cause "upstream sent too big header" errors.  Values
@@ -144,7 +156,7 @@ in {
           proxy_busy_buffers_size 1024k;
         '';
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:8083";
+          proxyPass = "http://127.0.0.1:8083";
           proxyWebsockets = true;
           # X-Forwarded-Host is already set by recommendedProxySettings;
           # adding it here too causes WSGI to see "calibre, calibre" which
@@ -157,7 +169,7 @@ in {
         };
       };
 
-      "calibre-desktop.nasa.jmalexan.com" = ssl // {
+      "${internalHost "calibre-desktop"}" = ssl // {
         serverAliases = [ "calibre-desktop" ];
         # Selkies streams large frames and uses websockets for the display
         # channel, clipboard, and file transfer.
@@ -170,33 +182,37 @@ in {
           proxy_send_timeout    3600s;
         '';
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:8085";
+          proxyPass = "http://127.0.0.1:8085";
           proxyWebsockets = true;
         };
       };
 
-      "lidarr.nasa.jmalexan.com" = ssl // {
+      "${internalHost "lidarr"}" = ssl // {
         serverAliases = [ "lidarr" ];
         locations."/" = {
-          proxyPass       = "http://10.200.200.2:8686";
+          proxyPass = "http://${vars.nasa.namespaceVethIP}:8686";
           proxyWebsockets = true;
         };
       };
 
-      "musicassistant.nasa.jmalexan.com" = ssl // {
+      "${internalHost "musicassistant"}" = ssl // {
         serverAliases = [ "musicassistant" ];
         locations."/" = {
-          proxyPass       = "http://127.0.0.1:8095";
+          proxyPass = "http://127.0.0.1:8095";
           proxyWebsockets = true;
         };
       };
 
-      "qbittorrent.nasa.jmalexan.com" = ssl // {
-        serverAliases = [ "torrent.nasa.jmalexan.com" "qbittorrent" "torrent" ];
+      "${internalHost "qbittorrent"}" = ssl // {
+        serverAliases = [
+          (internalHost "torrent")
+          "qbittorrent"
+          "torrent"
+        ];
         locations."/" = {
           # qbittorrent runs in the Mullvad network namespace; reach it via
           # the veth pair that bridges the namespace to the host.
-          proxyPass = "http://10.200.200.2:8080";
+          proxyPass = "http://${vars.nasa.namespaceVethIP}:8080";
           # qBittorrent's CSRF check requires Host to match the upstream, not
           # the client-facing hostname.
           extraConfig = ''
@@ -208,8 +224,61 @@ in {
           '';
         };
       };
+
+      "${internalHost "frigate"}" = ssl // {
+        serverAliases = [ "frigate" ];
+        extraConfig = ''
+          client_max_body_size 25M;
+          proxy_buffering      off;
+          proxy_read_timeout   600s;
+          proxy_send_timeout   600s;
+        '';
+        locations."/" = {
+          # 8971 is authenticated; Frigate's port 5000 is not.
+          proxyPass = "http://127.0.0.1:8971";
+          proxyWebsockets = true;
+        };
+      };
+
+      "${internalHost "chat"}" = ssl // {
+        serverAliases = [ "chat" ];
+        extraConfig = streamingProxy;
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:8093";
+          proxyWebsockets = true;
+        };
+      };
+
+      "${internalHost "ollama"}" = ssl // {
+        serverAliases = [ "ollama" ];
+        # Ollama's API is unauthenticated; admit only tailnet, LAN, and local
+        # clients. Streaming responses must not be buffered.
+        extraConfig = streamingProxy + ''
+          client_max_body_size 50M;
+          allow 100.64.0.0/10;
+          allow 10.0.0.0/8;
+          allow 127.0.0.1;
+          deny  all;
+        '';
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:11434";
+          # Ollama rejects the public Host header. The recommended proxy include
+          # would overwrite this value, so spell out its forwarding headers.
+          recommendedProxySettings = false;
+          extraConfig = ''
+            proxy_set_header Host localhost:11434;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+          '';
+        };
+      };
     };
   };
 
-  networking.firewall.allowedTCPPorts = [ 80 443 8443 ];
+  networking.firewall.allowedTCPPorts = [
+    80
+    443
+    8443
+  ];
 }

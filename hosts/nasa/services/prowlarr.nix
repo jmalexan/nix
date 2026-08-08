@@ -1,4 +1,4 @@
-{ ... }: {
+{ vars, ... }: {
   # Prowlarr is an indexer manager — it routes searches between the *arr apps
   # and your torrent indexers.  It doesn't touch media files, so it needs no
   # access to /Data/smb and runs fine with systemd's DynamicUser isolation.
@@ -35,20 +35,28 @@
   # conjure a stub, the bind waits on (and requires) the ZFS mount, and
   # prowlarr.service requires the bind.  Any failure now leaves Prowlarr down
   # and loud in the journal rather than quietly serving a blank config.
-  systemd.mounts = [{
-    what  = "/Data/smb/Internal/Services/prowlarr";
-    where = "/var/lib/private/prowlarr";
-    type  = "none";
-    options = "bind";
+  systemd.mounts = [
+    {
+      what = "/Data/smb/Internal/Services/prowlarr";
+      where = "/var/lib/private/prowlarr";
+      type = "none";
+      options = "bind";
 
-    after    = [ "zfs-mount.service" ];
-    requires = [ "zfs-mount.service" ];
-    wantedBy = [ "local-fs.target" ];
+      after = [
+        "zfs-mount.service"
+        "nasa-service-directories.service"
+      ];
+      requires = [
+        "zfs-mount.service"
+        "nasa-service-directories.service"
+      ];
+      wantedBy = [ "local-fs.target" ];
 
-    # Belt and braces: `zfs mount -a` exits 0 when the pool was never imported,
-    # so success of zfs-mount.service alone does not prove /Data/smb is there.
-    unitConfig.AssertPathIsMountPoint = "/Data/smb";
-  }];
+      # Belt and braces: `zfs mount -a` exits 0 when the pool was never imported,
+      # so success of zfs-mount.service alone does not prove /Data/smb is there.
+      unitConfig.AssertPathIsMountPoint = "/Data/smb";
+    }
+  ];
 
   # ── Deliberately NOT in the Mullvad namespace ─────────────────────────────
   #
@@ -73,9 +81,15 @@
     # bind address below is the host end of that unit's veth pair, so it does
     # not exist until the unit has run.  partOf as well, because a netns
     # restart recreates veth-host and would strand the listening socket.
-    after    = [ "mullvad-netns.service" "var-lib-private-prowlarr.mount" ];
-    requires = [ "mullvad-netns.service" "var-lib-private-prowlarr.mount" ];
-    partOf   = [ "mullvad-netns.service" ];
+    after = [
+      "mullvad-netns.service"
+      "var-lib-private-prowlarr.mount"
+    ];
+    requires = [
+      "mullvad-netns.service"
+      "var-lib-private-prowlarr.mount"
+    ];
+    partOf = [ "mullvad-netns.service" ];
     # Refuse to start on a data dir that is not the one on the pool.
     unitConfig.AssertPathIsMountPoint = "/var/lib/private/prowlarr";
   };
@@ -86,7 +100,7 @@
   # firewall would not stop it.  10.200.200.1 is reachable from this host (for
   # nginx) and from inside the namespace (for the *arr apps), which is exactly
   # the set of clients that need it.  (Address is hostVethIP in mullvad.nix.)
-  services.prowlarr.settings.server.bindaddress = "10.200.200.1";
+  services.prowlarr.settings.server.bindaddress = vars.nasa.hostVethIP;
 
   # sonarr/radarr/lidarr/bazarr are still namespaced and no longer share a
   # localhost with Prowlarr.  They normally reach it through nginx via

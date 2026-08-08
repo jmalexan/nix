@@ -22,7 +22,7 @@
     listeners = [
       {
         address = "127.0.0.1";
-        port    = 1883;
+        port = 1883;
 
         # No password file: on a local-only listener, credentials would just be
         # a plaintext secret sitting in two config files for no security gain.
@@ -37,7 +37,7 @@
         # docker0's fixed gateway address. Reachable only from containers on the
         # default bridge, plus the host itself.
         address = "172.17.0.1";
-        port    = 1883;
+        port = 1883;
         omitPasswordAuth = true;
         settings.allow_anonymous = true;
         acl = [ "topic readwrite #" ];
@@ -56,7 +56,7 @@
     after = [ "docker.service" ];
     wants = [ "docker.service" ];
     serviceConfig = {
-      Restart    = "on-failure";
+      Restart = "on-failure";
       RestartSec = "5s";
     };
   };

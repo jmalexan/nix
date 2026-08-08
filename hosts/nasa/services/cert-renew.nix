@@ -1,7 +1,13 @@
-{ config, lib, pkgs, ... }: let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
   certDir = "/var/lib/nginx/certs";
-  caCert  = ../../../certs/ca.crt;
-  caKey   = config.age.secrets.step-ca-key.path;
+  caCert = ../../../certs/ca.crt;
+  caKey = config.age.secrets.step-ca-key.path;
 
   subject = "/CN=nasa.jmalexan.com/O=Personal/C=US/ST=Pennsylvania/L=Pittsburgh/emailAddress=me@jmalexan.com";
 
@@ -12,24 +18,34 @@
   # so changes propagate without manually deleting server.crt.
   # Public vhosts with their own ACME certificate must not be folded into the
   # private-CA certificate used by the LAN-only vhosts.
-  privateVhosts = lib.filterAttrs
-    (_: v: (v.useACMEHost or null) == null && !(v.enableACME or false))
-    config.services.nginx.virtualHosts;
+  privateVhosts = lib.filterAttrs (
+    _: v: (v.useACMEHost or null) == null && !(v.enableACME or false)
+  ) config.services.nginx.virtualHosts;
 
-  vhostNames = lib.flatten (lib.mapAttrsToList
-    (name: v: [ name ] ++ (v.serverAliases or []))
-    privateVhosts);
+  vhostNames = lib.flatten (
+    lib.mapAttrsToList (name: v: [ name ] ++ (v.serverAliases or [ ])) privateVhosts
+  );
 
   # Names that aren't tied to a local vhost (other hosts, future services,
   # the wildcard, the apex).
   extraNames = [
-    "nasa.jmalexan.com" "*.nasa.jmalexan.com"
-    "plex" "ddns" "truenas" "romm" "cobalt" "lyrion"
-    "tmm" "komga" "calibre-web" "open-webui" "freshrss"
+    "nasa.jmalexan.com"
+    "*.nasa.jmalexan.com"
+    "plex"
+    "ddns"
+    "truenas"
+    "romm"
+    "cobalt"
+    "lyrion"
+    "tmm"
+    "komga"
+    "calibre-web"
+    "open-webui"
+    "freshrss"
   ];
 
   sanNames = lib.unique (extraNames ++ vhostNames);
-  sanList  = lib.concatMapStringsSep "," (n: "DNS:${n}") sanNames;
+  sanList = lib.concatMapStringsSep "," (n: "DNS:${n}") sanNames;
 
   sanExt = pkgs.writeText "cert-san.ext" ''
     authorityKeyIdentifier = keyid, issuer
@@ -38,7 +54,8 @@
     subjectAltName = ${sanList}
   '';
 
-in {
+in
+{
   # CA trust is host-wide via modules/trust-private-ca.nix (shared by all
   # NixOS hosts). This module only issues/signs certs from that same CA.
 
@@ -54,8 +71,8 @@ in {
   systemd.services.cert-renew = {
     description = "Issue/renew nginx TLS certificate from local CA";
     # Run before nginx so certs exist on first boot.
-    after    = [ "agenix.service" ];  # CA key must be decrypted first
-    before   = [ "nginx.service" ];
+    after = [ "agenix.service" ]; # CA key must be decrypted first
+    before = [ "nginx.service" ];
     wantedBy = [ "nginx.service" ];
     serviceConfig = {
       Type = "oneshot";
@@ -127,9 +144,9 @@ in {
     wantedBy = [ "timers.target" ];
     timerConfig = {
       # Fire 5 min after boot if overdue, then every 300 days (65-day buffer before expiry).
-      OnBootSec        = "5min";
-      OnUnitActiveSec  = "300d";
-      Persistent       = true;
+      OnBootSec = "5min";
+      OnUnitActiveSec = "300d";
+      Persistent = true;
     };
   };
 }

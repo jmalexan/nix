@@ -1,17 +1,18 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, vars, ... }:
 
 {
   imports = [ ../modules/starship.nix ];
 
-  home.username = "jmalexan";
-  home.homeDirectory = if pkgs.stdenv.isDarwin then "/Users/jmalexan" else "/home/jmalexan";
+  home.username = vars.user.name;
+  home.homeDirectory =
+    if pkgs.stdenv.isDarwin then "/Users/${vars.user.name}" else "/home/${vars.user.name}";
 
   # ── Git ───────────────────────────────────────────────────────────────────
 
   programs.git = {
     enable = true;
-    settings.user.name = "Jonathan Alexander";
-    settings.user.email = "me@jmalexan.com";
+    settings.user.name = vars.user.fullName;
+    settings.user.email = vars.user.email;
     settings.pull.rebase = false;
   };
 
@@ -38,8 +39,4 @@
     enableDefaultConfig = false;
   };
 
-  # ── State Version ─────────────────────────────────────────────────────────
-
-  # Set at first activation — do NOT change.
-  home.stateVersion = "25.11";
 }

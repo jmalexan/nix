@@ -1,10 +1,5 @@
-{ pkgs, ... }: let
-  ssl = {
-    forceSSL          = true;
-    sslCertificate    = "/var/lib/nginx/certs/server.crt";
-    sslCertificateKey = "/var/lib/nginx/certs/server.key";
-  };
-
+{ pkgs, ... }:
+let
   stateDir = "/Data/smb/Internal/Services/frigate";
 
   # Seed config, copied into place on first boot only (see the tmpfiles `C`
@@ -314,7 +309,8 @@
           retain:
             default: 14
   '';
-in {
+in
+{
   # ── Frigate NVR ───────────────────────────────────────────────────────────────
   # Object-detection NVR for the RTSP cameras, running from the upstream
   # container image (nixpkgs' services.frigate builds without the TensorRT/ONNX
@@ -327,6 +323,7 @@ in {
   # at http://127.0.0.1:5000, plus the MQTT broker in mqtt.nix — the integration
   # requires both. HA is host-networked too, so loopback reaches this directly.
   virtualisation.oci-containers.containers.frigate = {
+    # renovate: datasource=docker depName=ghcr.io/blakeblackshear/frigate
     image = "ghcr.io/blakeblackshear/frigate:0.17.2-tensorrt";
     autoStart = true;
 
@@ -346,9 +343,9 @@ in {
     # 127.0.0.1 is how calibre-desktop, open-webui and ollama stay private on
     # this host, and it is the only thing that actually works here.
     ports = [
-      "127.0.0.1:5000:5000"  # unauthenticated internal API — for the HA integration
-      "127.0.0.1:8971:8971"  # authenticated UI/API — nginx proxies to this one
-      "127.0.0.1:8554:8554"  # go2rtc RTSP restream — consumed by HA on this host
+      "127.0.0.1:5000:5000" # unauthenticated internal API — for the HA integration
+      "127.0.0.1:8971:8971" # authenticated UI/API — nginx proxies to this one
+      "127.0.0.1:8554:8554" # go2rtc RTSP restream — consumed by HA on this host
       # go2rtc's own web UI. Unauthenticated, hence loopback like :5000, but
       # worth having published: for the cloud-brokered doorbells it is the only
       # place that shows *why* a stream failed (expired Nest token, Ring session
@@ -391,27 +388,6 @@ in {
     "d ${stateDir}/media              0750 root root -"
     "C ${stateDir}/config/config.yml  0640 root root - ${seedConfig}"
   ];
-
-  services.nginx.virtualHosts."frigate.nasa.jmalexan.com" = ssl // {
-    serverAliases = [ "frigate" ];
-    extraConfig = ''
-      # Frigate accepts image uploads up to 20 MB. Leave room for multipart
-      # request overhead so nginx does not reject an otherwise valid image.
-      client_max_body_size 25M;
-
-      # Live view and the event clip player hold long-lived connections, and
-      # buffering a video stream through nginx just adds latency.
-      proxy_buffering    off;
-      proxy_read_timeout 600s;
-      proxy_send_timeout 600s;
-    '';
-    locations."/" = {
-      # 8971 is the authenticated port; Frigate's own login guards it. Never
-      # proxy 5000 here — that one has no auth at all.
-      proxyPass       = "http://127.0.0.1:8971";
-      proxyWebsockets = true;
-    };
-  };
 
   # ── ⚠️  Applying camera changes to an ALREADY-DEPLOYED host ───────────────────
   #

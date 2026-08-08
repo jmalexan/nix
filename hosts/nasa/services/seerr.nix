@@ -25,6 +25,6 @@
   services.seerr = {
     enable = true;
     package = pkgs-unstable.seerr;
-    openFirewall = false;  # fronted by nginx (see nginx.nix), listens on 5055
+    openFirewall = false; # fronted by nginx (see nginx.nix), listens on 5055
   };
 }

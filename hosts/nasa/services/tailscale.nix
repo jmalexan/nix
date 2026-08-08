@@ -1,7 +1,7 @@
 { ... }: {
   services.tailscale = {
     enable = true;
-    useRoutingFeatures = "server";  # enables exit node + subnet routing advertisement
+    useRoutingFeatures = "server"; # enables exit node + subnet routing advertisement
   };
 
   # Allow all Tailscale traffic through the firewall

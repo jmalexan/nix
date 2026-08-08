@@ -22,36 +22,124 @@
     claude-code-nix.url = "github:sadjow/claude-code-nix";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, agenix, disko, nix-darwin, home-manager, home-manager-stable, plasma-manager, claude-code-nix, ... }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      nixpkgs-unstable,
+      agenix,
+      disko,
+      nix-darwin,
+      home-manager,
+      home-manager-stable,
+      plasma-manager,
+      claude-code-nix,
+      ...
+    }:
     let
-      mkUnstable = system: import nixpkgs-unstable {
-        inherit system;
-        config.allowUnfree = true;
-      };
+      mkUnstable =
+        system:
+        import nixpkgs-unstable {
+          inherit system;
+          config.allowUnfree = true;
+        };
 
       linuxSystem = "x86_64-linux";
       darwinSystem = "aarch64-darwin";
+      systems = [
+        linuxSystem
+        darwinSystem
+      ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
+      stablePkgs = system: nixpkgs.legacyPackages.${system};
+      vars = import ./lib/vars.nix;
 
       nixosSpecialArgs = {
         pkgs-unstable = mkUnstable linuxSystem;
         claude-code-pkg = claude-code-nix.packages.${linuxSystem}.default;
-        inherit agenix home-manager-stable;
+        inherit agenix home-manager-stable vars;
       };
       darwinSpecialArgs = {
         pkgs-unstable = mkUnstable darwinSystem;
         claude-code-pkg = claude-code-nix.packages.${darwinSystem}.default;
-        inherit agenix;
+        inherit agenix vars;
       };
 
-      commonModules = [ ./modules/common.nix ./modules/auto-upgrade.nix ./modules/trust-private-ca.nix agenix.nixosModules.default ];
+      commonModules = [
+        ./modules/common.nix
+        agenix.nixosModules.default
+      ];
+
+      packageDiff = (stablePkgs linuxSystem).writeShellApplication {
+        name = "package-diff";
+        runtimeInputs = [ (stablePkgs linuxSystem).nix ];
+        text = ''
+          host="''${1:?usage: package-diff <nasa|htpc>}"
+          case "$host" in
+            nasa | htpc) ;;
+            *) echo "unknown NixOS host: $host" >&2; exit 2 ;;
+          esac
+
+          echo "Building the current main and working-tree closures for $host..." >&2
+          old=$(nix build --no-link --print-out-paths \
+            "${vars.repository}#nixosConfigurations.$host.config.system.build.toplevel")
+          new=$(nix build --no-link --print-out-paths \
+            ".#nixosConfigurations.$host.config.system.build.toplevel")
+          nix store diff-closures "$old" "$new"
+        '';
+      };
     in
     {
       # Run `nix develop` to get a shell with secrets management tools.
-      devShells.${linuxSystem}.default = nixpkgs.legacyPackages.${linuxSystem}.mkShell {
-        packages = [ agenix.packages.${linuxSystem}.default ];
-      };
-      devShells.${darwinSystem}.default = nixpkgs.legacyPackages.${darwinSystem}.mkShell {
-        packages = [ agenix.packages.${darwinSystem}.default ];
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = stablePkgs system;
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [
+              agenix.packages.${system}.default
+              pkgs.deadnix
+              pkgs.nixfmt
+              pkgs.statix
+            ];
+          };
+        }
+      );
+
+      formatter = forAllSystems (system: (stablePkgs system).nixfmt);
+
+      checks = forAllSystems (
+        system:
+        let
+          pkgs = stablePkgs system;
+        in
+        {
+          lint =
+            pkgs.runCommand "nix-config-lint"
+              {
+                nativeBuildInputs = [
+                  pkgs.deadnix
+                  pkgs.findutils
+                  pkgs.nixfmt
+                ];
+              }
+              ''
+                cp -R ${self} source
+                chmod -R u+w source
+                cd source
+                deadnix --fail .
+                find . -name '*.nix' -print0 | xargs -0 nixfmt --check
+                touch "$out"
+              '';
+        }
+      );
+
+      apps.${linuxSystem}.package-diff = {
+        type = "app";
+        program = "${packageDiff}/bin/package-diff";
+        meta.description = "Compare installed package versions with the deployed main branch";
       };
 
       # Bare-metal NixOS host (replaces TrueNAS).
@@ -61,12 +149,15 @@
         specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
           ./hosts/nasa/default.nix
+          ./modules/auto-upgrade.nix
+          ./modules/trust-private-ca.nix
           disko.nixosModules.disko
           ./hosts/nasa/disko.nix
           home-manager-stable.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
+            home-manager.extraSpecialArgs = { inherit vars; };
             home-manager.users.jmalexan = import ./home/linux.nix;
           }
         ];
@@ -74,19 +165,22 @@
 
       # Home-theater PC (Minisforum UM760, AMD Radeon 780M).
       # Tracks nixos-unstable so we get Plasma 6.7 (Bigscreen) plus the newest
-      # kernel/Mesa/amdgpu HDR work; nasa/book stay on stable nixpkgs.
+      # kernel/Mesa/amdgpu HDR work; nasa stays on stable nixpkgs.
       # Deploy with: nixos-rebuild switch --flake .#htpc
       nixosConfigurations.htpc = nixpkgs-unstable.lib.nixosSystem {
         system = linuxSystem;
         specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
           ./hosts/htpc/default.nix
+          ./modules/auto-upgrade.nix
+          ./modules/trust-private-ca.nix
           disko.nixosModules.disko
           ./hosts/htpc/disko.nix
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
+            home-manager.extraSpecialArgs = { inherit vars; };
             home-manager.users.jmalexan = import ./home/htpc.nix;
             home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
             # Rename anything a newly-managed file would overwrite instead of
@@ -101,7 +195,9 @@
         ];
       };
 
-      # macOS (Apple Silicon) MacBook.
+      # macOS (Apple Silicon) MacBook. nix-darwin and Home Manager both follow
+      # nixpkgs-unstable; this keeps the desktop/tooling host current while nasa
+      # remains on the stable release branch.
       # Attr matches the hostname ("Book") so `darwin-rebuild switch --flake .`
       # resolves it automatically; the explicit form still works:
       # Deploy with: darwin-rebuild switch --flake .#Book
@@ -113,6 +209,7 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
+            home-manager.extraSpecialArgs = { inherit vars; };
             home-manager.users.jmalexan = import ./home/book.nix;
           }
         ];

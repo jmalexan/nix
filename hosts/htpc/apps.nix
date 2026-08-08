@@ -1,10 +1,13 @@
 # Couch media & streaming apps for the HTPC.
-{ config, lib, pkgs, ... }:
+{
+  pkgs,
+  ...
+}:
 
 {
   environment.systemPackages = with pkgs; [
-    vacuum-tube           # YouTube "TV"/leanback interface (attr is hyphenated)
-    moonlight-qt          # game-streaming client (Vulkan renderer, needed for HDR)
+    vacuum-tube # YouTube "TV"/leanback interface (attr is hyphenated)
+    moonlight-qt # game-streaming client (Vulkan renderer, needed for HDR)
     mpv
     firefox
   ];
@@ -26,8 +29,8 @@
   # closest thing it has to a browse UI, so the remote gets it.
   systemd.user.services.jellyfin-mpv-shim = {
     description = "Jellyfin MPV Shim cast target";
-    after    = [ "graphical-session.target" ];
-    partOf   = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
     wantedBy = [ "graphical-session.target" ];
     serviceConfig = {
       # The autologin session (desktop.nix) is up seconds into boot, while
@@ -40,8 +43,8 @@
       # usable. The 60s cap stays under the 90s default TimeoutStartSec; if it
       # ever expires, Restart=always just tries again 5s later.
       ExecStartPre = "${pkgs.networkmanager}/bin/nm-online -q -t 60";
-      ExecStart  = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
-      Restart    = "always";
+      ExecStart = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
+      Restart = "always";
       RestartSec = 5;
     };
   };

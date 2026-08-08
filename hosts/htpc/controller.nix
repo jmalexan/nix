@@ -1,6 +1,6 @@
 # Xbox controller support. The chosen connection is Bluetooth, handled by
 # xpadneo for proper rumble, battery reporting and button mapping.
-{ config, lib, pkgs, ... }:
+{ ... }:
 
 {
   # ── Bluetooth ───────────────────────────────────────────────────────────────

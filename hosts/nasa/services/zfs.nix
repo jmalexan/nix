@@ -14,10 +14,10 @@
 
   services.zfs.autoSnapshot = {
     enable = true;
-    frequent = 4;   # every 15 min, keep 4
-    hourly   = 24;
-    daily    = 14;
-    weekly   = 8;
-    monthly  = 12;
+    frequent = 4; # every 15 min, keep 4
+    hourly = 24;
+    daily = 14;
+    weekly = 8;
+    monthly = 12;
   };
 }

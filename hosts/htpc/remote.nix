@@ -28,7 +28,11 @@
 #
 # The two apps do not share state: changes made in one are invisible to the
 # other. That's expected, not a bug.
-{ config, lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   # ── The mapping ─────────────────────────────────────────────────────────────
@@ -76,10 +80,26 @@ let
   # The moral for anything added here: a plain keyboard usage that Plasma has
   # no opinion about is the reliable choice, and a media usage is not.
   buttons = [
-    { desc = "D-pad UP";       args = "record up";           note = "menu up / mpv +60s"; }
-    { desc = "D-pad DOWN";     args = "record down";         note = "menu down / mpv -60s"; }
-    { desc = "D-pad LEFT";     args = "record left";         note = "menu left / mpv -10s"; }
-    { desc = "D-pad RIGHT";    args = "record right";        note = "menu right / mpv +10s"; }
+    {
+      desc = "D-pad UP";
+      args = "record up";
+      note = "menu up / mpv +60s";
+    }
+    {
+      desc = "D-pad DOWN";
+      args = "record down";
+      note = "menu down / mpv -60s";
+    }
+    {
+      desc = "D-pad LEFT";
+      args = "record left";
+      note = "menu left / mpv -10s";
+    }
+    {
+      desc = "D-pad RIGHT";
+      args = "record right";
+      note = "menu right / mpv +10s";
+    }
     # Must be HID 40 = Keyboard Return, NOT flirc's `record enter`, which sends
     # keypad Enter (HID 88). Qt treats those as two different keys —
     # Qt::Key_Return vs Qt::Key_Enter — and every activation handler in
@@ -88,9 +108,21 @@ let
     # app tiles derive from). Nothing in the whole shell handles onEnterPressed,
     # so keypad Enter silently does nothing on the homescreen while still working
     # in Chromium-based apps like VacuumTube, which treat both as "Enter".
-    { desc = "OK / SELECT";    args = "record_api 0 40";     note = "Return - activate / mpv pause"; }
-    { desc = "BACK";           args = "record escape";       note = "Bigscreen back, mpv stop"; }
-    { desc = "HOME";           args = "record_api 8 18";     note = "Meta+O - Bigscreen home overlay"; }
+    {
+      desc = "OK / SELECT";
+      args = "record_api 0 40";
+      note = "Return - activate / mpv pause";
+    }
+    {
+      desc = "BACK";
+      args = "record escape";
+      note = "Bigscreen back, mpv stop";
+    }
+    {
+      desc = "HOME";
+      args = "record_api 8 18";
+      note = "Meta+O - Bigscreen home overlay";
+    }
     # NOT the Menu key (HID 101). Bigscreen 6.7.3 registers Qt::Key_Menu with
     # KGlobalAccel for its "Tasks overview" and emits toggleTasksOverlay(), but
     # no QML is connected to that signal — its three siblings (toggleHomeScreen,
@@ -101,30 +133,88 @@ let
     #
     # Alt+F4 is a far better use of the button — Plasma's default Close Window,
     # i.e. "quit this app and drop me back on the homescreen".
-    { desc = "CLOSE APP";      args = "record_api 4 61";     note = "Alt+F4 - close app, back to homescreen"; }
+    {
+      desc = "CLOSE APP";
+      args = "record_api 4 61";
+      note = "Alt+F4 - close app, back to homescreen";
+    }
     # The four transport keys arrive as HID *consumer* usages, not keyboard
     # ones: play/pause becomes XF86AudioPlay (mpv's PLAY — there is no evdev
     # route to mpv's PLAYPAUSE), stop XF86AudioStop, and the other two
     # XF86AudioRewind/XF86AudioForward. All four are grabbed by Plasma's MPRIS
     # shortcuts unless those are cleared; see home/htpc.nix.
-    { desc = "PLAY / PAUSE";   args = "record play/pause";   note = "mpv pause toggle"; }
-    { desc = "STOP";           args = "record stop";         note = "mpv stop"; }
-    { desc = "REWIND";         args = "record rewind";       note = "mpv -60s"; }
-    { desc = "FAST FORWARD";   args = "record fast_forward"; note = "mpv +60s"; }
-    { desc = "SKIP BACK";      args = "record_api 0 104";    note = "F13 - mpv -30s"; }
-    { desc = "SKIP FORWARD";   args = "record_api 0 105";    note = "F14 - mpv +30s"; }
-    { desc = "VOLUME UP";      args = "record vol_up";       note = "Plasma volume"; }
-    { desc = "VOLUME DOWN";    args = "record vol_down";     note = "Plasma volume"; }
-    { desc = "MUTE";           args = "record mute";         note = "Plasma mute"; }
-    { desc = "INFO / GUIDE";   args = "record_api 0 106";    note = "F15 - mpv show-progress"; }
-    { desc = "SUBTITLE";       args = "record_api 0 107";    note = "F16 - mpv cycle sub"; }
-    { desc = "AUDIO TRACK";    args = "record_api 0 108";    note = "F17 - mpv cycle audio"; }
-    { desc = "spare colour-wheel button, player MENU";
-      args = "record c";       note = "jellyfin-mpv-shim menu; captions in VacuumTube"; }
+    {
+      desc = "PLAY / PAUSE";
+      args = "record play/pause";
+      note = "mpv pause toggle";
+    }
+    {
+      desc = "STOP";
+      args = "record stop";
+      note = "mpv stop";
+    }
+    {
+      desc = "REWIND";
+      args = "record rewind";
+      note = "mpv -60s";
+    }
+    {
+      desc = "FAST FORWARD";
+      args = "record fast_forward";
+      note = "mpv +60s";
+    }
+    {
+      desc = "SKIP BACK";
+      args = "record_api 0 104";
+      note = "F13 - mpv -30s";
+    }
+    {
+      desc = "SKIP FORWARD";
+      args = "record_api 0 105";
+      note = "F14 - mpv +30s";
+    }
+    {
+      desc = "VOLUME UP";
+      args = "record vol_up";
+      note = "Plasma volume";
+    }
+    {
+      desc = "VOLUME DOWN";
+      args = "record vol_down";
+      note = "Plasma volume";
+    }
+    {
+      desc = "MUTE";
+      args = "record mute";
+      note = "Plasma mute";
+    }
+    {
+      desc = "INFO / GUIDE";
+      args = "record_api 0 106";
+      note = "F15 - mpv show-progress";
+    }
+    {
+      desc = "SUBTITLE";
+      args = "record_api 0 107";
+      note = "F16 - mpv cycle sub";
+    }
+    {
+      desc = "AUDIO TRACK";
+      args = "record_api 0 108";
+      note = "F17 - mpv cycle audio";
+    }
+    {
+      desc = "spare colour-wheel button, player MENU";
+      args = "record c";
+      note = "jellyfin-mpv-shim menu; captions in VacuumTube";
+    }
     # No separate back key needed for VacuumTube: its YouTube UI takes Escape,
     # same as Bigscreen, so the one BACK button covers both.
-    { desc = "POWER (see the caveat above)";
-      args = "record suspend"; note = "HID System Sleep - logind suspends"; }
+    {
+      desc = "POWER (see the caveat above)";
+      args = "record suspend";
+      note = "HID System Sleep - logind suspends";
+    }
   ];
 
   # One tab-separated row per button, consumed by the wizard on fd 3.
@@ -132,7 +222,10 @@ let
 
   flirc-skip-setup = pkgs.writeShellApplication {
     name = "flirc-skip-setup";
-    runtimeInputs = [ pkgs.flirc pkgs.coreutils ];
+    runtimeInputs = [
+      pkgs.flirc
+      pkgs.coreutils
+    ];
     text = ''
       # Walk every Skip 1s button and pair it with the key this host wants.
       # Re-runnable: recording a button again just overwrites its pairing.
@@ -240,7 +333,10 @@ in
   # unfree, which is already allowed fleet-wide via modules/dev-environment.nix.
   # The package installs no .desktop file, so it won't show up as a Bigscreen
   # tile. The GUI needs a pointer; from the couch prefer the CLI or the wizard.
-  environment.systemPackages = [ pkgs.flirc flirc-skip-setup ];
+  environment.systemPackages = [
+    pkgs.flirc
+    flirc-skip-setup
+  ];
 
   # flirc_util talks to the dongle over raw USB/hidraw, which is root-only by
   # default. The package carries the udev rules that loosen this (vendor 20a0,

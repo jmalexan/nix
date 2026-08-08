@@ -1,18 +1,4 @@
-{ pkgs, ... }: let
-  ssl = {
-    forceSSL          = true;
-    sslCertificate    = "/var/lib/nginx/certs/server.crt";
-    sslCertificateKey = "/var/lib/nginx/certs/server.key";
-  };
-
-  # Streaming LLM responses need buffering off and long timeouts so tokens
-  # reach the client live instead of being held by nginx.
-  streamingProxy = ''
-    proxy_buffering      off;
-    proxy_read_timeout   600s;
-    proxy_send_timeout   600s;
-  '';
-in {
+{ pkgs, ... }: {
   # ── Ollama ─────────────────────────────────────────────────────────────────
   # CUDA-accelerated inference backend. Speaks the OpenAI API at :11434, used
   # both by Open WebUI and by external dev tools (Aider, Continue, Zed) over
@@ -109,48 +95,4 @@ in {
     };
   };
 
-  # ── Reverse proxy ──────────────────────────────────────────────────────────
-  services.nginx.virtualHosts = {
-    "chat.nasa.jmalexan.com" = ssl // {
-      serverAliases = [ "chat" ];
-      extraConfig = streamingProxy;
-      locations."/" = {
-        proxyPass       = "http://127.0.0.1:8093";
-        proxyWebsockets = true;
-      };
-    };
-
-    "ollama.nasa.jmalexan.com" = ssl // {
-      serverAliases = [ "ollama" ];
-      # The Ollama API is unauthenticated, so restrict it to the tailnet
-      # (100.64.0.0/10 is Tailscale's CGNAT range) and the local LAN bridge.
-      extraConfig = streamingProxy + ''
-        client_max_body_size 50M;
-        allow 100.64.0.0/10;
-        allow 10.0.0.0/8;
-        allow 127.0.0.1;
-        deny  all;
-      '';
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:11434";
-        # Ollama validates the Host header and rejects anything that isn't
-        # loopback with a bare 403 — no body, and nothing in nginx's error log,
-        # because nginx proxied happily and simply relayed upstream's refusal.
-        # recommendedProxySettings sends `Host $host`, so every request through
-        # this vhost arrived as ollama.nasa.jmalexan.com and was refused.
-        #
-        # Overriding Host in extraConfig does not work: the module emits
-        # locations.<n>.extraConfig *before* the recommended-settings include,
-        # so `Host $host` would win. Disable the include for this location and
-        # set the forwarding headers explicitly instead.
-        recommendedProxySettings = false;
-        extraConfig = ''
-          proxy_set_header Host localhost:11434;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-        '';
-      };
-    };
-  };
 }

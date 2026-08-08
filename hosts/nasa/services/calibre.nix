@@ -19,14 +19,14 @@
     enable = true;
     dataDir = "/Data/smb/Internal/Services/calibre-web";
     listen = {
-      ip   = "127.0.0.1";
+      ip = "127.0.0.1";
       port = 8083;
     };
     options = {
-      calibreLibrary      = "/Data/smb/Media/Books";
-      enableBookConversion = true;   # ebook-convert for format changes
-      enableKepubify       = true;   # EPUB → KEPUB for better Kobo rendering
-      enableBookUploading  = true;   # upload books via web UI
+      calibreLibrary = "/Data/smb/Media/Books";
+      enableBookConversion = true; # ebook-convert for format changes
+      enableKepubify = true; # EPUB → KEPUB for better Kobo rendering
+      enableBookUploading = true; # upload books via web UI
     };
   };
 
@@ -42,17 +42,15 @@
     file = ../../../secrets/calibre-desktop-password.age;
   };
 
-  virtualisation.docker.enable = true;
-  virtualisation.oci-containers.backend = "docker";
-
   virtualisation.oci-containers.containers.calibre-desktop = {
+    # renovate: datasource=docker depName=lscr.io/linuxserver/calibre
     image = "lscr.io/linuxserver/calibre:latest";
     autoStart = true;
-    ports = [ "127.0.0.1:8085:8080" ];   # KasmVNC HTTPS
+    ports = [ "127.0.0.1:8085:8080" ]; # KasmVNC HTTPS
     environment = {
       PUID = "987";
       PGID = "987";
-      TZ   = "America/New_York";
+      TZ = "America/New_York";
       CUSTOM_USER = "admin";
     };
     environmentFiles = [

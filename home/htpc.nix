@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   # ── Remote-friendly mpv bindings ────────────────────────────────────────────
@@ -248,7 +253,10 @@ let
   };
 in
 {
-  imports = [ ./linux.nix ];
+  imports = [
+    ./linux.nix
+    ./htpc/plasma.nix
+  ];
 
   # Standalone mpv (apps.nix installs it system-wide, so just drop the config in
   # rather than pulling a second copy in through programs.mpv).
@@ -303,38 +311,37 @@ in
   # menu is reverted at the next rebuild. That is the intended direction.
   # The shim reads conf.json once at startup: `systemctl --user restart
   # jellyfin-mpv-shim` to pick this up without waiting for the next login.
-  home.activation.jellyfinMpvShimSettings =
-    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      confdir="${config.xdg.configHome}/jellyfin-mpv-shim"
-      conf="$confdir/conf.json"
-      managed=${lib.escapeShellArg (builtins.toJSON jellyfinShimSettings)}
-      jq=${pkgs.jq}/bin/jq
+  home.activation.jellyfinMpvShimSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    confdir="${config.xdg.configHome}/jellyfin-mpv-shim"
+    conf="$confdir/conf.json"
+    managed=${lib.escapeShellArg (builtins.toJSON jellyfinShimSettings)}
+    jq=${pkgs.jq}/bin/jq
 
-      run mkdir -p "$confdir"
+    run mkdir -p "$confdir"
 
-      # An unreadable or absent file starts from {}: the shim fills in every
-      # other key itself on first load, and a conf.json it can't parse is one it
-      # is already ignoring, so there is nothing to preserve.
-      existing='{}'
-      if [ -s "$conf" ] && "$jq" -e . "$conf" >/dev/null 2>&1; then
-        existing=$(cat "$conf")
-      fi
+    # An unreadable or absent file starts from {}: the shim fills in every
+    # other key itself on first load, and a conf.json it can't parse is one it
+    # is already ignoring, so there is nothing to preserve.
+    existing='{}'
+    if [ -s "$conf" ] && "$jq" -e . "$conf" >/dev/null 2>&1; then
+      existing=$(cat "$conf")
+    fi
 
-      # Bail rather than write on a failed merge: an empty $merged getting past
-      # the comparison below would truncate the file, taking the shim's own
-      # state (volume, shader profile, window geometry) with it.
-      if ! merged=$(printf '%s' "$existing" \
-          | "$jq" -S --argjson managed "$managed" '. * $managed'); then
-        warnEcho "jellyfin-mpv-shim: could not merge settings, leaving $conf alone"
-      # Only touch the file when it would actually change — auto-upgrade.nix
-      # runs this every 15 minutes.
-      elif [ "$merged" != "$(printf '%s' "$existing" | "$jq" -S .)" ]; then
-        tmp=$(mktemp)
-        printf '%s\n' "$merged" > "$tmp"
-        run install -m 644 "$tmp" "$conf"
-        rm -f "$tmp"
-      fi
-    '';
+    # Bail rather than write on a failed merge: an empty $merged getting past
+    # the comparison below would truncate the file, taking the shim's own
+    # state (volume, shader profile, window geometry) with it.
+    if ! merged=$(printf '%s' "$existing" \
+        | "$jq" -S --argjson managed "$managed" '. * $managed'); then
+      warnEcho "jellyfin-mpv-shim: could not merge settings, leaving $conf alone"
+    # Only touch the file when it would actually change — auto-upgrade.nix
+    # runs this every 15 minutes.
+    elif [ "$merged" != "$(printf '%s' "$existing" | "$jq" -S .)" ]; then
+      tmp=$(mktemp)
+      printf '%s\n' "$merged" > "$tmp"
+      run install -m 644 "$tmp" "$conf"
+      rm -f "$tmp"
+    fi
+  '';
 
   # ── What shows up on the Bigscreen home grid ────────────────────────────────
   # Until now this was whatever .desktop files the installed packages happened
@@ -382,7 +389,10 @@ in
     exec = "gamescope --hdr-enabled -f -W 3840 -H 2160 --nested-refresh 60 -- ${pkgs.moonlight-qt}/bin/moonlight";
     icon = "moonlight";
     terminal = false;
-    categories = [ "Game" "AudioVideo" ];
+    categories = [
+      "Game"
+      "AudioVideo"
+    ];
   };
 
   # 2. Hide the tiles that are noise on a TV. This is Bigscreen's own filter,
@@ -415,67 +425,69 @@ in
   #    search field needs).
   xdg.configFile."applications-blacklistrc".text = ''
     [Applications]
-    blacklist=${lib.concatStringsSep "," [
-      # Bolted on for a QML import, not for use.
-      "org.kde.kdeconnect.app"
-      "org.kde.kdeconnect.sms"
-      "org.kde.kdeconnect.nonplasma"
-      # Bigscreen's own extras. plasma-bigscreen-swap-session is the "Plasma
-      # Bigscreen" tile — it switches *into* this session, so it is a no-op from
-      # inside it (an earlier revision of this list kept it, on the mistaken
-      # reading that it switched out to the desktop; that direction is SDDM's
-      # job). uvcviewer is a webcam viewer for a box with no webcam.
-      "plasma-bigscreen-swap-session"
-      "org.kde.plasma.bigscreen.uvcviewer"
-      # Browser, off for now — re-enable by dropping this line.
-      "firefox"
-      # Players/viewers with no job on the home grid.
-      "mpv"
-      "umpv"
-      "org.kde.elisa"
-      "org.kde.gwenview"
-      "org.kde.okular"
-      "com.moonlight_stream.Moonlight"
-      # Desktop furniture Plasma 6 ships.
-      "org.kde.dolphin"
-      "org.kde.konsole"
-      "org.kde.kate"
-      "org.kde.kwrite"
-      "org.kde.ark"
-      "org.kde.spectacle"
-      "org.kde.discover"
-      "org.kde.khelpcenter"
-      "org.kde.kmenuedit"
-      "org.kde.knetattach"
-      "org.kde.kwalletmanager"
-      "org.kde.kcolorschemeeditor"
-      "org.kde.kfontview"
-      "org.kde.plasma.emojier"
-      "org.kde.plasma-interactiveconsole"
-      "org.kde.plasmawindowed"
-      "org.kde.qrca"
-      "nixos-manual"
-      # Post-mortem UI for crashed apps ("Crashed Processes Viewer"). The crash
-      # handler still runs; this is only its browser, which is a laptop tool.
-      "org.kde.drkonqi.coredump.gui"
-      # Settings front-ends. Bigscreen has its own, on the remote's Settings
-      # button (kcm_mediacenter_* are the pages it shows).
-      "systemsettings"
-      "kdesystemsettings"
-      # "Manage Printing" — CUPS ships its own desktop entry pointing at the
-      # web UI on :631 (print-manager's two are both NoDisplay, so they never
-      # reach the grid). Confirmed as cups-*/share/applications/cups.desktop:
-      # note that this arrives on XDG_DATA_DIRS as a bare store path rather
-      # than through /run/current-system/sw, which is why searching the system
-      # profile alone does not turn it up. To locate an entry by its visible
-      # name, take the search path from the running session instead:
-      #   systemctl --user show-environment | grep ^XDG_DATA_DIRS=
-      "cups"
-      "org.kde.kinfocenter"
-      "org.kde.plasma-systemmonitor"
-      "breezestyleconfig"
-      "kwincompositing"
-    ]}
+    blacklist=${
+      lib.concatStringsSep "," [
+        # Bolted on for a QML import, not for use.
+        "org.kde.kdeconnect.app"
+        "org.kde.kdeconnect.sms"
+        "org.kde.kdeconnect.nonplasma"
+        # Bigscreen's own extras. plasma-bigscreen-swap-session is the "Plasma
+        # Bigscreen" tile — it switches *into* this session, so it is a no-op from
+        # inside it (an earlier revision of this list kept it, on the mistaken
+        # reading that it switched out to the desktop; that direction is SDDM's
+        # job). uvcviewer is a webcam viewer for a box with no webcam.
+        "plasma-bigscreen-swap-session"
+        "org.kde.plasma.bigscreen.uvcviewer"
+        # Browser, off for now — re-enable by dropping this line.
+        "firefox"
+        # Players/viewers with no job on the home grid.
+        "mpv"
+        "umpv"
+        "org.kde.elisa"
+        "org.kde.gwenview"
+        "org.kde.okular"
+        "com.moonlight_stream.Moonlight"
+        # Desktop furniture Plasma 6 ships.
+        "org.kde.dolphin"
+        "org.kde.konsole"
+        "org.kde.kate"
+        "org.kde.kwrite"
+        "org.kde.ark"
+        "org.kde.spectacle"
+        "org.kde.discover"
+        "org.kde.khelpcenter"
+        "org.kde.kmenuedit"
+        "org.kde.knetattach"
+        "org.kde.kwalletmanager"
+        "org.kde.kcolorschemeeditor"
+        "org.kde.kfontview"
+        "org.kde.plasma.emojier"
+        "org.kde.plasma-interactiveconsole"
+        "org.kde.plasmawindowed"
+        "org.kde.qrca"
+        "nixos-manual"
+        # Post-mortem UI for crashed apps ("Crashed Processes Viewer"). The crash
+        # handler still runs; this is only its browser, which is a laptop tool.
+        "org.kde.drkonqi.coredump.gui"
+        # Settings front-ends. Bigscreen has its own, on the remote's Settings
+        # button (kcm_mediacenter_* are the pages it shows).
+        "systemsettings"
+        "kdesystemsettings"
+        # "Manage Printing" — CUPS ships its own desktop entry pointing at the
+        # web UI on :631 (print-manager's two are both NoDisplay, so they never
+        # reach the grid). Confirmed as cups-*/share/applications/cups.desktop:
+        # note that this arrives on XDG_DATA_DIRS as a bare store path rather
+        # than through /run/current-system/sw, which is why searching the system
+        # profile alone does not turn it up. To locate an entry by its visible
+        # name, take the search path from the running session instead:
+        #   systemctl --user show-environment | grep ^XDG_DATA_DIRS=
+        "cups"
+        "org.kde.kinfocenter"
+        "org.kde.plasma-systemmonitor"
+        "breezestyleconfig"
+        "kwincompositing"
+      ]
+    }
   '';
 
   # ── Default applications ────────────────────────────────────────────────────
@@ -489,10 +501,20 @@ in
       let
         mpv = [ "mpv.desktop" ];
         types = [
-          "video/mp4" "video/x-matroska" "video/webm" "video/mpeg"
-          "video/quicktime" "video/x-msvideo" "video/x-flv" "video/avi"
-          "audio/mpeg" "audio/flac" "audio/x-vorbis+ogg" "audio/mp4"
-          "audio/x-wav" "audio/opus"
+          "video/mp4"
+          "video/x-matroska"
+          "video/webm"
+          "video/mpeg"
+          "video/quicktime"
+          "video/x-msvideo"
+          "video/x-flv"
+          "video/avi"
+          "audio/mpeg"
+          "audio/flac"
+          "audio/x-vorbis+ogg"
+          "audio/mp4"
+          "audio/x-wav"
+          "audio/opus"
         ];
       in
       lib.genAttrs types (_: mpv);
@@ -529,75 +551,4 @@ in
     ResetOldOptions=true
   '';
 
-  # ── Give the media keys back to the focused player ──────────────────────────
-  # Plasma's MPRIS KDED module (plasma-workspace, libkmpris/kded) autoloads in
-  # every Plasma session, Bigscreen included, and its constructor unconditionally
-  # registers KGlobalAccel shortcuts on exactly the keysyms this remote sends:
-  #
-  #   playpausemedia ...... Key_MediaPlay   ← XF86AudioPlay    ← PLAY / PAUSE
-  #   stopmedia ........... Key_MediaStop   ← XF86AudioStop    ← STOP
-  #   seekforwardmedia .... Key_AudioForward ← XF86AudioForward ← FAST FORWARD
-  #   seekbackwardmedia ... Key_AudioRewind  ← XF86AudioRewind  ← REWIND
-  #
-  # KWin resolves global shortcuts before forwarding a key to the focused
-  # window, so those four buttons never reached mpv — and the module then did
-  # nothing with them either, because it drives players over MPRIS and mpv
-  # publishes no MPRIS interface here. Hence four dead buttons.
-  #
-  # Clearing the assignments lets the keys fall through to whatever has focus,
-  # which is what the mpv bindings above have always assumed. The alternative
-  # would be to load mpvScripts.mpris so the grabs actually control the player;
-  # that also survives mpv not having focus, but hands the seek step to KDE
-  # (fixed 5s / 30s) and gives up the 60s steps this remote is built around.
-  #
-  # This has to be an edit of the live file rather than an xdg.configFile
-  # symlink, because kglobalacceld rewrites kglobalshortcutsrc itself — every
-  # component that registers an action persists it there — and a read-only store
-  # symlink would break that. plasma-manager is exactly that, declared: it reads
-  # the existing file at activation, merges in the keys below, and writes it back
-  # (modules/shortcuts.nix -> write_config.py), which is what the hand-rolled
-  # kwriteconfig6 loop that used to live here was doing by hand. `[ ]` writes the
-  # key as `none`, which is what kglobalaccel parses as "no shortcut" (the old
-  # loop wrote `none,none,<action>`; the only difference is that the compiled-in
-  # default is now recorded as absent rather than as the literal string "none").
-  #
-  # The daemon caches shortcuts in memory, so this lands at the next login (or
-  # after `systemctl --user restart plasma-kglobalaccel`).
-  programs.plasma = {
-    enable = true;
-
-    shortcuts = {
-      mediacontrol = {
-        playpausemedia = [ ];
-        stopmedia = [ ];
-        seekforwardmedia = [ ];
-        seekbackwardmedia = [ ];
-      };
-
-      # ── Pin what the remote points at ────────────────────────────────────────
-      # remote.nix records buttons against these two, but they were only ever
-      # Plasma's compiled-in defaults — nothing stopped an update from moving
-      # them and silently killing a button. Writing them makes the remote's map
-      # and the shell's map the same declaration.
-      #
-      # kwin's "Window Close" is what the CLOSE APP button uses to drop back to
-      # the homescreen (Alt+F4, chosen in remote.nix because Bigscreen's own
-      # Tasks-overview key is broken upstream).
-      kwin."Window Close" = "Alt+F4";
-
-      # Bigscreen's home overlay — the HOME button (Meta+O), registered in
-      # plasma-bigscreen's containments/homescreen/plugin/shortcuts.cpp as an
-      # action named "Toggle Bigscreen Home Overlay". The component is
-      # plasmashell, not plasma-bigscreen: the containment plugin creates its
-      # QActions without a KActionCollection, so KGlobalAccel falls back to the
-      # host application's name. Confirmed against the running box, where
-      # kglobalshortcutsrc carries it as
-      #   [plasmashell]
-      #   Toggle Bigscreen Home Overlay=Meta+O,Meta+O,Toggle Bigscreen Home Overlay
-      # We write only the first of those three fields (`Meta+O,,`), which is the
-      # one kglobalaccel grabs; plasmashell fills the default and the friendly
-      # name back in when it re-registers the action at the next login.
-      plasmashell."Toggle Bigscreen Home Overlay" = "Meta+O";
-    };
-  };
 }

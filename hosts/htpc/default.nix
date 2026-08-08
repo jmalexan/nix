@@ -1,4 +1,7 @@
-{ config, lib, pkgs, ... }:
+{
+  pkgs,
+  ...
+}:
 
 {
   imports = [
@@ -31,4 +34,7 @@
     enable32Bit = true;
   };
   hardware.enableRedistributableFirmware = true;
+
+  # Set when this host was installed; do not change during upgrades.
+  system.stateVersion = "25.11";
 }

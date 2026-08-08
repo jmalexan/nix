@@ -12,13 +12,13 @@
       palette = "muted";
 
       palettes.muted = {
-        purple = "#9080c4";  # os/hostname
-        teal   = "#5a9eb3";  # directory
-        pink   = "#c66b9c";  # git
-        green  = "#5fa860";  # langs + character success
-        amber  = "#b08840";  # cmd_duration
-        red    = "#e06070";  # character error (text only, no bg)
-        base   = "#1e1e2e";  # dark text on colored segments
+        purple = "#9080c4"; # os/hostname
+        teal = "#5a9eb3"; # directory
+        pink = "#c66b9c"; # git
+        green = "#5fa860"; # langs + character success
+        amber = "#b08840"; # cmd_duration
+        red = "#e06070"; # character error (text only, no bg)
+        base = "#1e1e2e"; # dark text on colored segments
       };
 
       format = lib.concatStrings [

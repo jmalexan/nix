@@ -1,4 +1,5 @@
-{ pkgs, ... }: let
+{ pkgs, ... }:
+let
   stateDir = "/Data/smb/Internal/Services/go2rtc";
 
   # Seeded once, then owned by the app — go2rtc's API can PATCH this file from
@@ -54,7 +55,8 @@
       front_door:
         - nest:?client_id=<CLIENT_ID>&client_secret=<CLIENT_SECRET>&refresh_token=<REFRESH_TOKEN>&project_id=<PROJECT_ID>&device_id=<DEVICE_ID>&protocols=WEB_RTC
   '';
-in {
+in
+{
   # ── go2rtc (standalone) ───────────────────────────────────────────────────────
   # Dedicated go2rtc for the Nest doorbell, republishing it as a plain, stable
   # RTSP stream that Frigate's own go2rtc consumes like any ordinary camera.
@@ -70,6 +72,7 @@ in {
     # reproducible. The plain image already bundles ffmpeg; the `-hardware`
     # variant is only needed if a stream ever has to be transcoded, which this
     # one does not (Nest already hands us H264).
+    # renovate: datasource=docker depName=docker.io/alexxit/go2rtc
     image = "alexxit/go2rtc:1.9.14";
     autoStart = true;
 
@@ -127,8 +130,8 @@ in {
       # API at turn_on/turn_off time, so they cannot collide with `front_door`.
       # The cost is coupling: restarting this container for Nest reasons also
       # drops any live eufy stream (a camera.turn_off/turn_on cycle restores it).
-      "127.0.0.2:8554:8554"  # RTSP — read by HA as rtsp://127.0.0.2:8554/<serial>
-      "127.0.0.2:1984:1984"  # API — eufy_security POSTs H264 bytes here
+      "127.0.0.2:8554:8554" # RTSP — read by HA as rtsp://127.0.0.2:8554/<serial>
+      "127.0.0.2:1984:1984" # API — eufy_security POSTs H264 bytes here
     ];
 
     # The container's own WebRTC listener (8555/tcp+udp) is deliberately NOT

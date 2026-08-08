@@ -1,8 +1,13 @@
-{ config, lib, pkgs, pkgs-unstable, claude-code-pkg, agenix, ... }:
+{
+  pkgs,
+  agenix,
+  vars,
+  ...
+}:
 
 {
   imports = [
-    (import ../../modules/dev-environment.nix pkgs-unstable claude-code-pkg)
+    ../../modules/dev-environment.nix
   ];
 
   # ── Platform ──────────────────────────────────────────────────────────────
@@ -11,17 +16,17 @@
 
   # ── Identity ──────────────────────────────────────────────────────────────
 
-  system.primaryUser = "jmalexan";
+  system.primaryUser = vars.user.name;
 
   # Needed so home-manager can infer the user's home directory
-  users.users.jmalexan.home = "/Users/jmalexan";
+  users.users.${vars.user.name}.home = "/Users/${vars.user.name}";
 
   networking.hostName = "Book";
   networking.computerName = "Book";
 
   # ── Locale & Time ─────────────────────────────────────────────────────────
 
-  time.timeZone = "America/New_York";
+  time.timeZone = vars.timeZone;
 
   # ── Packages ──────────────────────────────────────────────────────────────
 
@@ -33,13 +38,13 @@
     # darwin-rebuild picks the config attr from the hostname ("Book").
     (pkgs.writeShellScriptBin "update-now" ''
       echo "→ Pulling latest config from GitHub and switching…"
-      exec sudo darwin-rebuild switch --refresh --flake github:jmalexan/nix "$@"
+      exec sudo darwin-rebuild switch --refresh --flake ${vars.repository} "$@"
     '')
   ];
 
   # ── Shell ─────────────────────────────────────────────────────────────────
 
-  users.users.jmalexan.shell = pkgs.fish;
+  users.users.${vars.user.name}.shell = pkgs.fish;
   environment.shells = [ pkgs.fish ];
 
   # ── Nix Settings ──────────────────────────────────────────────────────────
@@ -47,7 +52,11 @@
   # Automatic garbage collection (launchd interval format, not systemd dates)
   nix.gc = {
     automatic = true;
-    interval = { Weekday = 0; Hour = 0; Minute = 0; };  # Sundays at midnight
+    interval = {
+      Weekday = 0;
+      Hour = 0;
+      Minute = 0;
+    }; # Sundays at midnight
     options = "--delete-older-than 14d";
   };
 
@@ -101,11 +110,11 @@
     ];
 
     casks = [
-      "betterdisplay"        # Better Display Pro (enter license to unlock Pro features)
+      "betterdisplay" # Better Display Pro (enter license to unlock Pro features)
       "blender"
       "daisydisk"
       "claude"
-      "cleanshot"            # CleanShot X
+      "cleanshot" # CleanShot X
       "discord"
       "element"
       "elgato-stream-deck"
@@ -126,13 +135,13 @@
     ];
 
     masApps = {
-      "Amphetamine"  = 937984704;
-      "Bitwarden"    = 1352778147;
-      "Field Kit"    = 1612653346;
-      "Flighty"      = 1358823008;
-      "iA Writer"    = 775737590;
-      "Things 3"     = 904280696;
-      "Xcode"        = 497799835;
+      "Amphetamine" = 937984704;
+      "Bitwarden" = 1352778147;
+      "Field Kit" = 1612653346;
+      "Flighty" = 1358823008;
+      "iA Writer" = 775737590;
+      "Things 3" = 904280696;
+      "Xcode" = 497799835;
     };
   };
 

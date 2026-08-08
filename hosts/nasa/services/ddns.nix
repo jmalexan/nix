@@ -8,10 +8,10 @@
     enable = true;
     protocol = "cloudflare";
     zone = "jmalexan.com";
-    username = "token";  # literal string for Cloudflare API token auth
+    username = "token"; # literal string for Cloudflare API token auth
     passwordFile = config.age.secrets.cloudflare-token.path;
     domains = [ "home.jmalexan.com" ];
-    usev4 = "webv4, webv4=ipify-ipv4";  # detect public IPv4 via ipify
+    usev4 = "webv4, webv4=ipify-ipv4"; # detect public IPv4 via ipify
     ssl = true;
   };
 }

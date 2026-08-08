@@ -1,4 +1,5 @@
-{ pkgs, ... }: let
+{ pkgs, ... }:
+let
   stateDir = "/Data/smb/Internal/Services/ring-mqtt";
 
   # Credentials for ring-mqtt's RTSP gateway. These are NOT a security
@@ -22,33 +23,36 @@
   # Same posture as frigate/home-assistant/music-assistant on this host: Nix
   # provisions the infrastructure, the app owns its own config afterwards.
   # Edit it in place (e.g. to pin `location_ids`) without a rebuild.
-  seedConfig = pkgs.writeText "ring-mqtt-config.json" (builtins.toJSON {
-    # Bridged container, so the broker is reached over the docker gateway
-    # rather than the host's loopback — see the --add-host below and the
-    # matching 172.17.0.1 listener in mqtt.nix.
-    mqtt_url = "mqtt://host.docker.internal:1883";
-    mqtt_options = "";
+  seedConfig = pkgs.writeText "ring-mqtt-config.json" (
+    builtins.toJSON {
+      # Bridged container, so the broker is reached over the docker gateway
+      # rather than the host's loopback — see the --add-host below and the
+      # matching 172.17.0.1 listener in mqtt.nix.
+      mqtt_url = "mqtt://host.docker.internal:1883";
+      mqtt_options = "";
 
-    livestream_user = livestreamUser;
-    livestream_pass = livestreamPass;
+      livestream_user = livestreamUser;
+      livestream_pass = livestreamPass;
 
-    # Publishes camera/doorbell entities over MQTT discovery, which is what
-    # makes them appear in Home Assistant with no HA-side config at all.
-    enable_cameras = true;
+      # Publishes camera/doorbell entities over MQTT discovery, which is what
+      # makes them appear in Home Assistant with no HA-side config at all.
+      enable_cameras = true;
 
-    # Ring Alarm features. Off because there is no alarm panel on this
-    # account; turning them on just adds dead entities.
-    enable_modes = false;
-    enable_panic = false;
-    disarm_code = "";
+      # Ring Alarm features. Off because there is no alarm panel on this
+      # account; turning them on just adds dead entities.
+      enable_modes = false;
+      enable_panic = false;
+      disarm_code = "";
 
-    hass_topic = "homeassistant/status";
-    ring_topic = "ring";
+      hass_topic = "homeassistant/status";
+      ring_topic = "ring";
 
-    # Empty = all locations on the account.
-    location_ids = [ ];
-  });
-in {
+      # Empty = all locations on the account.
+      location_ids = [ ];
+    }
+  );
+in
+{
   # ── ring-mqtt ─────────────────────────────────────────────────────────────────
   # Bridges the Ring doorbell (back door) into MQTT, and — critically — is the
   # ONLY way to get an RTSP stream out of a Ring device. Ring exposes no local
@@ -84,6 +88,7 @@ in {
     # Pinned to an exact release for the same reason as frigate/immich: under
     # oci-containers a floating tag never changes the systemd unit, so it would
     # neither auto-update nor stay reproducible.
+    # renovate: datasource=docker depName=docker.io/tsightler/ring-mqtt
     image = "tsightler/ring-mqtt:5.9.3";
     autoStart = true;
 

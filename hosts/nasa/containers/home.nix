@@ -1,11 +1,21 @@
-{ pkgs, pkgs-unstable, claude-code-pkg, home-manager-stable, ... }: {
+{
+  pkgs-unstable,
+  claude-code-pkg,
+  home-manager-stable,
+  vars,
+  ...
+}:
+{
   # ── Bridge networking ──────────────────────────────────────────────────────
   # enp5s0 joins br0 so nasa, the home container, and all LAN devices can
   # reach each other freely. NetworkManager is told to leave both interfaces
   # alone; NixOS networking scripts manage them instead.
   networking.bridges.br0.interfaces = [ "enp5s0" ];
   networking.interfaces.br0.useDHCP = true;
-  networking.networkmanager.unmanaged = [ "enp5s0" "br0" ];
+  networking.networkmanager.unmanaged = [
+    "enp5s0"
+    "br0"
+  ];
 
   # br0 is the trusted home LAN segment — skip firewall rules on it so
   # LAN-only services (HomeKit bridges, Sonos UPnP, AirPlay, mDNS, etc.)
@@ -29,7 +39,15 @@
 
     config = { pkgs, ... }: {
       imports = [
-        (import ../../../modules/dev-environment.nix pkgs-unstable claude-code-pkg)
+        (
+          args:
+          import ../../../modules/dev-environment.nix (
+            args
+            // {
+              inherit pkgs-unstable claude-code-pkg;
+            }
+          )
+        )
         ../../../modules/linux-server.nix
         home-manager-stable.nixosModules.home-manager
       ];
@@ -40,11 +58,14 @@
       networking.useDHCP = false;
       networking.interfaces.eth0.useDHCP = true;
 
-      time.timeZone = "America/New_York";
+      time.timeZone = vars.timeZone;
 
-      users.users.jmalexan = {
+      users.users.${vars.user.name} = {
         isNormalUser = true;
-        extraGroups = [ "wheel" "systemd-journal" ];
+        extraGroups = [
+          "wheel"
+          "systemd-journal"
+        ];
         shell = pkgs.fish;
         openssh.authorizedKeys.keys = import ../../../users/authorized-keys.nix;
       };
@@ -58,7 +79,8 @@
       home-manager = {
         useGlobalPkgs = true;
         useUserPackages = true;
-        users.jmalexan = import ../../../home/linux.nix;
+        extraSpecialArgs = { inherit vars; };
+        users.${vars.user.name} = import ../../../home/linux.nix;
       };
 
       networking.useHostResolvConf = false;

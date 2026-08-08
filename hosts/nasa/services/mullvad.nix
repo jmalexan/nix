@@ -1,19 +1,24 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  vars,
+  ...
+}:
 let
   # IPs for the veth pair that bridges the mullvad namespace to the host.
   # nginx proxies to nsVethIP:<port> so the namespaced services stay reachable.
-  hostVethIP = "10.200.200.1";
-  nsVethIP   = "10.200.200.2";
+  hostVethIP = vars.nasa.hostVethIP;
+  nsVethIP = vars.nasa.namespaceVethIP;
 
   # Local network the host sits on (br0 = 10.0.1.10/23).  Traffic to this
   # subnet bypasses the VPN via the veth so the namespaced *arr stack can reach
   # the host's reverse proxy (and each other through their *.nasa.jmalexan.com
   # URLs, which resolve to the host).  Only RFC1918 LAN traffic bypasses; the
   # default route stays on wg0, so public-internet egress is still VPN-only.
-  lanSubnet = "10.0.0.0/23";
+  lanSubnet = vars.nasa.lanSubnet;
 
-  ip  = "${pkgs.iproute2}/bin/ip";
-  wg  = "${pkgs.wireguard-tools}/bin/wg";
+  ip = "${pkgs.iproute2}/bin/ip";
+  wg = "${pkgs.wireguard-tools}/bin/wg";
   cfg = config.age.secrets.mullvad-wg.path;
 
   setupScript = pkgs.writeShellScript "mullvad-ns-setup" ''
@@ -70,22 +75,23 @@ let
     ${ip} netns del mullvad        2>/dev/null || true
     rm -rf /etc/netns/mullvad
   '';
-in {
+in
+{
   age.secrets.mullvad-wg = {
     file = ../../../secrets/mullvad-wg.age;
   };
 
   systemd.services.mullvad-netns = {
     description = "Mullvad VPN network namespace";
-    wantedBy    = [ "multi-user.target" ];
-    before      = [ "qbittorrent.service" ];
-    after       = [ "network-online.target" ];
-    wants       = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+    before = [ "qbittorrent.service" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
     serviceConfig = {
-      Type            = "oneshot";
+      Type = "oneshot";
       RemainAfterExit = true;
-      ExecStart       = setupScript;
-      ExecStop        = teardownScript;
+      ExecStart = setupScript;
+      ExecStop = teardownScript;
     };
   };
 }

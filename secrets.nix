@@ -15,18 +15,27 @@ let
   # from `home` until they are rekeyed. See the note at the bottom of this file.
   jmalexanHome = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL7zRypF8PuTmVcdl1Gi+uLdrKpUk4IaF9zjPXIDRdDK jmalexan@home";
 
-  allKeys = [ nasa jmalexan jmalexanHome ];
-in {
-  "secrets/cloudflare-token.age".publicKeys     = allKeys;
-  "secrets/backblaze-env.age".publicKeys        = allKeys;
-  "secrets/restic-password.age".publicKeys      = allKeys;
-  "secrets/step-ca-key.age".publicKeys          = allKeys;
-  "secrets/samba-password.age".publicKeys       = allKeys;
-  "secrets/mullvad-wg.age".publicKeys           = allKeys;
-  "secrets/gitlab-runner-token.age".publicKeys  = allKeys;
+  allKeys = [
+    nasa
+    jmalexan
+    jmalexanHome
+  ];
+in
+{
+  "secrets/cloudflare-token.age".publicKeys = allKeys;
+  # Legacy ACME environment file. It is not deployed anymore, but remains in
+  # the managed inventory until its contents are compared with cloudflare-token
+  # and it can be removed without discarding the only encrypted copy.
+  "secrets/cloudflare-acme-env.age".publicKeys = allKeys;
+  "secrets/backblaze-env.age".publicKeys = allKeys;
+  "secrets/restic-password.age".publicKeys = allKeys;
+  "secrets/step-ca-key.age".publicKeys = allKeys;
+  "secrets/samba-password.age".publicKeys = allKeys;
+  "secrets/mullvad-wg.age".publicKeys = allKeys;
+  "secrets/gitlab-runner-token.age".publicKeys = allKeys;
   "secrets/calibre-desktop-password.age".publicKeys = allKeys;
-  "secrets/immich-db-password.age".publicKeys       = allKeys;
-  "secrets/eufy-credentials.age".publicKeys         = allKeys;
+  "secrets/immich-db-password.age".publicKeys = allKeys;
+  "secrets/eufy-credentials.age".publicKeys = allKeys;
 }
 # ── Adding or removing a key ──────────────────────────────────────────────────
 # The recipient list above is only consulted when a secret is (re-)encrypted.

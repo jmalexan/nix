@@ -1,4 +1,4 @@
-{ ... }: {
+{ vars, ... }: {
   # FlareSolverr is a headless-browser proxy that solves the Cloudflare
   # "challenge" (JS/turnstile) pages some indexers put in front of their site.
   # Prowlarr hands the request to FlareSolverr, which drives Chromium to pass the
@@ -38,16 +38,16 @@
     # would not stop it.  10.200.200.1 is reachable only from this host and from
     # inside the Mullvad namespace, which is exactly the set of clients that
     # need it.  (Address is hostVethIP in mullvad.nix.)
-    environment.HOST = "10.200.200.1";
+    environment.HOST = vars.nasa.hostVethIP;
 
     # The bind address only exists once mullvad-netns.service has created the
     # veth pair, so this still orders after it even though it no longer joins
     # the namespace — otherwise it would fail to bind and restart-loop.
     # partOf, not just requires: requires propagates stop but not restart, and a
     # netns restart recreates veth-host, stranding the old socket.
-    after    = [ "mullvad-netns.service" ];
+    after = [ "mullvad-netns.service" ];
     requires = [ "mullvad-netns.service" ];
-    partOf   = [ "mullvad-netns.service" ];
+    partOf = [ "mullvad-netns.service" ];
   };
 
   # Prowlarr is still inside the namespace, so it reaches this service across

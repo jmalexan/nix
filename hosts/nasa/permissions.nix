@@ -1,4 +1,4 @@
-{ ... }: {
+{ pkgs, ... }: {
   # ── Directory creation ────────────────────────────────────────────────────
   # Requires: sudo zfs set acltype=posixacl Data/smb
   #
@@ -67,4 +67,22 @@
     # stays consistent across both services.
     "d /Data/smb/Internal/Services/calibre-desktop    0750 calibre-web  calibre-web -"
   ];
+
+  # Bazarr's upstream tmpfiles rule cannot safely cross the jmalexan-owned
+  # /Data/smb path, while Prowlarr deliberately avoids an upstream rule that can
+  # create a root-pool stub when ZFS is absent. Create both only after proving
+  # that /Data/smb is the mounted dataset. Their units require this oneshot.
+  systemd.services.nasa-service-directories = {
+    description = "Create service directories on the mounted Data pool";
+    after = [ "zfs-mount.service" ];
+    requires = [ "zfs-mount.service" ];
+    unitConfig.AssertPathIsMountPoint = "/Data/smb";
+    serviceConfig.Type = "oneshot";
+    script = ''
+      ${pkgs.coreutils}/bin/install -d -m 0700 -o bazarr -g bazarr \
+        /Data/smb/Internal/Services/bazarr
+      ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root \
+        /Data/smb/Internal/Services/prowlarr
+    '';
+  };
 }

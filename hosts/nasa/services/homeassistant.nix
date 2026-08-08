@@ -9,6 +9,7 @@
   # see traffic on br0; NET_ADMIN/NET_RAW plus the D-Bus socket give Bluetooth
   # access via the host's bluez.
   virtualisation.oci-containers.containers.home-assistant = {
+    # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
     image = "ghcr.io/home-assistant/home-assistant:stable";
     autoStart = true;
     extraOptions = [
@@ -59,7 +60,9 @@
     # (enp5s0 is only a bridge slave and carries no addresses).
     # 26.05 changed extraArgs from a list of flags to an attrset that
     # lib.cli.toCommandLineGNU renders; this still emits `--primary-interface br0`.
-    extraArgs = { primary-interface = "br0"; };
+    extraArgs = {
+      primary-interface = "br0";
+    };
     logLevel = "debug"; # TEMP: diagnosing operational-interview timeout
   };
 
@@ -77,6 +80,7 @@
   # apple_music can now be enabled too: the image bundles the CDM, so it just
   # needs an Apple Music subscription to authenticate.
   virtualisation.oci-containers.containers.music-assistant = {
+    # renovate: datasource=docker depName=ghcr.io/music-assistant/server
     image = "ghcr.io/music-assistant/server:2.9.10";
     autoStart = true;
     extraOptions = [ "--network=host" ];
@@ -90,8 +94,8 @@
       "/etc/localtime:/etc/localtime:ro"
     ];
     environment = {
-      TZ                 = "America/New_York";
-      SSL_CERT_FILE      = "/etc/ssl/certs/ca-certificates.crt";
+      TZ = "America/New_York";
+      SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt";
       REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
     };
   };
@@ -109,9 +113,11 @@
       host hass hass ::1/128 trust
     '';
     ensureDatabases = [ "hass" ];
-    ensureUsers = [{
-      name = "hass";
-      ensureDBOwnership = true;
-    }];
+    ensureUsers = [
+      {
+        name = "hass";
+        ensureDBOwnership = true;
+      }
+    ];
   };
 }

@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ ... }:
 
 {
   imports = [ ./common.nix ];
@@ -19,4 +19,7 @@
         exec tmux new-session -A -s main
     end
   '';
+
+  # Set at first activation; do not change during upgrades.
+  home.stateVersion = "25.11";
 }

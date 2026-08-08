@@ -2,11 +2,16 @@
 # Pulls in the cross-platform dev environment and the Linux server defaults,
 # then adds the things every Linux host of mine wants: bootloader, network
 # manager, my user, and a couple of extra packages.
-{ config, lib, pkgs, pkgs-unstable, claude-code-pkg, agenix, ... }:
+{
+  pkgs,
+  agenix,
+  vars,
+  ...
+}:
 
 {
   imports = [
-    (import ./dev-environment.nix pkgs-unstable claude-code-pkg)
+    ./dev-environment.nix
     ./linux-server.nix
   ];
 
@@ -21,16 +26,19 @@
 
   # ── Locale & Time ─────────────────────────────────────────────────────────
 
-  time.timeZone = "America/New_York";
+  time.timeZone = vars.timeZone;
 
   # ── Users ─────────────────────────────────────────────────────────────────
 
-  users.users.jmalexan = {
+  users.users.${vars.user.name} = {
     isNormalUser = true;
-    description = "Jonathan";
-    extraGroups = [ "wheel" "networkmanager" "hass" "jellyfin" "qbittorrent" "immich" "media" ];
+    description = vars.user.fullName;
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+    ];
     shell = pkgs.fish;
-    home = "/home/jmalexan";
+    home = "/home/${vars.user.name}";
     openssh.authorizedKeys.keys = import ../users/authorized-keys.nix;
   };
 
@@ -49,8 +57,4 @@
     options = "--delete-older-than 14d";
   };
 
-  # ── State Version ─────────────────────────────────────────────────────────
-
-  # Set at install time — do NOT change.
-  system.stateVersion = "25.11";
 }
