@@ -81,7 +81,7 @@
   # needs an Apple Music subscription to authenticate.
   virtualisation.oci-containers.containers.music-assistant = {
     # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-    image = "ghcr.io/music-assistant/server:2.9.10";
+    image = "ghcr.io/music-assistant/server:2.9.11";
     autoStart = true;
     extraOptions = [ "--network=host" ];
     volumes = [
