@@ -27,9 +27,7 @@ jobs:
   deploy:
     name: Deploy ${{ matrix.host }}
     needs: nix
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && vars.AUTO_DEPLOY_ENABLED == 'true')
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: production
     concurrency:

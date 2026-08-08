@@ -147,9 +147,9 @@
 
   # ── Auto-upgrade ──────────────────────────────────────────────────────────
   #
-  # Deliberately none. Unlike the NixOS hosts (see `modules/auto-upgrade.nix`),
-  # this machine is updated by hand with `update-now` (defined above), because
-  # on macOS even a no-op `darwin-rebuild switch` causes minor UI disruptions.
+  # Deliberately none. Unlike the NixOS hosts deployed by GitHub Actions, this
+  # machine is updated by hand with `update-now` (defined above), because on
+  # macOS even a no-op `darwin-rebuild switch` causes minor UI disruptions.
 
   # ── System ────────────────────────────────────────────────────────────────
 

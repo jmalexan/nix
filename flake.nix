@@ -149,7 +149,6 @@
         specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
           ./hosts/nasa/default.nix
-          ./modules/auto-upgrade.nix
           ./modules/ssh-deploy.nix
           ./modules/trust-private-ca.nix
           disko.nixosModules.disko
@@ -173,7 +172,6 @@
         specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
           ./hosts/htpc/default.nix
-          ./modules/auto-upgrade.nix
           ./modules/ssh-deploy.nix
           ./modules/trust-private-ca.nix
           disko.nixosModules.disko
@@ -189,9 +187,9 @@
             # aborting activation. Without this, the first time home-manager
             # takes ownership of a path that already exists on disk — e.g.
             # jellyfin-mpv-shim's runtime-written input.conf — the whole switch
-            # fails. That matters more here than elsewhere: auto-upgrade.nix
-            # rebuilds this host unattended every 15 minutes, so a single stray
-            # dotfile otherwise wedges every deploy until someone notices.
+            # fails. GitHub Actions rebuilds this host unattended after every
+            # successful main-branch check, so a single stray dotfile would
+            # otherwise wedge every deploy until someone notices.
             home-manager.backupFileExtension = "hm-bak";
           }
         ];

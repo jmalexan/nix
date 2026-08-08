@@ -25,11 +25,10 @@ nix run .#package-diff -- nasa
 ```
 
 Successful pushes to `main` deploy the exact tested revision to `nasa` and
-`htpc` through an ephemeral Tailscale GitHub Actions runner. The current host
-timers remain enabled as a fallback until that workflow has completed its
-bootstrap run; see `docs/updates.md`. Deploy the Mac separately with
-`darwin-rebuild switch --flake .#Book`; its `update-now` command remains the
-manual shortcut.
+`htpc` through an ephemeral Tailscale GitHub Actions runner. Deploy the Mac
+separately with `darwin-rebuild switch --flake .#Book`; its `update-now`
+command remains the manual shortcut. See `docs/updates.md` for deployment and
+credential-rotation details.
 
 ## Updates
 
