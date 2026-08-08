@@ -57,6 +57,12 @@
       "groupName": "Immich application images"
     },
     {
+      "description": "Keep the existing Immich database on PostgreSQL 14 until a migration is planned",
+      "matchPackageNames": ["ghcr.io/immich-app/postgres"],
+      "allowedVersions": "/^14-/",
+      "dependencyDashboardApproval": true
+    },
+    {
       "description": "Do not silently cross Frigate hardware image variants",
       "matchPackageNames": ["ghcr.io/blakeblackshear/frigate"],
       "versionCompatibility": "^(?<version>.*?)(?<compatibility>-tensorrt)$"
