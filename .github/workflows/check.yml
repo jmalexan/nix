@@ -16,5 +16,9 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - name: Evaluate every host
         run: nix flake check --no-build --all-systems
+      - name: Construct NixOS system derivations
+        run: |
+          nix eval --raw .#nixosConfigurations.nasa.config.system.build.toplevel.drvPath
+          nix eval --raw .#nixosConfigurations.htpc.config.system.build.toplevel.drvPath
       - name: Run Linux repository checks
         run: nix build .#checks.x86_64-linux.lint

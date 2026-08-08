@@ -40,13 +40,10 @@
     config = { pkgs, ... }: {
       imports = [
         (
-          args:
-          import ../../../modules/dev-environment.nix (
-            args
-            // {
-              inherit pkgs-unstable claude-code-pkg;
-            }
-          )
+          { pkgs, ... }:
+          import ../../../modules/dev-environment.nix {
+            inherit pkgs pkgs-unstable claude-code-pkg;
+          }
         )
         ../../../modules/linux-server.nix
         home-manager-stable.nixosModules.home-manager
