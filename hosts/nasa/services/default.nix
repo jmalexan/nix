@@ -1,4 +1,4 @@
-{ ... }: {
+{ config, ... }: {
   # Explicit inventory: adding a .nix file to this directory must not silently
   # enable a service. Keep related stacks adjacent so the host topology is easy
   # to scan during review.
@@ -24,6 +24,7 @@
     ./qbittorrent.nix
     ./seerr.nix
     ./jellyfin.nix
+    ./immich.nix
     ./calibre.nix
     ./music-covers.nix
 
@@ -37,5 +38,15 @@
 
     # Local inference
     ./inference.nix
+  ];
+
+  # The explicit inventory is intentionally safer than importing every file in
+  # this directory, but an accidental omission must fail evaluation instead of
+  # silently removing a stateful application from the deployed system.
+  assertions = [
+    {
+      assertion = config.virtualisation.oci-containers.containers ? immich-server;
+      message = "The NAS service inventory must include the Immich stack";
+    }
   ];
 }
