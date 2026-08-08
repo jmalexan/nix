@@ -78,7 +78,7 @@ in
 
     immich-machine-learning = {
       # renovate: datasource=docker depName=ghcr.io/immich-app/immich-machine-learning
-      image = "ghcr.io/immich-app/immich-machine-learning:v3.1.0";
+      image = "ghcr.io/immich-app/immich-machine-learning:v3.1.0@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e";
       autoStart = true;
       volumes = [ "${modelCache}:/cache" ];
       extraOptions = [ "--network=${backendNetwork}" ];
@@ -86,7 +86,7 @@ in
 
     immich-server = {
       # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-      image = "ghcr.io/immich-app/immich-server:v3.1.0";
+      image = "ghcr.io/immich-app/immich-server:v3.1.0@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb";
       autoStart = true;
       dependsOn = [
         "immich-postgres"

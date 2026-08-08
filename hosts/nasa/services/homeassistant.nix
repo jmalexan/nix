@@ -10,7 +10,7 @@
   # access via the host's bluez.
   virtualisation.oci-containers.containers.home-assistant = {
     # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
-    image = "ghcr.io/home-assistant/home-assistant:stable";
+    image = "ghcr.io/home-assistant/home-assistant:stable@sha256:6340a3de3917a9b19368e767310a96dd090f6a19aca8aeadf87fd1145cec9682";
     autoStart = true;
     extraOptions = [
       "--network=host"
@@ -81,7 +81,7 @@
   # needs an Apple Music subscription to authenticate.
   virtualisation.oci-containers.containers.music-assistant = {
     # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-    image = "ghcr.io/music-assistant/server:2.9.11";
+    image = "ghcr.io/music-assistant/server:2.9.11@sha256:dd0605ba528af46bb1c36ceb71fa57f5e9b23d10ec2fff787bd16495271f5681";
     autoStart = true;
     extraOptions = [ "--network=host" ];
     volumes = [
