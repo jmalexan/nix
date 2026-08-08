@@ -54,7 +54,7 @@ in
     # Immich can CREATE EXTENSION without any host-side grant.
     immich-postgres = {
       # renovate: datasource=docker depName=ghcr.io/immich-app/postgres versioning=loose
-      image = "ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23";
+      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:8228e018603194a26697ab57e63a04ff57bd1e5114b2d98a4bd054512a60bc9f";
       autoStart = true;
       environment = {
         POSTGRES_USER = "postgres";
