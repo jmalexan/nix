@@ -12,6 +12,8 @@
   # Auto-attach (or create) a tmux session named "main" on SSH login.
   programs.fish.interactiveShellInit = ''
     if status is-interactive
+        and test -t 0
+        and test -t 1
         and set -q SSH_CONNECTION
         and not set -q TMUX
         and not set -q INSIDE_EMACS
