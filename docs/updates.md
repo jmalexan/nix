@@ -33,6 +33,13 @@ hosts. Pull requests only run checks. The workflow can also be run manually to
 redeploy the current `main` revision. Deployments are serialized per host so
 two activations cannot overlap.
 
+Because `htpc` suspends while idle, its deployment job first asks the always-on
+`nasa` host to send a Wake-on-LAN packet, then waits for the HTPC's SSH service.
+The HTPC's wired interface has magic-packet wake enabled declaratively; the
+firmware's Wake-on-LAN setting must remain enabled as well. If the job had to
+wake the HTPC, it schedules another suspend after a successful activation. An
+HTPC that was already awake before deployment is left awake.
+
 The `production` environment provides `TS_OAUTH_CLIENT_ID`,
 `TS_OAUTH_SECRET`, `DEPLOY_SSH_PRIVATE_KEY`, and
 `DEPLOY_SSH_KNOWN_HOSTS`. The Tailscale OAuth client creates an ephemeral

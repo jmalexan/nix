@@ -1,4 +1,15 @@
-{ vars, ... }: {
+{ pkgs, vars, ... }:
+
+let
+  wake-htpc = pkgs.writeShellApplication {
+    name = "wake-htpc";
+    runtimeInputs = [ pkgs.wakeonlan ];
+    text = ''
+      exec wakeonlan 38:05:25:36:95:8f
+    '';
+  };
+in
+{
   imports = [
     ./hardware-configuration.nix
     ./permissions.nix
@@ -20,6 +31,10 @@
   networking.hostId = "e878c22f";
 
   programs.nix-ld.enable = true;
+
+  # Same-LAN relay for deployments: an ephemeral GitHub runner cannot send a
+  # broadcast packet through Tailscale, while this always-on host can.
+  environment.systemPackages = [ wake-htpc ];
 
   users.users.${vars.user.name}.extraGroups = [
     "hass"

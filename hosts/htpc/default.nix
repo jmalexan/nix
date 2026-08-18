@@ -14,6 +14,11 @@
 
   networking.hostName = "htpc";
 
+  # Keep magic-packet wake enabled after boot. GitHub Actions sends the packet
+  # from nasa before attempting an SSH deployment because this host normally
+  # suspends when the media session is idle.
+  networking.interfaces.enp2s0.wakeOnLan.enable = true;
+
   # Gives the ephemeral GitHub Actions deployment runner a private route to
   # this host. Authenticate it once with `sudo tailscale up`; subsequent
   # deployment access is controlled by the tailnet policy and SSH key.
