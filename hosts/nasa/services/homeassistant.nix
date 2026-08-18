@@ -80,8 +80,8 @@
   # apple_music can now be enabled too: the image bundles the CDM, so it just
   # needs an Apple Music subscription to authenticate.
   virtualisation.oci-containers.containers.music-assistant = {
-    # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-    image = "ghcr.io/music-assistant/server:2.9.11@sha256:dd0605ba528af46bb1c36ceb71fa57f5e9b23d10ec2fff787bd16495271f5681";
+    # renovate: datasource=docker depName=ghcr.io/music-assistant/server versioning=docker
+    image = "ghcr.io/music-assistant/server:2.9.13@sha256:5ded610a2804fb7a973d2cbe390df09ceb67f0d7f603bcacd21ebaaa5a8a9b62";
     autoStart = true;
     extraOptions = [ "--network=host" ];
     volumes = [
