@@ -9,8 +9,8 @@
   # see traffic on br0; NET_ADMIN/NET_RAW plus the D-Bus socket give Bluetooth
   # access via the host's bluez.
   virtualisation.oci-containers.containers.home-assistant = {
-    # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
-    image = "ghcr.io/home-assistant/home-assistant:2026.8.1@sha256:6340a3de3917a9b19368e767310a96dd090f6a19aca8aeadf87fd1145cec9682";
+    # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant versioning=docker
+    image = "ghcr.io/home-assistant/home-assistant:2026.8.2@sha256:56690a89c79a0de98035e1719f8324a92d5859c1192ff45adb0230ea81cb42a5";
     autoStart = true;
     extraOptions = [
       "--network=host"
@@ -80,8 +80,8 @@
   # apple_music can now be enabled too: the image bundles the CDM, so it just
   # needs an Apple Music subscription to authenticate.
   virtualisation.oci-containers.containers.music-assistant = {
-    # renovate: datasource=docker depName=ghcr.io/music-assistant/server
-    image = "ghcr.io/music-assistant/server:2.9.11@sha256:dd0605ba528af46bb1c36ceb71fa57f5e9b23d10ec2fff787bd16495271f5681";
+    # renovate: datasource=docker depName=ghcr.io/music-assistant/server versioning=docker
+    image = "ghcr.io/music-assistant/server:2.9.13@sha256:5ded610a2804fb7a973d2cbe390df09ceb67f0d7f603bcacd21ebaaa5a8a9b62";
     autoStart = true;
     extraOptions = [ "--network=host" ];
     volumes = [
