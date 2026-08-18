@@ -10,7 +10,7 @@
   # access via the host's bluez.
   virtualisation.oci-containers.containers.home-assistant = {
     # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
-    image = "ghcr.io/home-assistant/home-assistant:stable@sha256:6340a3de3917a9b19368e767310a96dd090f6a19aca8aeadf87fd1145cec9682";
+    image = "ghcr.io/home-assistant/home-assistant:2026.8.1@sha256:6340a3de3917a9b19368e767310a96dd090f6a19aca8aeadf87fd1145cec9682";
     autoStart = true;
     extraOptions = [
       "--network=host"
