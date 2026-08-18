@@ -46,7 +46,9 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          ping: ${{ matrix.host }}
+          # A suspended HTPC cannot answer Tailscale. nasa is its always-on
+          # same-LAN Wake-on-LAN relay, so establish that route first.
+          ping: ${{ matrix.host == 'htpc' && 'nasa' || matrix.host }}
 
       - name: Configure deployment SSH identity
         env:
@@ -59,6 +61,35 @@ jobs:
           install -m 600 /dev/null "$HOME/.ssh/known_hosts"
           printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
 
+      - name: Wake HTPC and wait for SSH
+        id: wake_htpc
+        if: matrix.host == 'htpc'
+        run: |
+          # Do not suspend the machine after deployment if it was already in
+          # use. Probe more than once so a momentary connection failure is not
+          # mistaken for sleep.
+          for attempt in {1..3}; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 deploy@htpc true; then
+              echo "was_asleep=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "was_asleep=true" >> "$GITHUB_OUTPUT"
+          ssh -o BatchMode=yes -o ConnectTimeout=15 deploy@nasa wake-htpc
+
+          for attempt in {1..30}; do
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 deploy@htpc true; then
+              exit 0
+            fi
+            echo "Waiting for htpc to wake ($attempt/30)..."
+            sleep 5
+          done
+
+          echo "::error::htpc did not become reachable over SSH after Wake-on-LAN"
+          exit 1
+
       - name: Activate tested revision
         env:
           DEPLOY_HOST: ${{ matrix.host }}
@@ -66,3 +97,11 @@ jobs:
         run: |
           ssh -o BatchMode=yes -o ConnectTimeout=15 "deploy@$DEPLOY_HOST" \
             "sudo nixos-rebuild switch --refresh --flake 'github:jmalexan/nix/$DEPLOY_REVISION#$DEPLOY_HOST'"
+
+      - name: Return deployment-woken HTPC to sleep
+        if: matrix.host == 'htpc' && steps.wake_htpc.outputs.was_asleep == 'true'
+        env:
+          RESUSPEND_UNIT: github-deploy-resuspend-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=15 deploy@htpc \
+            "sudo systemd-run --unit='$RESUSPEND_UNIT' --on-active=15s --collect /run/current-system/sw/bin/systemctl suspend"
