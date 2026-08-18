@@ -9,8 +9,8 @@
   # see traffic on br0; NET_ADMIN/NET_RAW plus the D-Bus socket give Bluetooth
   # access via the host's bluez.
   virtualisation.oci-containers.containers.home-assistant = {
-    # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant
-    image = "ghcr.io/home-assistant/home-assistant:2026.8.1@sha256:6340a3de3917a9b19368e767310a96dd090f6a19aca8aeadf87fd1145cec9682";
+    # renovate: datasource=docker depName=ghcr.io/home-assistant/home-assistant versioning=docker
+    image = "ghcr.io/home-assistant/home-assistant:2026.8.2@sha256:56690a89c79a0de98035e1719f8324a92d5859c1192ff45adb0230ea81cb42a5";
     autoStart = true;
     extraOptions = [
       "--network=host"
