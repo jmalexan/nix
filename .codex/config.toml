@@ -1,0 +1,6 @@
+mcp_oauth_callback_port = 12345
+
+[mcp_servers.homeassistant]
+url = "https://homeassistant.nasa.jmalexan.com/api/mcp"
+auth = "oauth"
+oauth = { client_id = "http://127.0.0.1:12345" }
