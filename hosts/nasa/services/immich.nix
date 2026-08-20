@@ -70,8 +70,8 @@ in
     };
 
     immich-redis = {
-      # renovate: datasource=docker depName=docker.io/valkey/valkey
-      image = "docker.io/valkey/valkey:9@sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd";
+      # renovate: datasource=docker depName=docker.io/valkey/valkey versioning=docker
+      image = "docker.io/valkey/valkey:9@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf";
       autoStart = true;
       extraOptions = [ "--network=${backendNetwork}" ];
     };
