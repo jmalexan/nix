@@ -46,6 +46,7 @@
           }
         )
         ../../../modules/linux-server.nix
+        ../../../modules/trust-private-ca.nix
         home-manager-stable.nixosModules.home-manager
       ];
 
@@ -54,6 +55,11 @@
       # eth0 is the veth interface the container sees when joined to a bridge.
       networking.useDHCP = false;
       networking.interfaces.eth0.useDHCP = true;
+      networking.nameservers = [ "10.0.1.20" ];
+      networking.search = [ vars.nasa.domain ];
+      networking.dhcpcd.extraConfig = ''
+        nohook resolv.conf
+      '';
 
       time.timeZone = vars.timeZone;
 
@@ -82,7 +88,6 @@
 
       networking.useHostResolvConf = false;
       services.resolved.enable = true;
-      security.polkit.enable = true;
 
       networking.firewall.allowedTCPPorts = [ 22 ];
 

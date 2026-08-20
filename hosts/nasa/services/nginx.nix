@@ -90,6 +90,15 @@ in
 
       "${internalHost "homeassistant"}" = ssl // {
         serverAliases = [ "homeassistant" ];
+        # Home Assistant 2026.8 currently falls back to relative OAuth
+        # endpoints behind this TLS-terminating proxy. Codex requires absolute
+        # endpoint URLs, so serve only the discovery document here; the actual
+        # authorization and token requests are still proxied to Home Assistant.
+        locations."= /.well-known/oauth-authorization-server".extraConfig = ''
+          default_type application/json;
+          add_header Cache-Control "no-store";
+          return 200 '{"authorization_endpoint":"https://${internalHost "homeassistant"}/auth/authorize","token_endpoint":"https://${internalHost "homeassistant"}/auth/token","revocation_endpoint":"https://${internalHost "homeassistant"}/auth/revoke","client_id_metadata_document_supported":true,"response_types_supported":["code"],"service_documentation":"https://developers.home-assistant.io/docs/auth_api"}';
+        '';
         locations."/" = {
           proxyPass = "http://127.0.0.1:8123";
           proxyWebsockets = true;
