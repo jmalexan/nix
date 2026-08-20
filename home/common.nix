@@ -14,6 +14,7 @@
     settings.user.name = vars.user.fullName;
     settings.user.email = vars.user.email;
     settings.pull.rebase = false;
+    settings.push.autoSetupRemote = true;
   };
 
   # ── Fish ──────────────────────────────────────────────────────────────────
