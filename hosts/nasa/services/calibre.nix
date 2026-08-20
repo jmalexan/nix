@@ -43,8 +43,8 @@
   };
 
   virtualisation.oci-containers.containers.calibre-desktop = {
-    # renovate: datasource=docker depName=lscr.io/linuxserver/calibre
-    image = "lscr.io/linuxserver/calibre:latest@sha256:f4a17653e7851c4642583ba2cd292509f90b4b8e123596af38b6ee02154676be";
+    # renovate: datasource=docker depName=lscr.io/linuxserver/calibre versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-ls(?<build>\d+)$
+    image = "lscr.io/linuxserver/calibre:v9.13.0-ls415@sha256:f4a17653e7851c4642583ba2cd292509f90b4b8e123596af38b6ee02154676be";
     autoStart = true;
     ports = [ "127.0.0.1:8085:8080" ]; # KasmVNC HTTPS
     environment = {
