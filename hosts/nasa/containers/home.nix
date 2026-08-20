@@ -82,6 +82,7 @@
 
       networking.useHostResolvConf = false;
       services.resolved.enable = true;
+      security.polkit.enable = true;
 
       networking.firewall.allowedTCPPorts = [ 22 ];
 
