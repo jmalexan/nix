@@ -46,6 +46,7 @@
           }
         )
         ../../../modules/linux-server.nix
+        ../../../modules/trust-private-ca.nix
         home-manager-stable.nixosModules.home-manager
       ];
 
