@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   vars,
   ...
 }:
@@ -11,20 +12,26 @@ let
   publicUrl = "https://bookorbit.${vars.nasa.domain}";
 in
 {
-  # BookOrbit owns only its cache and generated application data during the
-  # pilot. It reads the existing Calibre library through group 987 and a
-  # read-only bind mount.
+  # BookOrbit owns its application state and manages the shared library through
+  # the existing Calibre group while that stack remains available as fallback.
+  # The media group and /downloads mount below are reserved for BookOrbit's
+  # documented Requests workflow. As of v2.6.0 and public main on 2026-08-22,
+  # that workflow has documentation but no released or public implementation.
   users.users.bookorbit = {
     uid = 985;
     group = "bookorbit";
     isSystemUser = true;
-    extraGroups = [ "calibre-web" ];
+    extraGroups = [
+      "calibre-web"
+      "media"
+    ];
   };
   users.groups.bookorbit.gid = 985;
 
   # POSTGRES_PASSWORD, JWT_SECRET, SETUP_BOOTSTRAP_TOKEN, and encryption keys
-  # for credentials stored by BookOrbit. Docker reads it without copying the
-  # plaintext into the Nix store.
+  # for credentials stored by BookOrbit. This includes a pre-generated
+  # BOOK_REQUEST_ENCRYPTION_KEY for the documented but unreleased Requests
+  # workflow. Docker reads it without copying plaintext into the Nix store.
   age.secrets.bookorbit-env.file = ../../../secrets/bookorbit-env.age;
 
   virtualisation.oci-containers.containers = {
@@ -72,13 +79,18 @@ in
         # process's primary group while UID 985 continues to own /data.
         PGID = "987";
         LIBRARY_BROWSE_ROOT = "/books";
+        BOOK_DOCK_PATH = "/data/book-dock";
         NODE_MAX_OLD_SPACE_SIZE = "2048";
         LOG_LEVEL = "info";
       };
       environmentFiles = [ config.age.secrets.bookorbit-env.path ];
       volumes = [
         "${stateDir}/data:/data"
-        "/Data/smb/Media/Books:/books:ro"
+        "/Data/smb/Media/Books:/books"
+        # Reserved for the documented but unreleased Requests workflow. Keep
+        # the torrent tree read-only; when the feature ships, configure its
+        # download client to copy rather than hardlink between bind mounts.
+        "/Data/smb/Torrents:/downloads:ro"
       ];
       extraOptions = [
         "--network=${network}"
@@ -91,6 +103,9 @@ in
         "--cap-add=FOWNER"
         "--cap-add=SETGID"
         "--cap-add=SETUID"
+        # Docker does not automatically pass the host user's supplementary
+        # groups into the container. media is fixed to GID 993.
+        "--group-add=993"
         "--security-opt=no-new-privileges:true"
         "--stop-timeout=30"
         "--health-cmd=node -e \"const p=process.env.PORT||3000;fetch('http://127.0.0.1:'+p+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
@@ -108,12 +123,39 @@ in
         "docker-bookorbit"
         "docker-bookorbit-postgres"
       ]
-      (_: {
-        after = [ "bookorbit-network.service" ];
-        requires = [ "bookorbit-network.service" ];
+      (name: {
+        after = [
+          "bookorbit-network.service"
+        ]
+        ++ lib.optional (name == "docker-bookorbit") "bookorbit-library-access.service";
+        requires = [
+          "bookorbit-network.service"
+        ]
+        ++ lib.optional (name == "docker-bookorbit") "bookorbit-library-access.service";
       })
     )
     // {
+      bookorbit-library-access = {
+        description = "Grant BookOrbit write access to the existing book library";
+        after = [ "zfs-mount.service" ];
+        requires = [ "zfs-mount.service" ];
+        wantedBy = [ "multi-user.target" ];
+        unitConfig.AssertPathIsMountPoint = "/Data/smb";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          stamp=${stateDir}/data/.library-write-access-v1
+          if [ ! -e "$stamp" ]; then
+            ${pkgs.coreutils}/bin/chgrp -R calibre-web /Data/smb/Media/Books
+            ${pkgs.coreutils}/bin/chmod -R g+rwX /Data/smb/Media/Books
+            ${pkgs.coreutils}/bin/touch "$stamp"
+            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$stamp"
+          fi
+        '';
+      };
+
       bookorbit-network = {
         description = "BookOrbit private container network";
         after = [

@@ -61,7 +61,11 @@
     "d \"/Data/smb/Media/TV Shows\"                   02755 sonarr      media -"
     "d /Data/smb/Media/Movies                         02755 radarr      media -"
     "d /Data/smb/Media/Music                          02755 lidarr      media -"
-    "d /Data/smb/Media/Books                          0755 calibre-web  calibre-web -"
+    # BookOrbit finalizes manual Book Dock imports into this shared library.
+    # Keep Calibre ownership during the transition, but make the primary group
+    # writable and propagate it to new author/title directories. This also
+    # prepares the documented (but not yet released) Requests workflow.
+    "d /Data/smb/Media/Books                          02775 calibre-web calibre-web -"
     "d /Data/smb/Internal/Services/calibre-web        0700 calibre-web  calibre-web -"
     # Container runs as PUID=987 (calibre-web) so library file ownership
     # stays consistent across both services.
