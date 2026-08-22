@@ -38,8 +38,6 @@ let
     "cobalt"
     "lyrion"
     "tmm"
-    "komga"
-    "calibre-web"
     "open-webui"
     "freshrss"
   ];

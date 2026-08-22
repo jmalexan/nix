@@ -154,57 +154,6 @@ in
         };
       };
 
-      "${internalHost "calibre"}" = ssl // {
-        serverAliases = [ "calibre" ];
-        # Kobo sync sends large JSON payloads in response headers; the
-        # defaults cause "upstream sent too big header" errors.  Values
-        # from the calibre-web Kobo integration wiki.
-        extraConfig = ''
-          proxy_buffer_size       1024k;
-          proxy_buffers           4 512k;
-          proxy_busy_buffers_size 1024k;
-        '';
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:8083";
-          proxyWebsockets = true;
-          # X-Forwarded-Host is already set by recommendedProxySettings;
-          # adding it here too causes WSGI to see "calibre, calibre" which
-          # breaks calibre-web's download URL generation.
-          # X-Scheme is needed because calibre-web's ReverseProxied middleware
-          # reads HTTP_X_SCHEME (not HTTP_X_FORWARDED_PROTO) to set wsgi.url_scheme.
-          extraConfig = ''
-            proxy_set_header X-Scheme https;
-          '';
-        };
-      };
-
-      "${internalHost "calibre-desktop"}" = ssl // {
-        serverAliases = [ "calibre-desktop" ];
-        # Selkies streams large frames and uses websockets for the display
-        # channel, clipboard, and file transfer.
-        extraConfig = ''
-          client_max_body_size  500M;
-          proxy_buffer_size     1024k;
-          proxy_buffers         4 512k;
-          proxy_busy_buffers_size 1024k;
-          proxy_read_timeout    3600s;
-          proxy_send_timeout    3600s;
-        '';
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:8085";
-          proxyWebsockets = true;
-        };
-      };
-
-      # Calibre's built-in content server is configured and started from the
-      # desktop UI under Preferences → Sharing over the net.
-      "${internalHost "calibre-content"}" = ssl // {
-        serverAliases = [ "calibre-content" ];
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:8081";
-        };
-      };
-
       "${internalHost "bookorbit"}" = ssl // {
         serverAliases = [ "bookorbit" ];
         extraConfig = ''

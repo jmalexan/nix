@@ -25,7 +25,6 @@
     ./seerr.nix
     ./jellyfin.nix
     ./immich.nix
-    ./calibre.nix
     ./bookorbit.nix
     ./music-covers.nix
 

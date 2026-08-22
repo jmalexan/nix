@@ -12,8 +12,8 @@ let
   publicUrl = "https://bookorbit.${vars.nasa.domain}";
 in
 {
-  # BookOrbit owns its application state and manages the shared library through
-  # the existing Calibre group while that stack remains available as fallback.
+  # BookOrbit owns its application state and the shared book library. Library
+  # files use the media group so they remain writable through SMB.
   # The /downloads mount below is reserved for BookOrbit's documented Requests
   # workflow. As of v2.6.0 and public main on 2026-08-22, that workflow has
   # documentation but no released or public implementation.
@@ -21,7 +21,7 @@ in
     uid = 985;
     group = "bookorbit";
     isSystemUser = true;
-    extraGroups = [ "calibre-web" ];
+    extraGroups = [ "media" ];
   };
   users.groups.bookorbit.gid = 985;
 
@@ -72,9 +72,9 @@ in
         APP_URL = publicUrl;
         CLIENT_URL = publicUrl;
         PUID = "985";
-        # The library is owned by calibre-web. The entrypoint uses this as the
-        # process's primary group while UID 985 continues to own /data.
-        PGID = "987";
+        # Use the shared media group so files finalized into /books remain
+        # writable through SMB as well as by BookOrbit.
+        PGID = "993";
         # Keep prose and manga as separate BookOrbit libraries while preserving
         # the existing /books path already stored in BookOrbit's database.
         LIBRARY_BROWSE_ROOT = "/";
@@ -141,6 +141,8 @@ in
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
+          # The one-time ownership migration may walk a large existing library.
+          TimeoutStartSec = "30min";
         };
         script = ''
           stamp=${stateDir}/data/.storage-access-v2
@@ -172,6 +174,20 @@ in
 
             ${pkgs.coreutils}/bin/touch "$manga_stamp"
             ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$manga_stamp"
+          fi
+
+          ownership_stamp=${stateDir}/data/.book-library-ownership-v1
+          if [ ! -e "$ownership_stamp" ]; then
+            # Complete the Calibre retirement without deleting metadata.db or
+            # any library content. BookOrbit owns the files; the shared media
+            # group preserves direct SMB access.
+            ${pkgs.coreutils}/bin/chown -R bookorbit:media /Data/smb/Media/Books
+            ${pkgs.coreutils}/bin/chmod -R g+rwX /Data/smb/Media/Books
+            ${pkgs.findutils}/bin/find /Data/smb/Media/Books -type d \
+              -exec ${pkgs.coreutils}/bin/chmod g+s '{}' +
+
+            ${pkgs.coreutils}/bin/touch "$ownership_stamp"
+            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$ownership_stamp"
           fi
         '';
       };

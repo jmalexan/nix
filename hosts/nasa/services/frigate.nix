@@ -340,7 +340,7 @@ in
     # host-networked container has ALL its ports reachable from the LAN no matter
     # what allowedTCPPorts says — which would publish the completely
     # unauthenticated API on :5000 to every device on the network. Binding to
-    # 127.0.0.1 is how calibre-desktop, open-webui and ollama stay private on
+    # 127.0.0.1 is how open-webui and ollama stay private on
     # this host, and it is the only thing that actually works here.
     ports = [
       "127.0.0.1:5000:5000" # unauthenticated internal API — for the HA integration
