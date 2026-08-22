@@ -53,7 +53,7 @@ in
 
     bookorbit = {
       # renovate: datasource=docker depName=ghcr.io/bookorbit/bookorbit
-      image = "ghcr.io/bookorbit/bookorbit:2.3.0@sha256:62048532c82ad4cfe9b728707136f140516f0f35766c2dc97969f22ed67794ae";
+      image = "ghcr.io/bookorbit/bookorbit:2.6.0@sha256:a7fa6d124d99bb5cda302160be0736b67e858f6957153e711edbba19e1b93057";
       autoStart = true;
       dependsOn = [ "bookorbit-postgres" ];
       # Eufy already occupies host port 3000; nginx fronts this private port.
