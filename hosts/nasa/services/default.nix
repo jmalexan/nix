@@ -26,6 +26,7 @@
     ./jellyfin.nix
     ./immich.nix
     ./calibre.nix
+    ./grimmory.nix
     ./music-covers.nix
 
     # Home automation and cameras

@@ -66,6 +66,12 @@
     # Container runs as PUID=987 (calibre-web) so library file ownership
     # stays consistent across both services.
     "d /Data/smb/Internal/Services/calibre-desktop    0750 calibre-web  calibre-web -"
+    # Grimmory starts as a non-destructive pilot: its own cache/database are
+    # writable, while the existing Calibre library is mounted read-only.
+    "d /Data/smb/Internal/Services/grimmory           0750 grimmory     grimmory -"
+    "d /Data/smb/Internal/Services/grimmory/data      0750 grimmory     grimmory -"
+    "d /Data/smb/Internal/Services/grimmory/mariadb   0700 grimmory     grimmory -"
+    "d /Data/smb/Internal/Services/grimmory/bookdrop  0750 grimmory     grimmory -"
   ];
 
   # Bazarr's upstream tmpfiles rule cannot safely cross the jmalexan-owned
