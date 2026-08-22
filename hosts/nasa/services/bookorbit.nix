@@ -75,7 +75,9 @@ in
         # The library is owned by calibre-web. The entrypoint uses this as the
         # process's primary group while UID 985 continues to own /data.
         PGID = "987";
-        LIBRARY_BROWSE_ROOT = "/books";
+        # Keep prose and manga as separate BookOrbit libraries while preserving
+        # the existing /books path already stored in BookOrbit's database.
+        LIBRARY_BROWSE_ROOT = "/";
         BOOK_DOCK_PATH = "/data/book-dock";
         NODE_MAX_OLD_SPACE_SIZE = "2048";
         LOG_LEVEL = "info";
@@ -84,6 +86,7 @@ in
       volumes = [
         "${stateDir}/data:/data"
         "/Data/smb/Media/Books:/books"
+        "/Data/smb/Media/Manga:/manga"
         # Reserved for the documented but unreleased Requests workflow. Keep
         # the torrent tree read-only; when the feature ships, configure its
         # download client to copy rather than hardlink between bind mounts.
@@ -156,6 +159,19 @@ in
 
             ${pkgs.coreutils}/bin/touch "$stamp"
             ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$stamp"
+          fi
+
+          manga_stamp=${stateDir}/data/.manga-storage-access-v1
+          if [ ! -e "$manga_stamp" ]; then
+            # Manga is a distinct writable library. Existing files may retain
+            # ownership from the retired Komga deployment, so use the same
+            # stable named-ACL approach as the prose library.
+            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX /Data/smb/Media/Manga
+            ${pkgs.findutils}/bin/find /Data/smb/Media/Manga -type d \
+              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
+
+            ${pkgs.coreutils}/bin/touch "$manga_stamp"
+            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$manga_stamp"
           fi
         '';
       };

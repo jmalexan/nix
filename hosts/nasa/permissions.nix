@@ -66,6 +66,7 @@
     # writable and propagate it to new author/title directories. This also
     # prepares the documented (but not yet released) Requests workflow.
     "d /Data/smb/Media/Books                          02775 calibre-web calibre-web -"
+    "d /Data/smb/Media/Manga                          02775 root        media       -"
     "d /Data/smb/Internal/Services/calibre-web        0700 calibre-web  calibre-web -"
     # Container runs as PUID=987 (calibre-web) so library file ownership
     # stays consistent across both services.
