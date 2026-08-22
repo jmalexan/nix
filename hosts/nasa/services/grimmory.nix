@@ -11,8 +11,9 @@ let
 in
 {
   # Stable ownership for Grimmory's application cache, BookDrop, and MariaDB.
-  # The supplemental calibre-web group lets the container read libraries whose
-  # files are not world-readable; the bind mount remains read-only regardless.
+  # The host account joins calibre-web for administrative access, while the
+  # application process uses calibre-web (987) as its primary container group:
+  # Grimmory's entrypoint changes users and discards Docker supplemental groups.
   users.users.grimmory = {
     uid = 986;
     group = "grimmory";
@@ -60,7 +61,9 @@ in
       ports = [ "127.0.0.1:6060:6060" ];
       environment = {
         USER_ID = "986";
-        GROUP_ID = "986";
+        # The existing Calibre library is group-owned by calibre-web (987).
+        # Keep Grimmory's UID at 986 so it still owns and can write its state.
+        GROUP_ID = "987";
         TZ = "America/New_York";
         SERVER_PORT = "6060";
         DATABASE_URL = "jdbc:mariadb://grimmory-mariadb:3306/grimmory";
@@ -79,7 +82,6 @@ in
       ];
       extraOptions = [
         "--network=${network}"
-        "--group-add=987"
         "--health-cmd=wget -q -O - http://127.0.0.1:6060/api/v1/healthcheck >/dev/null"
         "--health-interval=60s"
         "--health-timeout=10s"
