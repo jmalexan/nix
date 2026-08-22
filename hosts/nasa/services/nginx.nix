@@ -205,6 +205,19 @@ in
         };
       };
 
+      "${internalHost "grimmory"}" = ssl // {
+        serverAliases = [ "grimmory" ];
+        extraConfig = ''
+          client_max_body_size 2G;
+          proxy_read_timeout   600s;
+          proxy_send_timeout   600s;
+        '';
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:6060";
+          proxyWebsockets = true;
+        };
+      };
+
       "${internalHost "lidarr"}" = ssl // {
         serverAliases = [ "lidarr" ];
         locations."/" = {

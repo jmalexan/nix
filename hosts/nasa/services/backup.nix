@@ -48,6 +48,9 @@ in
       "--exclude=/Data/smb/Internal/Services/immich/encoded-video"
       "--exclude=/Data/smb/Internal/Services/immich-postgres"
       "--exclude=/Data/smb/Internal/Services/immich-model-cache"
+      # Live MariaDB files are not crash-consistent when copied directly. The
+      # logical Grimmory dump produced below is included instead.
+      "--exclude=/Data/smb/Internal/Services/grimmory/mariadb"
       # Frigate's recordings and snapshots. Deliberately NOT backed up: they
       # are surveillance video with a 14-day retention policy configured in
       # frigate.nix, they churn completely every fortnight, and they dedup
@@ -69,14 +72,16 @@ in
   # Restic requires this oneshot, so a failed dump makes the backup fail loudly
   # rather than recording a snapshot that looks successful but lacks databases.
   systemd.services.database-backup = {
-    description = "Create logical PostgreSQL dumps for the Restic backup";
+    description = "Create logical database dumps for the Restic backup";
     after = [
       "postgresql.service"
       "docker-immich-postgres.service"
+      "docker-grimmory-mariadb.service"
     ];
     requires = [
       "postgresql.service"
       "docker-immich-postgres.service"
+      "docker-grimmory-mariadb.service"
     ];
     unitConfig.AssertPathIsMountPoint = "/Data/smb";
     serviceConfig.Type = "oneshot";
@@ -87,8 +92,9 @@ in
 
       hass_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.hass.XXXXXX)
       immich_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.immich.XXXXXX)
+      grimmory_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.grimmory.XXXXXX)
       cleanup() {
-        ${pkgs.coreutils}/bin/rm -f "$hass_tmp" "$immich_tmp"
+        ${pkgs.coreutils}/bin/rm -f "$hass_tmp" "$immich_tmp" "$grimmory_tmp"
       }
       trap cleanup EXIT
 
@@ -97,10 +103,14 @@ in
       ${docker} exec immich-postgres \
         pg_dump --username=postgres --format=custom --clean --if-exists immich \
         > "$immich_tmp"
+      ${docker} exec grimmory-mariadb \
+        mariadb-dump --user=root --single-transaction --routines --events \
+          --triggers grimmory > "$grimmory_tmp"
 
-      ${pkgs.coreutils}/bin/chmod 0600 "$hass_tmp" "$immich_tmp"
+      ${pkgs.coreutils}/bin/chmod 0600 "$hass_tmp" "$immich_tmp" "$grimmory_tmp"
       ${pkgs.coreutils}/bin/mv "$hass_tmp" ${databaseBackupDir}/hass.dump
       ${pkgs.coreutils}/bin/mv "$immich_tmp" ${databaseBackupDir}/immich.dump
+      ${pkgs.coreutils}/bin/mv "$grimmory_tmp" ${databaseBackupDir}/grimmory.sql
       trap - EXIT
     '';
   };
