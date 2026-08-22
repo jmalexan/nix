@@ -46,7 +46,10 @@
     # renovate: datasource=docker depName=lscr.io/linuxserver/calibre versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-ls(?<build>\d+)$
     image = "lscr.io/linuxserver/calibre:v9.13.0-ls416@sha256:fc0c3b0375e1e078f52f26abb94641291d4aed146fa6d0abe813443459be5e2f";
     autoStart = true;
-    ports = [ "127.0.0.1:8085:8080" ]; # KasmVNC HTTPS
+    ports = [
+      "127.0.0.1:8085:8080" # KasmVNC desktop UI
+      "127.0.0.1:8081:8081" # Calibre content server (enabled in the desktop UI)
+    ];
     environment = {
       PUID = "987";
       PGID = "987";

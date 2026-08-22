@@ -196,6 +196,15 @@ in
         };
       };
 
+      # Calibre's built-in content server is configured and started from the
+      # desktop UI under Preferences → Sharing over the net.
+      "${internalHost "calibre-content"}" = ssl // {
+        serverAliases = [ "calibre-content" ];
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:8081";
+        };
+      };
+
       "${internalHost "lidarr"}" = ssl // {
         serverAliases = [ "lidarr" ];
         locations."/" = {
