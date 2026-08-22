@@ -36,7 +36,6 @@ in
   "secrets/calibre-desktop-password.age".publicKeys = allKeys;
   "secrets/immich-db-password.age".publicKeys = allKeys;
   "secrets/eufy-credentials.age".publicKeys = allKeys;
-  "secrets/grimmory-db-password.age".publicKeys = allKeys;
   "secrets/bookorbit-env.age".publicKeys = allKeys;
 }
 # ── Adding or removing a key ──────────────────────────────────────────────────

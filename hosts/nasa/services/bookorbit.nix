@@ -69,8 +69,7 @@ in
         CLIENT_URL = publicUrl;
         PUID = "985";
         # The library is owned by calibre-web. The entrypoint uses this as the
-        # process's primary group, avoiding the supplemental-group issue seen
-        # with Grimmory while UID 985 continues to own /data.
+        # process's primary group while UID 985 continues to own /data.
         PGID = "987";
         LIBRARY_BROWSE_ROOT = "/books";
         NODE_MAX_OLD_SPACE_SIZE = "2048";
