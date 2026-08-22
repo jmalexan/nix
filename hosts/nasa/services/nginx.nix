@@ -218,6 +218,19 @@ in
         };
       };
 
+      "${internalHost "bookorbit"}" = ssl // {
+        serverAliases = [ "bookorbit" ];
+        extraConfig = ''
+          client_max_body_size 2G;
+          proxy_read_timeout   600s;
+          proxy_send_timeout   600s;
+        '';
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:3001";
+          proxyWebsockets = true;
+        };
+      };
+
       "${internalHost "lidarr"}" = ssl // {
         serverAliases = [ "lidarr" ];
         locations."/" = {

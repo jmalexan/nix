@@ -51,6 +51,8 @@ in
       # Live MariaDB files are not crash-consistent when copied directly. The
       # logical Grimmory dump produced below is included instead.
       "--exclude=/Data/smb/Internal/Services/grimmory/mariadb"
+      # BookOrbit's live PostgreSQL files likewise require a logical dump.
+      "--exclude=/Data/smb/Internal/Services/bookorbit/postgres"
       # Frigate's recordings and snapshots. Deliberately NOT backed up: they
       # are surveillance video with a 14-day retention policy configured in
       # frigate.nix, they churn completely every fortnight, and they dedup
@@ -77,11 +79,13 @@ in
       "postgresql.service"
       "docker-immich-postgres.service"
       "docker-grimmory-mariadb.service"
+      "docker-bookorbit-postgres.service"
     ];
     requires = [
       "postgresql.service"
       "docker-immich-postgres.service"
       "docker-grimmory-mariadb.service"
+      "docker-bookorbit-postgres.service"
     ];
     unitConfig.AssertPathIsMountPoint = "/Data/smb";
     serviceConfig.Type = "oneshot";
@@ -93,8 +97,10 @@ in
       hass_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.hass.XXXXXX)
       immich_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.immich.XXXXXX)
       grimmory_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.grimmory.XXXXXX)
+      bookorbit_tmp=$(${pkgs.coreutils}/bin/mktemp ${databaseBackupDir}/.bookorbit.XXXXXX)
       cleanup() {
-        ${pkgs.coreutils}/bin/rm -f "$hass_tmp" "$immich_tmp" "$grimmory_tmp"
+        ${pkgs.coreutils}/bin/rm -f \
+          "$hass_tmp" "$immich_tmp" "$grimmory_tmp" "$bookorbit_tmp"
       }
       trap cleanup EXIT
 
@@ -106,11 +112,16 @@ in
       ${docker} exec grimmory-mariadb \
         mariadb-dump --user=root --single-transaction --routines --events \
           --triggers grimmory > "$grimmory_tmp"
+      ${docker} exec bookorbit-postgres \
+        pg_dump --username=bookorbit --format=custom --clean --if-exists bookorbit \
+        > "$bookorbit_tmp"
 
-      ${pkgs.coreutils}/bin/chmod 0600 "$hass_tmp" "$immich_tmp" "$grimmory_tmp"
+      ${pkgs.coreutils}/bin/chmod 0600 \
+        "$hass_tmp" "$immich_tmp" "$grimmory_tmp" "$bookorbit_tmp"
       ${pkgs.coreutils}/bin/mv "$hass_tmp" ${databaseBackupDir}/hass.dump
       ${pkgs.coreutils}/bin/mv "$immich_tmp" ${databaseBackupDir}/immich.dump
       ${pkgs.coreutils}/bin/mv "$grimmory_tmp" ${databaseBackupDir}/grimmory.sql
+      ${pkgs.coreutils}/bin/mv "$bookorbit_tmp" ${databaseBackupDir}/bookorbit.dump
       trap - EXIT
     '';
   };

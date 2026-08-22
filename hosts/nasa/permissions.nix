@@ -72,6 +72,11 @@
     "d /Data/smb/Internal/Services/grimmory/data      0750 grimmory     grimmory -"
     "d /Data/smb/Internal/Services/grimmory/mariadb   0700 grimmory     grimmory -"
     "d /Data/smb/Internal/Services/grimmory/bookdrop  0750 grimmory     grimmory -"
+    # Independent BookOrbit pilot. Its app state is UID-owned; the official
+    # pgvector entrypoint initializes ownership inside the Postgres directory.
+    "d /Data/smb/Internal/Services/bookorbit          0750 bookorbit    bookorbit -"
+    "d /Data/smb/Internal/Services/bookorbit/data     0750 bookorbit    bookorbit -"
+    "d /Data/smb/Internal/Services/bookorbit/postgres 0700 root         root -"
   ];
 
   # Bazarr's upstream tmpfiles rule cannot safely cross the jmalexan-owned

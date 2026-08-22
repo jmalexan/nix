@@ -27,6 +27,7 @@
     ./immich.nix
     ./calibre.nix
     ./grimmory.nix
+    ./bookorbit.nix
     ./music-covers.nix
 
     # Home automation and cameras
