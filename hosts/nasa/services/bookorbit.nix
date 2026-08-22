@@ -14,17 +14,14 @@ in
 {
   # BookOrbit owns its application state and manages the shared library through
   # the existing Calibre group while that stack remains available as fallback.
-  # The media group and /downloads mount below are reserved for BookOrbit's
-  # documented Requests workflow. As of v2.6.0 and public main on 2026-08-22,
-  # that workflow has documentation but no released or public implementation.
+  # The /downloads mount below is reserved for BookOrbit's documented Requests
+  # workflow. As of v2.6.0 and public main on 2026-08-22, that workflow has
+  # documentation but no released or public implementation.
   users.users.bookorbit = {
     uid = 985;
     group = "bookorbit";
     isSystemUser = true;
-    extraGroups = [
-      "calibre-web"
-      "media"
-    ];
+    extraGroups = [ "calibre-web" ];
   };
   users.groups.bookorbit.gid = 985;
 
@@ -103,9 +100,6 @@ in
         "--cap-add=FOWNER"
         "--cap-add=SETGID"
         "--cap-add=SETUID"
-        # Docker does not automatically pass the host user's supplementary
-        # groups into the container. media is fixed to GID 993.
-        "--group-add=993"
         "--security-opt=no-new-privileges:true"
         "--stop-timeout=30"
         "--health-cmd=node -e \"const p=process.env.PORT||3000;fetch('http://127.0.0.1:'+p+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
@@ -136,7 +130,7 @@ in
     )
     // {
       bookorbit-library-access = {
-        description = "Grant BookOrbit write access to the existing book library";
+        description = "Grant BookOrbit access to library and download storage";
         after = [ "zfs-mount.service" ];
         requires = [ "zfs-mount.service" ];
         wantedBy = [ "multi-user.target" ];
@@ -146,10 +140,20 @@ in
           RemainAfterExit = true;
         };
         script = ''
-          stamp=${stateDir}/data/.library-write-access-v1
+          stamp=${stateDir}/data/.storage-access-v2
           if [ ! -e "$stamp" ]; then
-            ${pkgs.coreutils}/bin/chgrp -R calibre-web /Data/smb/Media/Books
-            ${pkgs.coreutils}/bin/chmod -R g+rwX /Data/smb/Media/Books
+            # The image drops to UID 985 with su-exec, which does not preserve
+            # Docker supplemental groups reliably. Named ACLs express the
+            # intended access directly and survive the Calibre transition.
+            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX /Data/smb/Media/Books
+            ${pkgs.findutils}/bin/find /Data/smb/Media/Books -type d \
+              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
+
+            # Future Requests imports only need to read completed downloads.
+            ${pkgs.acl}/bin/setfacl -R -m u:985:r-X /Data/smb/Torrents
+            ${pkgs.findutils}/bin/find /Data/smb/Torrents -type d \
+              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:r-x '{}' +
+
             ${pkgs.coreutils}/bin/touch "$stamp"
             ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$stamp"
           fi
