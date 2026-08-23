@@ -34,7 +34,7 @@
     "d /Data/smb/Internal/Services/romm/redis-data    0700 root        root  -"
     "d /Data/smb/Internal/Services/romm/config        0750 root        root  -"
     # User-managed gaming data. Library contains RomM's generated Structure A
-    # view; DATs and Patches hold source metadata and patch files respectively.
+    # view, DATs holds source metadata, and Patches is an unautomated archive.
     # Their contents are deliberately not managed by tmpfiles.
     "d /Data/smb/Games                                0755 jmalexan    root  -"
     "d /Data/smb/Games/Library                        0755 jmalexan    root  -"

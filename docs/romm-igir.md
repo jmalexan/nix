@@ -13,13 +13,14 @@ Structure A library:
 ├── DATs/
 │   └── Console/*.dat
 └── Patches/
-    └── {romm-platform-slug}/{game}/...
+    └── ...
 ```
 
 `Library` is RomM's generated view, `DATs` contains identification metadata,
-and `Patches` is reserved for original patch files. qBittorrent intake remains
-under `/Data/smb/Torrents/ROMs`; it is intentionally outside the curated games
-tree and remains untouched.
+and `Patches` is a user-managed archive. Neither Igir nor RomM automatically
+reads, links, applies, reorganizes, or deletes files in `Patches`. qBittorrent
+intake remains under `/Data/smb/Torrents/ROMs`; it is intentionally outside the
+curated games tree and remains untouched.
 
 The configured jobs scan the entire qBittorrent ROM category. This lets new
 providers and separately downloaded BIOS sets work without changing Nix, as
