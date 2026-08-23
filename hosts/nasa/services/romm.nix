@@ -12,10 +12,42 @@ let
   providersEnvFile = config.age.secrets.romm-providers.path;
 in
 {
-  # Install the manual Igir workflow alongside RomM. Jobs remain empty until
-  # their deployment-specific torrent and DAT paths are declared; no timer is
-  # enabled by default.
-  services.rommIgir.enable = true;
+  # Scan the entire qBittorrent ROM category so additional providers and BIOS
+  # torrents work without a Nix change. Keep MAME DATs out of the Console DAT
+  # tree; arcade sets need a separate job with an exact merge mode.
+  services.rommIgir = {
+    enable = true;
+
+    jobs = {
+      console-1g1r = {
+        inputs = [ "/Data/smb/Torrents/ROMs" ];
+        dats = [ "/Data/smb/ROM-DATs/Console/**/*.dat" ];
+        bios = false;
+        # Verify the initial library build. This can be disabled after the
+        # generated links have been inspected successfully.
+        verify = true;
+        extraArgs = [
+          "--single"
+          "--prefer-language"
+          "EN"
+          "--prefer-region"
+          "USA,WORLD,EUR,JPN"
+          "--prefer-retail"
+          "--prefer-good"
+          "--prefer-verified"
+          "--prefer-revision"
+          "newer"
+        ];
+      };
+
+      console-bios = {
+        inputs = [ "/Data/smb/Torrents/ROMs" ];
+        dats = [ "/Data/smb/ROM-DATs/Console/**/*.dat" ];
+        roms = false;
+        verify = true;
+      };
+    };
+  };
 
   # IGDB, SteamGridDB, and RetroAchievements credentials. The decrypted file
   # is consumed directly by Docker and never copied into the Nix store.

@@ -10,44 +10,46 @@ torrent tree into RomM's Structure A library:
 └── bios/{romm-platform-slug}/...
 ```
 
-The exact torrent subdirectories and DAT locations are not stored in this
-repository yet, so the job set is intentionally empty. Declare jobs in
-`hosts/nasa/services/romm.nix` once those paths are known. For example:
+The configured jobs scan the entire qBittorrent ROM category. This lets new
+providers and separately downloaded BIOS sets work without changing Nix, as
+long as they remain somewhere below `/Data/smb/Torrents/ROMs`:
 
 ```nix
-services.rommIgir = {
-  jobs = {
-    no-intro = {
-      inputs = [
-        "/Data/smb/Torrents/ROMs/No-Intro"
-        "/Data/smb/Torrents/ROMs/No-Intro-updates/**/*.zip"
-      ];
-      dats = [
-        "/Data/smb/ROM-DATs/No-Intro/**/*.dat"
-        "/Data/smb/ROM-DATs/No-Intro/**/*.xml"
-      ];
-      extraArgs = [
-        "--prefer-region"
-        "USA,WORLD,EUR"
-      ];
-    };
+services.rommIgir.jobs.console-1g1r = {
+  inputs = [ "/Data/smb/Torrents/ROMs" ];
+  dats = [ "/Data/smb/ROM-DATs/Console/**/*.dat" ];
+  bios = false;
+  verify = true;
+  extraArgs = [
+    "--single"
+    "--prefer-language"
+    "EN"
+    "--prefer-region"
+    "USA,WORLD,EUR,JPN"
+    "--prefer-retail"
+    "--prefer-good"
+    "--prefer-verified"
+    "--prefer-revision"
+    "newer"
+  ];
+};
 
-    mame-0278 = {
-      inputs = [ "/Data/smb/Torrents/ROMs/MAME 0.278" ];
-      dats = [ "/Data/smb/ROM-DATs/MAME/MAME 0.278.dat" ];
-      extraArgs = [
-        "--merge-roms"
-        "split"
-      ];
-    };
-  };
+services.rommIgir.jobs.console-bios = {
+  inputs = [ "/Data/smb/Torrents/ROMs" ];
+  dats = [ "/Data/smb/ROM-DATs/Console/**/*.dat" ];
+  roms = false;
+  verify = true;
 };
 ```
 
-Each job accepts multiple `inputs` and `dats`. Add another path to either list
-when a torrent or DAT set expands. Add another named job when its matching,
-filtering, or MAME merge settings differ. Igir expands the globs itself, so keep
-them as Nix strings rather than relying on shell expansion.
+The first job builds a USA-first English 1G1R console collection. The second
+keeps the same 1G1R preferences away from BIOS selection. Adding ROM or BIOS
+torrents below the input root requires no configuration change. Adding another
+No-Intro console DAT below `/Data/smb/ROM-DATs/Console` likewise takes effect on
+the next run. Igir expands the glob itself rather than relying on the shell.
+
+Keep MAME DATs out of the Console DAT tree. MAME requires a separate job whose
+DAT, source set, emulator version, and `--merge-roms` mode agree.
 
 By default, every job performs two passes equivalent to `igir link`: one with
 `--no-bios` into `roms/{romm}`, and one with `--only-bios` into `bios/{romm}`.
@@ -84,9 +86,10 @@ finishes successfully should you start a RomM scan from its authenticated web
 UI. The repository has no safe authenticated scan hook, so the service does not
 trigger one.
 
-Routine verification is off because adding Igir's `test` command can make runs
-significantly slower. Set `services.rommIgir.verify = true` globally or
-`jobs.<name>.verify = true` for selected jobs.
+Both current jobs enable verification for the initial library build. After the
+links have been inspected successfully, set their `verify` values to `false` to
+make routine runs faster. The module-wide default remains off; verification can
+also be controlled with `services.rommIgir.verify` or per job.
 
 An optional timer is available but disabled. Enable it only after choosing a
 schedule appropriate for the downloads:
