@@ -158,6 +158,9 @@ let
     runtimeInputs = [
       cfg.package
       pkgs.coreutils
+      # Igir's update check invokes awk through /bin/sh. systemd gives this
+      # runner an isolated PATH, so declare it instead of relying on the host.
+      pkgs.gawk
     ];
     text = ''
       mkdir -p \

@@ -10,6 +10,7 @@ let
   stateDir = "/Data/smb/Internal/Services/romm";
   envFile = "${stateDir}/romm.env";
   providersEnvFile = config.age.secrets.romm-providers.path;
+  igir = import ../../../packages/igir.nix { inherit pkgs; };
 in
 {
   # Scan the entire qBittorrent ROM category so additional providers and BIOS
@@ -17,6 +18,7 @@ in
   # tree; arcade sets need a separate job with an exact merge mode.
   services.rommIgir = {
     enable = true;
+    package = igir;
 
     jobs = {
       console-1g1r = {

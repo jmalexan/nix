@@ -1,8 +1,9 @@
 # RomM library links with Igir
 
-The NAS installs the Igir version pinned by this flake and provides the manual
-`romm-igir-link.service`. It creates absolute symbolic links from the untouched
-torrent tree into RomM's Structure A library:
+The NAS installs Igir 5.4.0 from the source and npm dependency hashes pinned in
+`packages/igir.nix`, and provides the manual `romm-igir-link.service`. It
+creates absolute symbolic links from the untouched torrent tree into RomM's
+Structure A library:
 
 ```text
 /Data/smb/ROMs/
