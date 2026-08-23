@@ -67,11 +67,12 @@ in
         providersEnvFile
       ];
       volumes = [
-        # The surviving SMB directory is already the contents of RomM's
-        # recommended `roms/` directory, so mount it at that exact depth.
+        # The surviving SMB directory uses RomM's Structure A layout: it
+        # contains sibling roms/ and bios/ directories. Mount their parent as
+        # the library so both appear at the paths RomM expects.
         # Keeping it separate from state means rebuilding RomM cannot move or
         # delete the library as part of container lifecycle management.
-        "/Data/smb/ROMs:/romm/library/roms"
+        "/Data/smb/ROMs:/romm/library"
         "${stateDir}/resources:/romm/resources"
         "${stateDir}/assets:/romm/assets"
         "${stateDir}/redis-data:/redis-data"
