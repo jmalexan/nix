@@ -52,6 +52,7 @@ deployment workflow.
 - [Architecture and ownership](docs/architecture.md)
 - [Updates and Renovate](docs/updates.md)
 - [NAS backups and restore](docs/nasa-recovery.md)
+- [RomM library links with Igir](docs/romm-igir.md)
 - [HTPC remote and playback](docs/htpc-remote.md)
 
 Secrets are encrypted with agenix. `secrets.nix` is the recipient inventory;

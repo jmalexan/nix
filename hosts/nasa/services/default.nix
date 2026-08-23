@@ -25,6 +25,7 @@
     ./seerr.nix
     ./jellyfin.nix
     ./immich.nix
+    ./romm-igir.nix
     ./romm.nix
     ./bookorbit.nix
     ./music-covers.nix

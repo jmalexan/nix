@@ -12,6 +12,11 @@ let
   providersEnvFile = config.age.secrets.romm-providers.path;
 in
 {
+  # Install the manual Igir workflow alongside RomM. Jobs remain empty until
+  # their deployment-specific torrent and DAT paths are declared; no timer is
+  # enabled by default.
+  services.rommIgir.enable = true;
+
   # IGDB, SteamGridDB, and RetroAchievements credentials. The decrypted file
   # is consumed directly by Docker and never copied into the Nix store.
   age.secrets.romm-providers = {
@@ -72,7 +77,7 @@ in
         # the library so both appear at the paths RomM expects.
         # Keeping it separate from state means rebuilding RomM cannot move or
         # delete the library as part of container lifecycle management.
-        "/Data/smb/ROMs:/romm/library"
+        "${config.services.rommIgir.libraryPath}:/romm/library"
         "${stateDir}/resources:/romm/resources"
         "${stateDir}/assets:/romm/assets"
         "${stateDir}/redis-data:/redis-data"
