@@ -88,6 +88,20 @@ in
         };
       };
 
+      "${internalHost "romm"}" = ssl // {
+        serverAliases = [ "romm" ];
+        extraConfig = ''
+          client_max_body_size 50G;
+          proxy_read_timeout   600s;
+          proxy_send_timeout   600s;
+          send_timeout         600s;
+        '';
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:8086";
+          proxyWebsockets = true;
+        };
+      };
+
       "${internalHost "homeassistant"}" = ssl // {
         serverAliases = [ "homeassistant" ];
         # Home Assistant 2026.8 currently falls back to relative OAuth

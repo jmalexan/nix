@@ -25,6 +25,18 @@
     "d /Data/smb/Internal/Services/immich-postgres    0700 root        root  -"
     "d /Data/smb/Internal/Services/immich-model-cache 0700 root        root  -"
     "d /Data/smb/Internal/Services/jellyfin           0750 jellyfin    root  -"
+    # RomM runs as root in the upstream image. Its generated environment file
+    # contains the database password and authentication signing key.
+    "d /Data/smb/Internal/Services/romm               0700 root        root  -"
+    "d /Data/smb/Internal/Services/romm/mariadb       0700 root        root  -"
+    "d /Data/smb/Internal/Services/romm/resources     0750 root        root  -"
+    "d /Data/smb/Internal/Services/romm/assets        0750 root        root  -"
+    "d /Data/smb/Internal/Services/romm/redis-data    0700 root        root  -"
+    "d /Data/smb/Internal/Services/romm/config        0750 root        root  -"
+    # Preserve the existing collection in place. Its contents are deliberately
+    # not managed by tmpfiles; this rule only ensures the mount point exists on
+    # a genuinely fresh pool.
+    "d /Data/smb/ROMs                                 0755 jmalexan    root  -"
     "d /Data/smb/Internal/Services/homeassistant      0750 hass        root  -"
     # Frigate runs as root inside its container. The config/ and media/ subdirs
     # plus the seeded config.yml are created in services/frigate.nix.

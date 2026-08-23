@@ -25,6 +25,7 @@
     ./seerr.nix
     ./jellyfin.nix
     ./immich.nix
+    ./romm.nix
     ./bookorbit.nix
     ./music-covers.nix
 
@@ -47,6 +48,10 @@
     {
       assertion = config.virtualisation.oci-containers.containers ? immich-server;
       message = "The NAS service inventory must include the Immich stack";
+    }
+    {
+      assertion = config.virtualisation.oci-containers.containers ? romm;
+      message = "The NAS service inventory must include RomM";
     }
   ];
 }
