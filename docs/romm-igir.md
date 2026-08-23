@@ -14,6 +14,11 @@ The configured jobs scan the entire qBittorrent ROM category. This lets new
 providers and separately downloaded BIOS sets work without changing Nix, as
 long as they remain somewhere below `/Data/smb/Torrents/ROMs`:
 
+Some ROM torrents contain filenames that differ only by letter case. See
+[qBittorrent ROM filename collisions](qbittorrent-rom-filename-collisions.md)
+before troubleshooting torrents stalled at 99.9% or marked **Missing Files**
+after a qBittorrent restart.
+
 ```nix
 services.rommIgir.jobs.console-1g1r = {
   inputs = [ "/Data/smb/Torrents/ROMs" ];
