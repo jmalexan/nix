@@ -153,14 +153,11 @@ in
 
     romm-secrets = {
       description = "Provision persistent RomM secrets";
-      after = [
-        "agenix.service"
-        "zfs-mount.service"
-      ];
-      requires = [
-        "agenix.service"
-        "zfs-mount.service"
-      ];
+      # Agenix decrypts secrets from the NixOS activation script; it does not
+      # provide an agenix.service unit. By the time regular system services
+      # start, providersEnvFile already exists under /run/agenix.
+      after = [ "zfs-mount.service" ];
+      requires = [ "zfs-mount.service" ];
       unitConfig.AssertPathIsMountPoint = "/Data/smb";
       serviceConfig = {
         Type = "oneshot";
