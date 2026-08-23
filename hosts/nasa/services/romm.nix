@@ -9,8 +9,16 @@ let
   network = "romm";
   stateDir = "/Data/smb/Internal/Services/romm";
   envFile = "${stateDir}/romm.env";
+  providersEnvFile = config.age.secrets.romm-providers.path;
 in
 {
+  # IGDB, SteamGridDB, and RetroAchievements credentials. The decrypted file
+  # is consumed directly by Docker and never copied into the Nix store.
+  age.secrets.romm-providers = {
+    file = ../../../secrets/romm-providers.age;
+    mode = "0400";
+  };
+
   virtualisation.oci-containers.containers = {
     romm-db = {
       # Keep the database major explicit. Changing it requires a supported
@@ -44,13 +52,20 @@ in
         DB_HOST = "romm-db";
         DB_NAME = "romm";
         DB_USER = "romm";
+        # Hasheous is the only provider in the selected set that needs no
+        # account or API key. Credential-backed providers are loaded from the
+        # root-only providers.env file provisioned below.
+        HASHEOUS_API_ENABLED = "true";
         ROMM_BASE_URL = "https://romm.${vars.nasa.domain}";
         ROMM_SESSION_SECURE_COOKIE = "true";
         SCAN_WORKERS = "2";
         WEB_SERVER_CONCURRENCY = "3";
         TZ = "America/New_York";
       };
-      environmentFiles = [ envFile ];
+      environmentFiles = [
+        envFile
+        providersEnvFile
+      ];
       volumes = [
         # The surviving SMB directory is already the contents of RomM's
         # recommended `roms/` directory, so mount it at that exact depth.
@@ -138,8 +153,14 @@ in
 
     romm-secrets = {
       description = "Provision persistent RomM secrets";
-      after = [ "zfs-mount.service" ];
-      requires = [ "zfs-mount.service" ];
+      after = [
+        "agenix.service"
+        "zfs-mount.service"
+      ];
+      requires = [
+        "agenix.service"
+        "zfs-mount.service"
+      ];
       unitConfig.AssertPathIsMountPoint = "/Data/smb";
       serviceConfig = {
         Type = "oneshot";

@@ -37,6 +37,7 @@ in
   "secrets/immich-db-password.age".publicKeys = allKeys;
   "secrets/eufy-credentials.age".publicKeys = allKeys;
   "secrets/bookorbit-env.age".publicKeys = allKeys;
+  "secrets/romm-providers.age".publicKeys = allKeys;
 }
 # ── Adding or removing a key ──────────────────────────────────────────────────
 # The recipient list above is only consulted when a secret is (re-)encrypted.
