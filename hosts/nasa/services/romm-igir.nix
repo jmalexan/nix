@@ -32,7 +32,7 @@ let
       outputConsoleTokens = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
-        example = "/Data/smb/ROM-DATs/romm-console-tokens.json";
+        example = "/Data/smb/Games/DATs/romm-console-tokens.json";
         description = "Absolute path to a custom Igir --output-console-tokens JSON file.";
       };
 
@@ -108,13 +108,13 @@ let
   shouldVerify = job: if job.verify == null then cfg.verify else job.verify;
 
   commonArgs =
-    name: job:
+    job:
     [
       "--link-mode"
       "symlink"
       "--overwrite-invalid"
       "--cache-path"
-      "/var/cache/romm-igir/${name}.cache"
+      cfg.cachePath
     ]
     ++ lib.concatMap (dat: [
       "--dat"
@@ -129,15 +129,15 @@ let
       job.outputConsoleTokens
     ]
     ++ job.extraArgs
-    ++ [ "-v" ];
+    ++ lib.optional cfg.verbose "-v";
 
   invocation =
-    name: job: kind:
+    job: kind:
     let
       commands = [ "link" ] ++ lib.optional (shouldVerify job) "test";
       modeArg = if kind == "roms" then "--no-bios" else "--only-bios";
       output = "${cfg.libraryPath}/${kind}/${outputToken job}";
-      args = commonArgs name job ++ [
+      args = commonArgs job ++ [
         "--output"
         output
         modeArg
@@ -149,8 +149,8 @@ let
     name: job:
     lib.concatStringsSep "\n" (
       [ "echo ${lib.escapeShellArg "Running RomM Igir job: ${name}"}" ]
-      ++ lib.optional job.roms (invocation name job "roms")
-      ++ lib.optional job.bios (invocation name job "bios")
+      ++ lib.optional job.roms (invocation job "roms")
+      ++ lib.optional job.bios (invocation job "bios")
     );
 
   runner = pkgs.writeShellApplication {
@@ -223,7 +223,7 @@ in
 
     libraryPath = lib.mkOption {
       type = lib.types.str;
-      default = "/Data/smb/ROMs";
+      default = "/Data/smb/Games/Library";
       description = "Host path to the RomM Structure A library.";
     };
 
@@ -252,6 +252,20 @@ in
       type = lib.types.bool;
       default = false;
       description = "Add Igir's test command to routine ROM and BIOS passes.";
+    };
+
+    cachePath = lib.mkOption {
+      type = lib.types.str;
+      # Reuse the cache populated by the original console-1g1r job. Both
+      # current jobs scan identical inputs and DATs, and run serially.
+      default = "/var/cache/romm-igir/console-1g1r.cache";
+      description = "Shared Igir file cache used by every configured job.";
+    };
+
+    verbose = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable Igir's per-file informational logging.";
     };
 
     jobs = lib.mkOption {
@@ -284,6 +298,10 @@ in
         message = "services.rommIgir.libraryPath must be absolute";
       }
       {
+        assertion = lib.hasPrefix "/var/cache/romm-igir/" cfg.cachePath;
+        message = "services.rommIgir.cachePath must be inside the service CacheDirectory";
+      }
+      {
         assertion = lib.all (root: lib.hasPrefix "/" root && !lib.hasInfix ":" root) cfg.torrentRoots;
         message = "services.rommIgir.torrentRoots must contain absolute paths without colons";
       }
@@ -300,7 +318,7 @@ in
     ];
 
     # Igir writes absolute links. Give the container the same source paths so
-    # those links resolve after /Data/smb/ROMs is bind-mounted at /romm/library.
+    # those links resolve after the library is bind-mounted at /romm/library.
     virtualisation.oci-containers.containers.romm.volumes = lib.mkAfter (
       map (root: "${root}:${root}:ro") cfg.torrentRoots
     );

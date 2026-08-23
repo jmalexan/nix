@@ -56,7 +56,8 @@ restart.
   failures because it also includes duplicate or cancelled endgame traffic.
 
 The Igir workflow is not responsible for changing the source payload. It reads
-`/Data/smb/Torrents/ROMs` and creates symlinks in `/Data/smb/ROMs`.
+`/Data/smb/Torrents/ROMs` and creates symlinks in
+`/Data/smb/Games/Library`.
 
 ## Manual workaround
 

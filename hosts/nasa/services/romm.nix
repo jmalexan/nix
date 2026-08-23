@@ -19,16 +19,18 @@ in
   services.rommIgir = {
     enable = true;
     package = igir;
+    libraryPath = "/Data/smb/Games/Library";
 
     jobs = {
       console-1g1r = {
         inputs = [ "/Data/smb/Torrents/ROMs" ];
-        dats = [ "/Data/smb/ROM-DATs/Console/**/*.dat" ];
+        dats = [ "/Data/smb/Games/DATs/Console/**/*.dat" ];
         bios = false;
-        # Verify the initial library build. This can be disabled after the
-        # generated links have been inspected successfully.
-        verify = true;
+        verify = false;
         extraArgs = [
+          # qBittorrent already verifies the archives. Trust their embedded
+          # CRCs instead of decompressing every ROM to calculate them again.
+          "--input-checksum-quick"
           "--single"
           "--prefer-language"
           "EN"
@@ -44,9 +46,10 @@ in
 
       console-bios = {
         inputs = [ "/Data/smb/Torrents/ROMs" ];
-        dats = [ "/Data/smb/ROM-DATs/Console/**/*.dat" ];
+        dats = [ "/Data/smb/Games/DATs/Console/**/*.dat" ];
         roms = false;
-        verify = true;
+        verify = false;
+        extraArgs = [ "--input-checksum-quick" ];
       };
     };
   };
