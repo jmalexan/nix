@@ -66,7 +66,7 @@ in
       # Keep the database major explicit. Changing it requires a supported
       # MariaDB upgrade rather than an ordinary container-image refresh.
       # renovate: datasource=docker depName=docker.io/library/mariadb versioning=docker
-      image = "docker.io/library/mariadb:11.8.8@sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c";
+      image = "docker.io/library/mariadb:12.3.3@sha256:dd9b303aed4f4890ed09f766d8ca9ddfd176c0c6f6267feff53b3192ec65a979";
       autoStart = true;
       environment = {
         MARIADB_DATABASE = "romm";
