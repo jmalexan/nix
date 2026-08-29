@@ -109,6 +109,7 @@
       "ffmpeg"
       "libpq"
       "rust"
+      "wasm-pack"
       "yt-dlp"
     ];
 
