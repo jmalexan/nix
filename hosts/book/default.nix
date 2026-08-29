@@ -18,8 +18,11 @@
 
   system.primaryUser = vars.user.name;
 
-  # Needed so home-manager can infer the user's home directory
-  users.users.${vars.user.name}.home = "/Users/${vars.user.name}";
+  users.users.${vars.user.name} = {
+    # Needed so home-manager can infer the user's home directory
+    home = "/Users/${vars.user.name}";
+    shell = pkgs.fish;
+  };
 
   networking.hostName = "Book";
   networking.computerName = "Book";
@@ -44,7 +47,6 @@
 
   # ── Shell ─────────────────────────────────────────────────────────────────
 
-  users.users.${vars.user.name}.shell = pkgs.fish;
   environment.shells = [ pkgs.fish ];
 
   # ── Nix Settings ──────────────────────────────────────────────────────────
