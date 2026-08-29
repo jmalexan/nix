@@ -106,6 +106,7 @@
     brews = [
       "ffmpeg"
       "libpq"
+      "rust"
       "yt-dlp"
     ];
 
