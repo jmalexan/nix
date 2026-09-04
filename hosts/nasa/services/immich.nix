@@ -53,7 +53,7 @@ in
     # Postgres — the container's `postgres` user is already a superuser, so
     # Immich can CREATE EXTENSION without any host-side grant.
     immich-postgres = {
-      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:abbecf4840d4877ee0802272581de7e189a08fd6034de1ae1ee223c063daf894";
+      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:3720e4d2c7d769360174b2d0b53d4e2efedf9dffb35cb9570528effd26dde1fd";
       autoStart = true;
       environment = {
         POSTGRES_USER = "postgres";
@@ -69,7 +69,7 @@ in
     };
 
     immich-redis = {
-      image = "docker.io/valkey/valkey:9@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf";
+      image = "docker.io/valkey/valkey:9@sha256:475ee65cc75c327407458f5096cdd36954b3de3fc83f4c8ac31a4a8edecbf49e";
       autoStart = true;
       extraOptions = [ "--network=${backendNetwork}" ];
     };
@@ -120,7 +120,7 @@ in
     immich-public-proxy = {
       # IPP 2.x is incompatible with Immich 3.x and crashes while reading
       # shared-album assets. Keep this on a 3.x release and pin the amd64 image.
-      image = "docker.io/alangrainger/immich-public-proxy:3.3.0@sha256:0be32b97a8091b4db3a682f41bd328a3992f85db4ed51ac602f95006cbce220f";
+      image = "docker.io/alangrainger/immich-public-proxy:3.3.1@sha256:8657d0d1b79e7f008261bbb65c2f177a89e8a0fd325b9a312d16cf7b5cbee209";
       autoStart = true;
       dependsOn = [ "immich-server" ];
       # Port 3000 on the host is already used by eufy-security-ws. Keep the
