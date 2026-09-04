@@ -499,7 +499,7 @@ def prepare_container_pr(args, checkout, target):
         "services"
     ]
     inventory_by_name = {item["name"]: item for item in inventory}
-    if target not in inventory_by_name:
+    if target != "all" and target not in inventory_by_name:
         raise RuntimeError(f"Unknown container service: {target}")
 
     releases = {
@@ -510,13 +510,17 @@ def prepare_container_pr(args, checkout, target):
         item["name"]: item
         for item in load_report(args.state, "digests.json").get("items", [])
     }
-    selected = inventory_by_name[target]
-    group = selected.get("updateGroup")
-    names = [
-        item["name"]
-        for item in inventory
-        if item["name"] == target or (group and item.get("updateGroup") == group)
-    ]
+    if target == "all":
+        group = None
+        names = [item["name"] for item in inventory]
+    else:
+        selected = inventory_by_name[target]
+        group = selected.get("updateGroup")
+        names = [
+            item["name"]
+            for item in inventory
+            if item["name"] == target or (group and item.get("updateGroup") == group)
+        ]
 
     changes = []
     notes = []
@@ -552,6 +556,7 @@ def prepare_container_pr(args, checkout, target):
                 "path": path,
                 "current": installed["currentTag"],
                 "available": target_tag,
+                "digestChanged": target_digest != installed.get("currentDigest"),
             }
         )
         if release.get("releaseNotesUrl"):
@@ -564,18 +569,32 @@ def prepare_container_pr(args, checkout, target):
             "The latest reports do not contain an update for this service"
         )
 
-    display = group or target
-    versions = sorted({change["available"] for change in changes})
-    title = f"Update {display} to {', '.join(versions)}"
+    if target == "all":
+        noun = "image" if len(changes) == 1 else "images"
+        title = f"Update {len(changes)} container {noun}"
+        branch_target = "all-containers"
+    else:
+        display = group or target
+        versions = sorted({change["available"] for change in changes})
+        if all(change["current"] == change["available"] for change in changes):
+            title = f"Refresh {display} image digest"
+        else:
+            title = f"Update {display} to {', '.join(versions)}"
+        branch_target = display
     body = ["Created from the System updates dashboard.", "", "Changes:"]
-    body.extend(
-        f"- `{change['name']}`: `{change['current']}` → `{change['available']}`"
-        for change in changes
-    )
+    for change in changes:
+        if change["current"] == change["available"] and change["digestChanged"]:
+            body.append(
+                f"- `{change['name']}`: refresh the `{change['current']}` image digest"
+            )
+        else:
+            body.append(
+                f"- `{change['name']}`: `{change['current']}` → `{change['available']}`"
+            )
     if notes:
         body.extend(["", "Release notes:"])
         body.extend(f"- [{label}]({url})" for label, url in notes)
-    return title, "\n".join(body), display
+    return title, "\n".join(body), branch_target
 
 
 def prepare_action_pr(args, checkout, target):
@@ -834,6 +853,8 @@ def visible_pull_request_keys(state_root, inventory_path):
         else:
             target = name
         keys.add(result_key("container", target))
+    if updates:
+        keys.add(result_key("container", "all"))
 
     actions = optional_json(state_root / "actions.json", {})
     keys.update(
@@ -850,6 +871,13 @@ def visible_pull_request_keys(state_root, inventory_path):
 def pr_status(args):
     candidates = []
     visible_keys = visible_pull_request_keys(args.state, args.inventory)
+    for path in Path(args.results).glob("*.json"):
+        result = optional_json(path, {})
+        if path.stem not in visible_keys and result.get("status") not in (
+            "queued",
+            "running",
+        ):
+            path.unlink(missing_ok=True)
     for key in visible_keys:
         path = Path(args.results) / f"{key}.json"
         result = optional_json(path, {})

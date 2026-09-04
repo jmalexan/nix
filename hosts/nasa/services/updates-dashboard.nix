@@ -254,38 +254,21 @@ let
     }
   );
 
-  reportService = kind: configFile: {
-    description = "Refresh the ${kind} data in System updates";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
-    environment.HOME = reportState;
-    serviceConfig = {
-      Type = "oneshot";
-      User = "updates-dashboard-reporter";
-      Group = "updates-dashboard-reporter";
-      StateDirectory = "updates-dashboard-reporter";
-      CacheDirectory = "updates-dashboard-reporter";
-      PrivateTmp = true;
-      NoNewPrivileges = true;
-      Nice = 10;
-      IOSchedulingClass = "idle";
-    };
-    script = ''
-      ${pkgs.coreutils}/bin/rm -f ${triggerState}/${kind}
-      items=${reportState}/${kind}.items.jsonl
-      : > "$items"
+  reportCommand = kind: configFile: ''
+    items=${reportState}/${kind}.items.jsonl
+    : > "$items"
 
-      set +e
-      ${pkgs-unstable.updatecli}/bin/updatecli pipeline diff --config ${configFile}
-      scanner_status=$?
-      set -e
+    set +e
+    ${pkgs-unstable.updatecli}/bin/updatecli pipeline diff --config ${configFile}
+    scanner_status=$?
+    set -e
 
-      ${dashboardReporter}/bin/update-dashboard-reporter finalize \
-        ${kind} ${inventory} "$items" ${reportState}/${kind}.json "$scanner_status"
-      exit "$scanner_status"
-    '';
-  };
+    ${dashboardReporter}/bin/update-dashboard-reporter finalize \
+      ${kind} ${inventory} "$items" ${reportState}/${kind}.json "$scanner_status"
+    if [ "$scanner_status" -ne 0 ]; then
+      overall_status=1
+    fi
+  '';
 
   triggerPathUnit = target: unit: {
     description = "Watch for an on-demand ${target} update scan";
@@ -367,14 +350,33 @@ in
       };
     };
 
-    updates-dashboard-oci-releases-report = reportService "releases" releaseInventory;
-    updates-dashboard-oci-digests-report = (reportService "digests" digestInventory) // {
-      # Both lightweight reports start after boot/deployment. Let the release
-      # inventory finish first so they do not burst the resolver together.
-      after = [
-        "network-online.target"
-        "updates-dashboard-oci-releases-report.service"
-      ];
+    updates-dashboard-containers-report = {
+      description = "Refresh container versions and digests in System updates";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "multi-user.target" ];
+      environment.HOME = reportState;
+      serviceConfig = {
+        Type = "oneshot";
+        User = "updates-dashboard-reporter";
+        Group = "updates-dashboard-reporter";
+        StateDirectory = "updates-dashboard-reporter";
+        CacheDirectory = "updates-dashboard-reporter";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        Nice = 10;
+        IOSchedulingClass = "idle";
+      };
+      script = ''
+        ${pkgs.coreutils}/bin/rm -f \
+          ${triggerState}/containers \
+          ${triggerState}/releases \
+          ${triggerState}/digests
+        overall_status=0
+        ${reportCommand "releases" releaseInventory}
+        ${reportCommand "digests" digestInventory}
+        exit "$overall_status"
+      '';
     };
     updates-dashboard-actions-report = {
       description = "Refresh GitHub Action versions in the system updates dashboard";
@@ -485,8 +487,7 @@ in
   };
 
   systemd.paths = {
-    updates-dashboard-trigger-releases = triggerPathUnit "releases" "updates-dashboard-oci-releases-report.service";
-    updates-dashboard-trigger-digests = triggerPathUnit "digests" "updates-dashboard-oci-digests-report.service";
+    updates-dashboard-trigger-containers = triggerPathUnit "containers" "updates-dashboard-containers-report.service";
     updates-dashboard-trigger-actions = triggerPathUnit "actions" "updates-dashboard-actions-report.service";
     updates-dashboard-trigger-nix = triggerPathUnit "nix" "updates-dashboard-nix-report.service";
     updates-dashboard-pr = {
@@ -500,17 +501,8 @@ in
   };
 
   systemd.timers = {
-    updates-dashboard-oci-releases-report = {
-      description = "Refresh container releases in System updates";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnCalendar = "daily";
-        RandomizedDelaySec = "30min";
-        Persistent = true;
-      };
-    };
-    updates-dashboard-oci-digests-report = {
-      description = "Refresh container digests in System updates";
+    updates-dashboard-containers-report = {
+      description = "Refresh container versions and digests in System updates";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "daily";

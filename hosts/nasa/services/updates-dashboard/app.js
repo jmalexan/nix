@@ -3,7 +3,7 @@ const nixScanDialog = document.querySelector("#nix-scan-confirm");
 const confirmNixScan = document.querySelector("#confirm-nix-scan");
 
 let dashboard = null;
-let containerFilter = "all";
+let containerFilter = "updates";
 let loadInProgress = false;
 const pendingActions = new Set();
 const actionErrors = new Map();
@@ -190,17 +190,20 @@ function sectionHeader(title, caption, extra = null, metadata = null) {
   );
 }
 
-function scanTime(label, report, target) {
-  return element(
-    "span",
-    { className: "scan-time" },
+function scanTime(label, report, target = null) {
+  const content = [
     element(
       "span",
       {},
       element("strong", { text: label }),
       ` ${formatDate(report?.checkedAt)}`,
     ),
-    scanButton(target),
+  ];
+  if (target) content.push(scanButton(target));
+  return element(
+    "span",
+    { className: "scan-time" },
+    content,
   );
 }
 
@@ -289,23 +292,39 @@ function statusCell(item, digest = false) {
   return cell;
 }
 
-function pullRequestControl(kind, target) {
-  const result = actions().pullRequests?.[resultKey(kind, target)];
+function pullRequestControl(kind, target, labels = {}) {
+  const ownResult = actions().pullRequests?.[resultKey(kind, target)];
+  const ownIsActive = ["queued", "running", "complete", "open", "merged"].includes(
+    ownResult?.status,
+  );
+  const combinedResult = kind === "container" && target !== "all"
+    ? actions().pullRequests?.[resultKey("container", "all")]
+    : null;
+  const combinedIsActive = ["queued", "running", "complete", "open", "merged"].includes(
+    combinedResult?.status,
+  ) || pendingActions.has("pr:container:all");
+  const usesCombined = !ownIsActive && combinedIsActive;
+  const result = usesCombined ? combinedResult : ownResult;
   const pendingKey = `pr:${kind}:${target}`;
   if (["complete", "open"].includes(result?.status) && result.url) {
-    return externalLink("View PR", result.url, "action-link");
+    return externalLink(
+      usesCombined ? "View combined PR" : labels.view || "View PR",
+      result.url,
+      "action-link",
+    );
   }
   if (result?.status === "merged" && result.url) {
-    return externalLink("View merged PR", result.url, "action-link");
+    return externalLink(labels.viewMerged || "View merged PR", result.url, "action-link");
   }
   const running = ["queued", "running"].includes(result?.status)
-    || pendingActions.has(pendingKey);
+    || pendingActions.has(pendingKey)
+    || usesCombined;
   const configured = actions().prConfigured !== false;
   const requestError = actionErrors.get(pendingKey);
-  let label = "Create PR";
-  if (running) label = "Creating…";
-  else if (result?.status === "closed") label = "Create new PR";
-  else if (result?.status === "failed" || requestError) label = "Retry PR";
+  let label = labels.create || "Create PR";
+  if (running) label = usesCombined ? "Included in combined PR…" : labels.creating || "Creating…";
+  else if (result?.status === "closed") label = labels.createNew || "Create new PR";
+  else if (result?.status === "failed" || requestError) label = labels.retry || "Retry PR";
   return actionButton(
     label,
     () => requestAction(
@@ -313,12 +332,42 @@ function pullRequestControl(kind, target) {
       pendingKey,
     ),
     {
-      disabled: running || !configured,
-      title: !configured
-        ? "Configure the GitHub token on NASA to enable pull requests."
-        : requestError || result?.error,
+      disabled: running || !configured || labels.disabled,
+      title: labels.disabled
+        ? labels.disabledTitle
+        : !configured
+          ? "Configure the GitHub token on NASA to enable pull requests."
+          : requestError || result?.error,
     },
   );
+}
+
+function containerHasUpdate(service) {
+  return service.release?.status === "update" || service.digest?.status === "update";
+}
+
+function containerControls(containers) {
+  const controls = [filterButtons()];
+  if (containers.some(containerHasUpdate)) {
+    const individualPrActive = Object.entries(actions().pullRequests || {}).some(
+      ([key, result]) => key.startsWith("container--")
+        && key !== resultKey("container", "all")
+        && ["queued", "running", "complete", "open"].includes(result.status),
+    );
+    controls.push(
+      pullRequestControl("container", "all", {
+        create: "Create PR for all",
+        creating: "Creating PR…",
+        createNew: "Create new PR for all",
+        retry: "Retry PR for all",
+        view: "View combined PR",
+        viewMerged: "View merged PR",
+        disabled: individualPrActive,
+        disabledTitle: "Close or merge existing container PRs before creating a combined PR.",
+      }),
+    );
+  }
+  return element("div", { className: "section-actions container-actions" }, controls);
 }
 
 function containerPrTarget(service) {
@@ -353,11 +402,10 @@ function availableVersionCell(service, available) {
 }
 
 function renderContainers() {
-  let containers = mergedContainers();
+  const allContainers = mergedContainers();
+  let containers = allContainers;
   if (containerFilter === "updates") {
-    containers = containers.filter(
-      (service) => service.release?.status === "update" || service.digest?.status === "update",
-    );
+    containers = containers.filter(containerHasUpdate);
   } else if (containerFilter === "attention") {
     containers = containers.filter(
       (service) => service.release?.status === "error" || service.digest?.status === "error",
@@ -369,17 +417,18 @@ function renderContainers() {
     sectionHeader(
       "Containers",
       "Current tags and pinned digests compared with registries.",
-      filterButtons(),
+      containerControls(allContainers),
       element(
         "div",
         { className: "scan-times" },
-        scanTime("Releases", reports().releases, "releases"),
-        scanTime("Digests", reports().digests, "digests"),
+        scanTime("Versions", reports().releases),
+        scanTime("Digests", reports().digests),
+        scanButton("containers"),
       ),
     ),
   );
   if (!containers.length) {
-    body.append(emptyState("No matching services", "Try a different filter or run the container scans."));
+    body.append(emptyState("No matching services", "Try a different filter or run the container scan."));
     return body;
   }
 

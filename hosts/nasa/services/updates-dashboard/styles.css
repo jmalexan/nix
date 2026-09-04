@@ -144,6 +144,8 @@ main {
   gap: 8px;
 }
 
+.container-actions { gap: 18px; }
+
 .action-button,
 .dialog-actions button {
   border: 1px solid var(--rule);

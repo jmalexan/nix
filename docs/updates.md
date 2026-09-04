@@ -18,23 +18,23 @@ The main page shows:
   repository workflows.
 - A collapsed history of the most recent 100 scans.
 
-Four jobs populate normalized JSON reports under
+Three jobs populate four normalized JSON reports under
 `/var/lib/updates-dashboard-reporter`:
 
-- The **container release scan** compares every image declared through
+- The **container scan** first compares every image declared through
   `virtualisation.oci-containers` with the newest policy-compatible registry
-  tag. It preserves fixed database majors and the Frigate TensorRT variant.
-- The **container digest scan** checks whether the digest behind each current
-  tag still matches the digest committed in Nix. It fetches only the selected
-  manifest, retries transient registry failures, and follows the release scan
-  during boot so the two jobs do not create a DNS burst together.
+  tag, then checks whether the digest behind each current tag still matches the
+  digest committed in Nix. It preserves fixed database majors and the Frigate
+  TensorRT variant, fetches only selected manifests, and retries transient
+  registry failures. The two passes remain separate reports so a partial
+  registry failure is visible without requiring separate jobs or controls.
 - The **Nix flake forecast** clones `main`, updates a temporary `flake.lock`,
   builds the current and candidate `nasa` and `htpc` closures, and records
   `nix store diff-closures` output.
 - The **GitHub Actions scan** clones `main`, finds versioned external actions in
   workflow files, and compares their current refs with upstream Git tags.
 
-All four reports run at boot and daily. The Nix closure forecast starts at
+All three jobs run at boot and daily. The Nix closure forecast starts at
 05:00 with up to one hour of jitter. It is intentionally limited to one Nix
 build job and can download candidates into the NAS store. The dashboard's Nix
 button asks for confirmation because this scan is materially heavier than the
@@ -46,8 +46,7 @@ allowed to invoke arbitrary commands or start arbitrary units. The equivalent
 shell commands are:
 
 ```console
-sudo systemctl start updates-dashboard-oci-releases-report.service
-sudo systemctl start updates-dashboard-oci-digests-report.service
+sudo systemctl start updates-dashboard-containers-report.service
 sudo systemctl start updates-dashboard-actions-report.service
 sudo systemctl start updates-dashboard-nix-report.service
 ```
@@ -60,8 +59,10 @@ the current view.
 ## Pull-request setup
 
 The System updates dashboard can create reviewable pull requests for a displayed
-container, flake-input, or GitHub Action update. Container PRs resolve and
-commit an immutable digest; the two Immich application images remain grouped.
+container, every currently reported container change, a flake-input update, or
+a GitHub Action update. Container PRs resolve and commit immutable digests; the
+two Immich application images remain grouped. **Create PR for all** puts every
+reported container version and digest change into one reviewable pull request.
 Nix PRs run `nix flake update` against the latest `main`. No dashboard action
 merges a PR or deploys a host. While the dashboard has a currently relevant open
 PR link, a lightweight job reconciles its state with GitHub every ten seconds.

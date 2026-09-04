@@ -148,6 +148,94 @@ class DashboardTests(unittest.TestCase):
                 'image = "ghcr.io/example/app:1.1.0@sha256:new";\n',
             )
 
+    def test_container_pr_all_combines_version_and_digest_updates(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            checkout = root / "checkout"
+            state = root / "state"
+            checkout.mkdir()
+            state.mkdir()
+            inventory = {
+                "services": [
+                    {
+                        "name": "app",
+                        "repository": "ghcr.io/example/app",
+                        "currentTag": "1.0.0",
+                        "currentDigest": "sha256:app-old",
+                    },
+                    {
+                        "name": "worker",
+                        "repository": "ghcr.io/example/worker",
+                        "currentTag": "2.0.0",
+                        "currentDigest": "sha256:worker-old",
+                    },
+                ]
+            }
+            inventory_path = root / "inventory.json"
+            inventory_path.write_text(json.dumps(inventory))
+            (state / "releases.json").write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "name": "app",
+                                "status": "update",
+                                "availableTag": "1.1.0",
+                            },
+                            {
+                                "name": "worker",
+                                "status": "current",
+                                "availableTag": "2.0.0",
+                            },
+                        ]
+                    }
+                )
+            )
+            (state / "digests.json").write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "name": "app",
+                                "status": "current",
+                                "availableDigest": "sha256:app-old",
+                            },
+                            {
+                                "name": "worker",
+                                "status": "update",
+                                "availableDigest": "sha256:worker-new",
+                            },
+                        ]
+                    }
+                )
+            )
+            module = checkout / "containers.nix"
+            module.write_text(
+                'image = "ghcr.io/example/app:1.0.0@sha256:app-old";\n'
+                'image = "ghcr.io/example/worker:2.0.0@sha256:worker-old";\n'
+            )
+            args = argparse.Namespace(
+                inventory=str(inventory_path),
+                state=str(state),
+                skopeo="skopeo",
+            )
+            with mock.patch.object(
+                reporter, "resolve_digest", return_value="sha256:app-new"
+            ):
+                title, body, target = reporter.prepare_container_pr(
+                    args, checkout, "all"
+                )
+
+            self.assertEqual(title, "Update 2 container images")
+            self.assertEqual(target, "all-containers")
+            self.assertIn("`app`: `1.0.0` → `1.1.0`", body)
+            self.assertIn("`worker`: refresh the `2.0.0` image digest", body)
+            self.assertEqual(
+                module.read_text(),
+                'image = "ghcr.io/example/app:1.1.0@sha256:app-new";\n'
+                'image = "ghcr.io/example/worker:2.0.0@sha256:worker-new";\n',
+            )
+
     def test_empty_agenix_placeholder_disables_prs(self):
         with tempfile.TemporaryDirectory() as root:
             token = Path(root) / "token"
@@ -157,6 +245,30 @@ class DashboardTests(unittest.TestCase):
             self.assertFalse(handler.token_configured())
             token.write_text("github_pat_example")
             self.assertTrue(handler.token_configured())
+
+    def test_all_containers_is_an_allowed_pr_target(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            token = root / "token"
+            token.write_text("github_pat_example")
+            handler = object.__new__(server.DashboardHandler)
+            handler.server = SimpleNamespace(
+                token_path=token,
+                container_names={"app"},
+                results_root=root / "results",
+                queue_root=root / "queue",
+                now=lambda: "2026-09-04T00:00:00+00:00",
+            )
+
+            handler.queue_pull_request("container", "all")
+
+            result = json.loads((root / "results" / "container--all.json").read_text())
+            self.assertEqual(result["status"], "queued")
+            queued = list((root / "queue").glob("*.json"))
+            self.assertEqual(len(queued), 1)
+            self.assertEqual(json.loads(queued[0].read_text())["target"], "all")
+            with self.assertRaisesRegex(RuntimeError, "already covers"):
+                handler.queue_pull_request("container", "app")
 
     def test_closed_pull_request_state_is_refreshed_only_when_visible(self):
         with tempfile.TemporaryDirectory() as root:
@@ -208,6 +320,10 @@ class DashboardTests(unittest.TestCase):
                 state=str(state),
                 inventory=str(inventory),
             )
+            self.assertIn(
+                "container--all",
+                reporter.visible_pull_request_keys(state, inventory),
+            )
             with mock.patch.object(reporter, "github_request", return_value=[pull]):
                 reporter.pr_status(args)
             self.assertEqual(json.loads(result.read_text())["status"], "closed")
@@ -221,6 +337,7 @@ class DashboardTests(unittest.TestCase):
             with mock.patch.object(reporter, "github_request") as request:
                 reporter.pr_status(args)
             request.assert_not_called()
+            self.assertFalse(result.exists())
 
     def test_closed_branch_gets_a_fresh_retry_branch(self):
         with tempfile.TemporaryDirectory() as root:

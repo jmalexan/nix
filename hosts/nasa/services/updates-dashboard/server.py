@@ -166,7 +166,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not self.token_configured():
             raise RuntimeError("PR creation is not configured on this host")
         if kind == "container":
-            if target not in self.server.container_names:
+            if target != "all" and target not in self.server.container_names:
                 raise ValueError("Unknown container service")
         elif kind == "action":
             actions = self.load_json("actions.json", {}).get("items", [])
@@ -180,8 +180,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
         safe_target = re.sub(r"[^A-Za-z0-9_.-]+", "--", target)
         result_path = self.server.results_root / f"{kind}--{safe_target}.json"
         existing = self.load_path_json(result_path, {})
-        if existing.get("status") in ("queued", "running"):
-            raise RuntimeError("A pull request job is already in progress")
+        active_statuses = ("queued", "running", "complete", "open")
+        if existing.get("status") in active_statuses:
+            raise RuntimeError("A pull request already exists or is being created")
+        if kind == "container":
+            if target == "all":
+                possible_conflicts = self.server.results_root.glob("container--*.json")
+            else:
+                possible_conflicts = [self.server.results_root / "container--all.json"]
+            for path in possible_conflicts:
+                if path == result_path:
+                    continue
+                result = self.load_path_json(path, {})
+                if result.get("status") in active_statuses:
+                    raise RuntimeError(
+                        "Another pull request already covers this container update"
+                    )
         job = {"kind": kind, "target": target, "queuedAt": self.server.now()}
         self.atomic_json(result_path, {**job, "status": "queued"})
         self.atomic_json(
@@ -303,8 +317,7 @@ def main():
     server.csrf_token = secrets.token_urlsafe(32)
     server.now = lambda: dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     server.scan_units = {
-        "releases": "updates-dashboard-oci-releases-report.service",
-        "digests": "updates-dashboard-oci-digests-report.service",
+        "containers": "updates-dashboard-containers-report.service",
         "actions": "updates-dashboard-actions-report.service",
         "nix": "updates-dashboard-nix-report.service",
     }
