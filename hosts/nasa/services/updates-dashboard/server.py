@@ -113,10 +113,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             jobs[name] = "queued" if (self.server.trigger_root / name).exists() else state
         return {
             "csrfToken": self.server.csrf_token,
-            "prConfigured": self.server.token_path.is_file(),
+            "prConfigured": self.token_configured(),
             "jobs": jobs | {"pr": self.job_state("updates-dashboard-pr.service")},
             "pullRequests": results,
         }
+
+    def token_configured(self):
+        try:
+            return (
+                self.server.token_path.is_file()
+                and self.server.token_path.stat().st_size > 0
+            )
+        except OSError:
+            return False
 
     def same_origin(self):
         origin = self.headers.get("Origin")
@@ -151,7 +160,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         os.replace(temporary, trigger)
 
     def queue_pull_request(self, kind, target):
-        if not self.server.token_path.is_file():
+        if not self.token_configured():
             raise RuntimeError("PR creation is not configured on this host")
         if kind == "container":
             if target not in self.server.container_names:

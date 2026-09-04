@@ -71,18 +71,20 @@ deploys a host.
 Create a fine-grained GitHub personal access token restricted to the
 `jmalexan/nix` repository. Grant **Contents: read and write**, **Pull requests:
 read and write**, and **Workflows: read and write** (the latter permits Action
-update branches to modify `.github/workflows`). Install it on `nasa` without
-putting it in the Nix store:
+update branches to modify `.github/workflows`). Replace the committed encrypted
+empty placeholder with the token:
 
 ```console
-sudo install -o updates-dashboard-reporter -g updates-dashboard-reporter \
-  -m 0400 /path/to/github-token \
-  /var/lib/updates-dashboard-reporter/github-token
+nix develop
+agenix -e secrets/updates-dashboard-github-token.age
 ```
 
-The web server can detect that this file exists but cannot read it. Only the
-short-lived PR worker runs as `updates-dashboard-reporter` and can read the
-credential. Delete the file to disable PR creation immediately.
+Enter only the token in the editor, then commit the changed encrypted file. On
+deployment, agenix decrypts it to `/run/agenix` as mode `0400`, owned by
+`updates-dashboard-reporter`. The web server can detect whether the decrypted
+file is non-empty but cannot read it. Only the short-lived PR worker runs as
+`updates-dashboard-reporter` and can read the credential. Replacing the secret
+with an encrypted empty value disables PR creation.
 
 The dashboard is deliberately reachable only from the existing LAN and
 Tailscale allowlist. Mutating requests require a same-origin session token to

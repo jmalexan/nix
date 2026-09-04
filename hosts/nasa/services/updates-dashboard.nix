@@ -11,7 +11,7 @@ let
   triggerState = "${reportState}/triggers";
   prQueue = "${reportState}/pr-queue";
   prResults = "${reportState}/pr-results";
-  githubToken = "${reportState}/github-token";
+  githubToken = config.age.secrets.updates-dashboard-github-token.path;
   repositoryName = lib.removePrefix "github:" vars.repository;
   repositoryUrl = "https://github.com/${repositoryName}.git";
 
@@ -291,6 +291,13 @@ let
   };
 in
 {
+  age.secrets.updates-dashboard-github-token = {
+    file = ../../../secrets/updates-dashboard-github-token.age;
+    owner = "updates-dashboard-reporter";
+    group = "updates-dashboard-reporter";
+    mode = "0400";
+  };
+
   users.users.updates-dashboard-reporter = {
     isSystemUser = true;
     group = "updates-dashboard-reporter";
