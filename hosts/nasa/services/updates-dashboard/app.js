@@ -1,16 +1,34 @@
 const content = document.querySelector("#content");
 const refreshButton = document.querySelector("#refresh");
-const tabs = [...document.querySelectorAll("[data-tab]")];
 
 let dashboard = null;
-let activeTab = "overview";
 let containerFilter = "all";
+
+const serviceNames = {
+  bookorbit: "BookOrbit",
+  "bookorbit-postgres": "BookOrbit database",
+  "eufy-security-ws": "Eufy Security",
+  flaresolverr: "FlareSolverr",
+  frigate: "Frigate",
+  go2rtc: "go2rtc",
+  "home-assistant": "Home Assistant",
+  "immich-machine-learning": "Immich machine learning",
+  "immich-postgres": "Immich database",
+  "immich-public-proxy": "Immich public proxy",
+  "immich-redis": "Immich cache",
+  "immich-server": "Immich server",
+  "music-assistant": "Music Assistant",
+  "ring-mqtt": "Ring MQTT",
+  romm: "RomM",
+  "romm-db": "RomM database",
+};
 
 function element(tag, options = {}, ...children) {
   const node = document.createElement(tag);
   if (options.className) node.className = options.className;
   if (options.text !== undefined) node.textContent = options.text;
   if (options.colSpan) node.colSpan = options.colSpan;
+  if (options.dataLabel) node.dataset.label = options.dataLabel;
   for (const child of children.flat()) {
     if (child !== null && child !== undefined) node.append(child);
   }
@@ -38,10 +56,12 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
-function shortDigest(value) {
-  if (!value) return "—";
-  const [algorithm, hash] = value.split(":");
-  return hash ? `${algorithm}:${hash.slice(0, 12)}…` : value.slice(0, 16);
+function serviceName(value) {
+  return serviceNames[value] || value;
+}
+
+function countLabel(count, singular) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
 function reports() {
@@ -75,12 +95,24 @@ function mergedContainers() {
   );
 }
 
-function sectionHeader(title, caption, extra = null) {
+function sectionHeader(title, caption, extra = null, metadata = null) {
+  const heading = element("div", {}, element("h2", { text: title }));
+  if (caption) heading.append(element("p", { className: "section-caption", text: caption }));
+  if (metadata) heading.append(metadata);
   return element(
     "div",
     { className: "section-header" },
-    element("div", {}, element("h2", { text: title }), element("p", { className: "section-caption", text: caption })),
+    heading,
     extra,
+  );
+}
+
+function scanTime(label, report) {
+  return element(
+    "span",
+    {},
+    element("strong", { text: label }),
+    ` ${formatDate(report?.checkedAt)}`,
   );
 }
 
@@ -105,79 +137,42 @@ function scanCard(report, title) {
       "article",
       { className: "scan-card" },
       element("div", { className: "scan-card-top" }, element("h3", { text: title }), chip("missing")),
-      element("p", { text: "Waiting for its first scheduled or manual run." }),
+      element("p", { text: "No completed scan" }),
     );
   }
   const counts = report.counts || {};
+  const updates = counts.update || 0;
+  const errors = counts.error || 0;
   return element(
     "article",
     { className: "scan-card" },
     element("div", { className: "scan-card-top" }, element("h3", { text: title }), chip(report.status)),
-    element("p", { text: `Last checked ${formatDate(report.checkedAt)}` }),
-    element("p", { text: `${counts.update || 0} updates · ${counts.error || 0} errors` }),
+    element("p", { text: formatDate(report.checkedAt) }),
+    element("p", { text: `${countLabel(updates, "update")}, ${countLabel(errors, "error")}` }),
   );
 }
 
-function updateCard(service, kind) {
-  const item = service[kind];
-  const digest = kind === "digest";
-  const current = digest ? shortDigest(item.currentDigest) : item.currentTag;
-  const available = digest ? shortDigest(item.availableDigest) : item.availableTag;
-  return element(
-    "article",
-    { className: "update-card" },
-    element("div", { className: "update-card-top" }, element("h3", { text: service.name }), chip("update", digest ? "Digest changed" : "New release")),
-    element("p", { className: "repository", text: service.repository }),
-    element(
-      "div",
-      { className: "version-change" },
-      element("span", { text: current }),
-      element("span", { className: "arrow", text: "→" }),
-      element("span", { text: available }),
-    ),
-  );
-}
-
-function renderOverview() {
+function renderSummary() {
   const containers = mergedContainers();
-  const releaseUpdates = containers.filter((service) => service.release?.status === "update");
-  const digestUpdates = containers.filter((service) => service.digest?.status === "update");
+  const changes = containers.reduce(
+    (count, service) => count
+      + Number(service.release?.status === "update")
+      + Number(service.digest?.status === "update"),
+    0,
+  );
   const errors = containers.filter(
     (service) => service.release?.status === "error" || service.digest?.status === "error",
   );
   const current = containers.filter(
     (service) => service.release?.status === "current" && service.digest?.status === "current",
   );
-  const cards = [
-    ...releaseUpdates.map((service) => updateCard(service, "release")),
-    ...digestUpdates.map((service) => updateCard(service, "digest")),
-  ];
-
-  const body = element("div", { className: "stack" });
-  body.append(
-    element(
-      "section",
-      { className: "metrics" },
-      metric("Updates detected", cards.length, "update"),
-      metric("Fully current", current.length, "current"),
-      metric("Checks needing attention", errors.length, "error"),
-    ),
-    sectionHeader("Available changes", "Release and digest changes are shown separately."),
+  return element(
+    "section",
+    { className: "metrics" },
+    metric("Changes", changes, "update"),
+    metric("Current", current.length, "current"),
+    metric("Errors", errors.length, "error"),
   );
-  body.append(
-    cards.length
-      ? element("section", { className: "cards" }, cards)
-      : emptyState("Nothing pending", "The latest completed container scans found no changes."),
-    sectionHeader("Scan health", "When each source last produced a usable report."),
-    element(
-      "section",
-      { className: "cards" },
-      scanCard(reports().releases, "Container releases"),
-      scanCard(reports().digests, "Container digests"),
-      scanCard(reports().nix, "Nix flake forecast"),
-    ),
-  );
-  return body;
 }
 
 function filterButtons() {
@@ -188,6 +183,7 @@ function filterButtons() {
       text: label,
     });
     button.type = "button";
+    button.setAttribute("aria-pressed", String(containerFilter === value));
     button.addEventListener("click", () => {
       containerFilter = value;
       render();
@@ -198,7 +194,7 @@ function filterButtons() {
 }
 
 function statusCell(item, digest = false) {
-  const cell = element("td");
+  const cell = element("td", { dataLabel: digest ? "Digest" : "Release" });
   if (!item) return cell.append(chip("missing")), cell;
   cell.append(chip(item.status, digest && item.status === "update" ? "Digest changed" : null));
   if (item.error) cell.append(element("div", { className: "error-text", text: item.error }));
@@ -218,13 +214,26 @@ function renderContainers() {
   }
 
   const body = element("div", { className: "stack" });
-  body.append(sectionHeader("Containers", "Installed values compared with upstream registries.", filterButtons()));
+  body.append(
+    sectionHeader(
+      "Containers",
+      "Current tags and pinned digests compared with registries.",
+      filterButtons(),
+      element(
+        "div",
+        { className: "scan-times" },
+        scanTime("Releases", reports().releases),
+        scanTime("Digests", reports().digests),
+      ),
+    ),
+  );
   if (!containers.length) {
     body.append(emptyState("No matching services", "Try a different filter or run the container scans."));
     return body;
   }
 
-  const table = element("table");
+  const table = element("table", { className: "container-table" });
+  table.setAttribute("aria-label", "Container versions");
   table.append(
     element(
       "thead",
@@ -243,9 +252,9 @@ function renderContainers() {
       element(
         "tr",
         {},
-        element("td", {}, element("div", { className: "service-name", text: service.name }), element("div", { className: "repository", text: service.repository })),
-        element("td", { className: "version", text: service.currentTag || "—" }),
-        element("td", { className: "version", text: available || "—" }),
+        element("td", { dataLabel: "Service" }, element("div", { className: "service-name", text: serviceName(service.name) }), element("div", { className: "repository", text: service.repository })),
+        element("td", { className: "version", dataLabel: "Installed", text: service.currentTag || "—" }),
+        element("td", { className: "version", dataLabel: "Available", text: available || "—" }),
         statusCell(service.release),
         statusCell(service.digest, true),
       ),
@@ -259,7 +268,7 @@ function renderContainers() {
 function renderNix() {
   const report = reports().nix;
   const body = element("div", { className: "stack" });
-  body.append(sectionHeader("Nix package forecast", "Exact system closure changes after a temporary flake update."));
+  body.append(sectionHeader("Nix package forecast", "Package versions after a temporary flake update."));
   if (!report) {
     body.append(
       emptyState(
@@ -286,13 +295,26 @@ function renderNix() {
 }
 
 function renderHistory() {
-  const body = element("div", { className: "stack" });
-  body.append(sectionHeader("Scan history", "The most recent 100 completed scan attempts."));
+  const body = element(
+    "details",
+    { className: "history-disclosure" },
+    element(
+      "summary",
+      { className: "history-summary" },
+      element(
+        "span",
+        { className: "history-summary-copy" },
+        element("span", { className: "history-title", text: "Scan history" }),
+        element("span", { className: "section-caption", text: "The last 100 scans." }),
+      ),
+    ),
+  );
   if (!dashboard.history?.length) {
     body.append(emptyState("No history yet", "Completed scans will appear here."));
     return body;
   }
   const table = element("table");
+  table.setAttribute("aria-label", "Scan history");
   table.append(
     element("thead", {}, element("tr", {}, ...["When", "Scan", "Result", "Updates", "Errors"].map((label) => element("th", { text: label })))),
   );
@@ -317,9 +339,16 @@ function renderHistory() {
 
 function render() {
   if (!dashboard) return;
-  const views = { overview: renderOverview, containers: renderContainers, nix: renderNix, history: renderHistory };
-  content.replaceChildren(views[activeTab]());
-  tabs.forEach((tab) => tab.setAttribute("aria-selected", String(tab.dataset.tab === activeTab)));
+  content.replaceChildren(
+    element(
+      "div",
+      { className: "page-stack" },
+      renderSummary(),
+      renderContainers(),
+      renderNix(),
+      renderHistory(),
+    ),
+  );
 }
 
 async function load() {
@@ -338,9 +367,5 @@ async function load() {
   }
 }
 
-tabs.forEach((tab) => tab.addEventListener("click", () => {
-  activeTab = tab.dataset.tab;
-  render();
-}));
 refreshButton.addEventListener("click", load);
 load();
