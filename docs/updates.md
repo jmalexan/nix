@@ -55,22 +55,19 @@ sudo systemctl start updates-dashboard-nix-report.service
 Inspect a failure with `journalctl -u <service>`. Check the web application with
 `systemctl status updates-dashboard.service` or `curl http://127.0.0.1:8091/health`.
 Report files are disposable operational state: a successful timer run recreates
-the current view. The retired Udash PostgreSQL directory is left under
-`/Data/smb/Internal/Services/updates-dashboard` for rollback and remains
-excluded from Restic; it may be removed manually after the replacement has
-settled.
+the current view.
 
 ## Pull-request setup
 
-Update Watch can create reviewable pull requests for a displayed container,
-flake-input, or GitHub Action update. Container PRs resolve and commit an
-immutable digest; the two Immich application images remain grouped. Nix PRs run
-`nix flake update` against the latest `main`. No dashboard action merges a PR or
-deploys a host. While the dashboard has a currently relevant open PR link, a
-lightweight job reconciles its state with GitHub every ten seconds. It makes no
-GitHub request when there are no such links. Closing a PR without merging changes
-its control to **Create new PR**; a replacement uses a fresh branch even when the
-proposed diff is unchanged.
+The System updates dashboard can create reviewable pull requests for a displayed
+container, flake-input, or GitHub Action update. Container PRs resolve and
+commit an immutable digest; the two Immich application images remain grouped.
+Nix PRs run `nix flake update` against the latest `main`. No dashboard action
+merges a PR or deploys a host. While the dashboard has a currently relevant open
+PR link, a lightweight job reconciles its state with GitHub every ten seconds.
+It makes no GitHub request when there are no such links. Closing a PR without
+merging changes its control to **Create new PR**; a replacement uses a fresh
+branch even when the proposed diff is unchanged.
 
 Create a fine-grained GitHub personal access token restricted to the
 `jmalexan/nix` repository. Grant **Contents: read and write**, **Pull requests:
@@ -95,10 +92,6 @@ Tailscale allowlist. Mutating requests require a same-origin session token to
 prevent cross-site requests, but there is no per-user login: anyone admitted by
 that network allowlist can intentionally launch scans and request PRs.
 
-`renovate.json5` is disabled so the hosted Renovate app does not create duplicate
-PRs. Its previous policy is retained in that file as rollback documentation and
-can be re-enabled if needed.
-
 ## Review workflow
 
 1. Review the update and its linked release notes in System updates, then choose
@@ -113,8 +106,9 @@ can be re-enabled if needed.
 5. Verify the affected service and keep the previous generation until the
    change has settled.
 
-Update Watch covers flake inputs, GitHub Actions, and the container declarations
-evaluated from the `nasa` NixOS configuration. It does not provide meaningful
+The System updates dashboard covers flake inputs, GitHub Actions, and the
+container declarations evaluated from the `nasa` NixOS configuration. It does
+not provide meaningful
 version PRs for unversioned Homebrew formula/cask declarations; those follow
 Homebrew when the Mac is upgraded separately.
 

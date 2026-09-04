@@ -72,7 +72,6 @@ in
     # reproducible. The plain image already bundles ffmpeg; the `-hardware`
     # variant is only needed if a stream ever has to be transcoded, which this
     # one does not (Nest already hands us H264).
-    # renovate: datasource=docker depName=docker.io/alexxit/go2rtc
     image = "alexxit/go2rtc:1.9.14@sha256:675c318b23c06fd862a61d262240c9a63436b4050d177ffc68a32710d9e05bae";
     autoStart = true;
 

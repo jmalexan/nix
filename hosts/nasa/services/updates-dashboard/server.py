@@ -10,7 +10,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 ANSI_SEQUENCE = re.compile(
     r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])"
 )
@@ -57,7 +56,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", cache)
-        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self'")
+        self.send_header(
+            "Content-Security-Policy", "default-src 'self'; style-src 'self'"
+        )
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -110,7 +111,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         jobs = {}
         for name, unit in self.server.scan_units.items():
             state = self.job_state(unit)
-            jobs[name] = "queued" if (self.server.trigger_root / name).exists() else state
+            jobs[name] = (
+                "queued" if (self.server.trigger_root / name).exists() else state
+            )
         return {
             "csrfToken": self.server.csrf_token,
             "prConfigured": self.token_configured(),
@@ -294,7 +297,9 @@ def main():
     )
     server.container_names = {item["name"] for item in inventory.get("services", [])}
     server.systemctl = args.systemctl
-    server.token_path = Path(args.token) if args.token else server.data_root / "github-token"
+    server.token_path = (
+        Path(args.token) if args.token else server.data_root / "github-token"
+    )
     server.csrf_token = secrets.token_urlsafe(32)
     server.now = lambda: dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     server.scan_units = {

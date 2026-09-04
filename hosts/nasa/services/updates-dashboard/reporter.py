@@ -15,7 +15,6 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-
 ANSI_SEQUENCE = re.compile(
     r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])"
 )
@@ -84,10 +83,7 @@ def external_release_notes_url(service, item):
 
     tag = notes_url.rsplit("/", 1)[-1]
     request = Request(
-        (
-            f"https://api.github.com/repos/{metadata['repository']}"
-            f"/releases/tags/{tag}"
-        ),
+        (f"https://api.github.com/repos/{metadata['repository']}/releases/tags/{tag}"),
         headers={
             "Accept": "application/vnd.github+json",
             "User-Agent": "nasa-updates-dashboard",
@@ -281,7 +277,9 @@ def actions_scan(args):
             items = []
             for action, item in sorted(discovered.items()):
                 try:
-                    available_ref = newest_action_ref(args.git, action, item["currentRef"])
+                    available_ref = newest_action_ref(
+                        args.git, action, item["currentRef"]
+                    )
                     item.update(
                         {
                             "availableRef": available_ref,
@@ -353,7 +351,9 @@ def nix_scan(args):
             shutil.copytree(current, candidate)
             run([args.nix, "flake", "update", "--flake", f"path:{candidate}"])
 
-            if (current / "flake.lock").read_bytes() == (candidate / "flake.lock").read_bytes():
+            if (current / "flake.lock").read_bytes() == (
+                candidate / "flake.lock"
+            ).read_bytes():
                 report = {
                     "schemaVersion": 1,
                     "type": "nix",
@@ -403,7 +403,13 @@ def nix_scan(args):
                 ).splitlines()[-1]
                 changes = version_change_text(
                     run(
-                        [args.nix, "store", "diff-closures", current_path, candidate_path],
+                        [
+                            args.nix,
+                            "store",
+                            "diff-closures",
+                            current_path,
+                            candidate_path,
+                        ],
                         capture=True,
                     )
                 )
@@ -447,7 +453,9 @@ def load_report(root, name):
     try:
         return json.loads((Path(root) / name).read_text())
     except (FileNotFoundError, json.JSONDecodeError) as error:
-        raise RuntimeError(f"A usable {name} report is required; run its scan first") from error
+        raise RuntimeError(
+            f"A usable {name} report is required; run its scan first"
+        ) from error
 
 
 def result_key(kind, target):
@@ -525,7 +533,9 @@ def prepare_container_pr(args, checkout, target):
             else installed["currentTag"]
         )
         if target_tag != installed["currentTag"]:
-            target_digest = resolve_digest(args.skopeo, installed["repository"], target_tag)
+            target_digest = resolve_digest(
+                args.skopeo, installed["repository"], target_tag
+            )
         else:
             target_digest = digest.get("availableDigest")
         if not target_digest:
@@ -550,7 +560,9 @@ def prepare_container_pr(args, checkout, target):
             notes.append((f"{name} release post", release["externalReleaseNotesUrl"]))
 
     if not changes:
-        raise RuntimeError("The latest reports do not contain an update for this service")
+        raise RuntimeError(
+            "The latest reports do not contain an update for this service"
+        )
 
     display = group or target
     versions = sorted({change["available"] for change in changes})
@@ -569,11 +581,17 @@ def prepare_container_pr(args, checkout, target):
 def prepare_action_pr(args, checkout, target):
     report = load_report(args.state, "actions.json")
     item = next(
-        (candidate for candidate in report.get("items", []) if candidate["name"] == target),
+        (
+            candidate
+            for candidate in report.get("items", [])
+            if candidate["name"] == target
+        ),
         None,
     )
     if not item or item.get("status") != "update":
-        raise RuntimeError("The latest report does not contain an update for this action")
+        raise RuntimeError(
+            "The latest report does not contain an update for this action"
+        )
     needle = f"uses: {target}@{item['currentRef']}"
     replacement = f"uses: {target}@{item['availableRef']}"
     replacements = 0
@@ -686,7 +704,9 @@ def publish_pull_request(args, checkout, title, body, target):
             "/git/blobs",
             method="POST",
             payload={
-                "content": base64.b64encode((checkout / relative).read_bytes()).decode(),
+                "content": base64.b64encode(
+                    (checkout / relative).read_bytes()
+                ).decode(),
                 "encoding": "base64",
             },
         )
@@ -808,9 +828,7 @@ def visible_pull_request_keys(state_root, inventory_path):
         group = service.get("updateGroup")
         if group:
             targets = sorted(
-                item["name"]
-                for item in inventory
-                if item.get("updateGroup") == group
+                item["name"] for item in inventory if item.get("updateGroup") == group
             )
             target = targets[0] if targets else name
         else:

@@ -34,8 +34,7 @@ credential-rotation details.
 
 The internal System updates dashboard discovers flake, GitHub Actions, and
 container-image updates. It shows closure forecasts and upstream release notes,
-runs scans on demand, and can open reviewable update PRs. Renovate is disabled
-to avoid duplicate proposals.
+runs scans on demand, and can open reviewable update PRs.
 
 Container images use two policies:
 

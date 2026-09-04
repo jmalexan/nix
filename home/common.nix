@@ -5,10 +5,7 @@
 
   home.username = vars.user.name;
   home.homeDirectory =
-    if pkgs.stdenv.hostPlatform.isDarwin then
-      "/Users/${vars.user.name}"
-    else
-      "/home/${vars.user.name}";
+    if pkgs.stdenv.hostPlatform.isDarwin then "/Users/${vars.user.name}" else "/home/${vars.user.name}";
 
   # ── Git ───────────────────────────────────────────────────────────────────
 

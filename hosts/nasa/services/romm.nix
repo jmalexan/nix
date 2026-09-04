@@ -65,7 +65,6 @@ in
     romm-db = {
       # Keep the database major explicit. Changing it requires a supported
       # MariaDB upgrade rather than an ordinary container-image refresh.
-      # renovate: datasource=docker depName=docker.io/library/mariadb versioning=docker
       image = "docker.io/library/mariadb:12.3.3@sha256:dd9b303aed4f4890ed09f766d8ca9ddfd176c0c6f6267feff53b3192ec65a979";
       autoStart = true;
       environment = {
@@ -85,7 +84,6 @@ in
     };
 
     romm = {
-      # renovate: datasource=docker depName=docker.io/rommapp/romm versioning=docker
       image = "docker.io/rommapp/romm:5.2.0@sha256:3512f2ca455782f90247271bed23116e6bc675bc74e379be2c41696e607ab11e";
       autoStart = true;
       dependsOn = [ "romm-db" ];

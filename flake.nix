@@ -123,6 +123,9 @@
                   pkgs.deadnix
                   pkgs.findutils
                   pkgs.nixfmt
+                  pkgs.nodejs
+                  pkgs.python3
+                  pkgs.ruff
                 ];
               }
               ''
@@ -131,6 +134,11 @@
                 cd source
                 deadnix --fail .
                 find . -name '*.nix' -print0 | xargs -0 nixfmt --check
+                ruff check --select E4,E7,E9,F,I hosts/nasa/services/updates-dashboard/*.py
+                ruff format --check hosts/nasa/services/updates-dashboard/*.py
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
+                  hosts/nasa/services/updates-dashboard/test_dashboard.py
+                node --check hosts/nasa/services/updates-dashboard/app.js
                 touch "$out"
               '';
         }

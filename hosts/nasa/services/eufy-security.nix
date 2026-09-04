@@ -63,7 +63,6 @@ in
     # Pinned exactly, like every other container on this host — under
     # oci-containers a floating tag never changes the systemd unit, so it would
     # neither auto-update nor stay reproducible.
-    # renovate: datasource=docker depName=docker.io/bropat/eufy-security-ws
     image = "bropat/eufy-security-ws:3.1.0@sha256:d41169205f4e20e1e7e173283aaf8bb2d68e2abecb42bc1500a5fac5bb7a8750";
     autoStart = true;
 

@@ -53,7 +53,6 @@ in
     # Postgres — the container's `postgres` user is already a superuser, so
     # Immich can CREATE EXTENSION without any host-side grant.
     immich-postgres = {
-      # renovate: datasource=docker depName=ghcr.io/immich-app/postgres versioning=loose
       image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:abbecf4840d4877ee0802272581de7e189a08fd6034de1ae1ee223c063daf894";
       autoStart = true;
       environment = {
@@ -70,14 +69,12 @@ in
     };
 
     immich-redis = {
-      # renovate: datasource=docker depName=docker.io/valkey/valkey versioning=docker
       image = "docker.io/valkey/valkey:9@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf";
       autoStart = true;
       extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-machine-learning = {
-      # renovate: datasource=docker depName=ghcr.io/immich-app/immich-machine-learning
       image = "ghcr.io/immich-app/immich-machine-learning:v3.1.0@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e";
       autoStart = true;
       volumes = [ "${modelCache}:/cache" ];
@@ -85,7 +82,6 @@ in
     };
 
     immich-server = {
-      # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
       image = "ghcr.io/immich-app/immich-server:v3.1.0@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb";
       autoStart = true;
       dependsOn = [
@@ -124,7 +120,6 @@ in
     immich-public-proxy = {
       # IPP 2.x is incompatible with Immich 3.x and crashes while reading
       # shared-album assets. Keep this on a 3.x release and pin the amd64 image.
-      # renovate: datasource=docker depName=docker.io/alangrainger/immich-public-proxy versioning=docker
       image = "docker.io/alangrainger/immich-public-proxy:3.3.0@sha256:0be32b97a8091b4db3a682f41bd328a3992f85db4ed51ac602f95006cbce220f";
       autoStart = true;
       dependsOn = [ "immich-server" ];

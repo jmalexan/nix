@@ -175,8 +175,7 @@ let
     ];
 
   # Updatecli remains useful as a registry/version-policy engine. Its shell
-  # targets now write a normalized row for our UI instead of publishing Udash's
-  # source/target/action representation.
+  # targets write normalized rows consumed by the dashboard.
   releaseSources = lib.mapAttrs (name: image: {
     name = "${name} (installed: ${image.tag})";
     kind = "dockerimage";
@@ -195,7 +194,7 @@ let
 
   # Skopeo reports the image-index digest consistently. Updatecli's native
   # dockerdigest source can resolve multi-platform tags to an amd64 child and
-  # create a permanent false alert against Renovate's index digest.
+  # create a permanent false alert against the committed index digest.
   registryDigest = pkgs.writeShellApplication {
     name = "registry-index-digest";
     runtimeInputs = [
@@ -256,7 +255,7 @@ let
   );
 
   reportService = kind: configFile: {
-    description = "Refresh the ${kind} data in Update Watch";
+    description = "Refresh the ${kind} data in System updates";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
@@ -402,7 +401,7 @@ in
       '';
     };
     updates-dashboard-nix-report = {
-      description = "Refresh the Nix closure forecast in Update Watch";
+      description = "Refresh the Nix closure forecast in System updates";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       environment.HOME = reportState;
@@ -502,7 +501,7 @@ in
 
   systemd.timers = {
     updates-dashboard-oci-releases-report = {
-      description = "Refresh container releases in Update Watch";
+      description = "Refresh container releases in System updates";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "daily";
@@ -511,7 +510,7 @@ in
       };
     };
     updates-dashboard-oci-digests-report = {
-      description = "Refresh container digests in Update Watch";
+      description = "Refresh container digests in System updates";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "daily";
@@ -537,7 +536,7 @@ in
       };
     };
     updates-dashboard-nix-report = {
-      description = "Refresh the Nix closure forecast in Update Watch";
+      description = "Refresh the Nix closure forecast in System updates";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "*-*-* 05:00:00";

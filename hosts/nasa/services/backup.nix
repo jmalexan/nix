@@ -50,10 +50,6 @@ in
       "--exclude=/Data/smb/Internal/Services/immich-model-cache"
       # BookOrbit's live PostgreSQL files likewise require a logical dump.
       "--exclude=/Data/smb/Internal/Services/bookorbit/postgres"
-      # The retired Udash database is retained for a recoverable rollback but
-      # is not useful backup data. This exclusion is harmless once it is
-      # deliberately removed from the NAS.
-      "--exclude=/Data/smb/Internal/Services/updates-dashboard/postgres"
       # Frigate's recordings and snapshots. Deliberately NOT backed up: they
       # are surveillance video with a 14-day retention policy configured in
       # frigate.nix, they churn completely every fortnight, and they dedup

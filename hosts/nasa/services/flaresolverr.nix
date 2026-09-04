@@ -5,11 +5,10 @@
   # challenge and returns the resolved response — clearing the 503 errors you see
   # when an indexer is behind Cloudflare.  Listens on :8191 (its default).
   virtualisation.oci-containers.containers.flaresolverr = {
-    # Keep the upstream application release visible to Renovate instead of
+    # Keep the upstream application release visible to the dashboard instead of
     # inheriting it indirectly from the much broader nixpkgs lock update.
     # Pin the manifest digest as well as the release tag so deployments remain
     # reproducible if an upstream tag is ever republished.
-    # renovate: datasource=docker depName=ghcr.io/flaresolverr/flaresolverr
     image = "ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47";
     autoStart = true;
 
