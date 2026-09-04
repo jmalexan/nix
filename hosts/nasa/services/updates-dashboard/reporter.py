@@ -3,11 +3,18 @@ import datetime as dt
 import fcntl
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+
+ANSI_SEQUENCE = re.compile(
+    r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])"
+)
+SIZE_SUFFIX = re.compile(r", [+-]?\d+(?:\.\d+)? (?:B|[KMGTPE]iB)$")
 
 
 def utc_now():
@@ -142,6 +149,17 @@ def run(command, capture=False):
     return ""
 
 
+def plain_terminal_text(value):
+    return ANSI_SEQUENCE.sub("", value).replace("\r", "")
+
+
+def version_change_text(value):
+    cleaned = plain_terminal_text(value)
+    return "\n".join(
+        SIZE_SUFFIX.sub("", line) for line in cleaned.splitlines() if " → " in line
+    )
+
+
 def nix_scan(args):
     checked_at = utc_now()
     output_path = Path(args.output)
@@ -212,9 +230,11 @@ def nix_scan(args):
                     ],
                     capture=True,
                 ).splitlines()[-1]
-                changes = run(
-                    [args.nix, "store", "diff-closures", current_path, candidate_path],
-                    capture=True,
+                changes = version_change_text(
+                    run(
+                        [args.nix, "store", "diff-closures", current_path, candidate_path],
+                        capture=True,
+                    )
                 )
                 hosts.append(
                     {

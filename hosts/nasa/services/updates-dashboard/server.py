@@ -1,9 +1,48 @@
 import argparse
 import json
 import mimetypes
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+
+
+ANSI_SEQUENCE = re.compile(
+    r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])"
+)
+SIZE_SUFFIX = re.compile(r", [+-]?\d+(?:\.\d+)? (?:B|[KMGTPE]iB)$")
+
+
+def clean_terminal_text(value):
+    if isinstance(value, str):
+        return ANSI_SEQUENCE.sub("", value).replace("\r", "")
+    if isinstance(value, list):
+        return [clean_terminal_text(item) for item in value]
+    if isinstance(value, dict):
+        return {key: clean_terminal_text(item) for key, item in value.items()}
+    return value
+
+
+def version_change_text(value):
+    return "\n".join(
+        SIZE_SUFFIX.sub("", line) for line in value.splitlines() if " → " in line
+    )
+
+
+def version_focused_nix_report(report):
+    if not isinstance(report, dict) or not isinstance(report.get("hosts"), list):
+        return report
+
+    for host in report["hosts"]:
+        host["changes"] = version_change_text(host.get("changes", ""))
+        if host.get("status") != "error":
+            host["status"] = "update" if host["changes"] else "current"
+
+    report["counts"] = {
+        status: sum(host.get("status") == status for host in report["hosts"])
+        for status in ("update", "current", "error")
+    }
+    return report
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -28,7 +67,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def load_json(self, name, fallback=None):
         try:
-            return json.loads((self.server.data_root / name).read_text())
+            value = clean_terminal_text(
+                json.loads((self.server.data_root / name).read_text())
+            )
+            return version_focused_nix_report(value) if name == "nix.json" else value
         except (FileNotFoundError, json.JSONDecodeError):
             return fallback
 
