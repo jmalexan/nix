@@ -85,10 +85,6 @@
     "d /Data/smb/Internal/Services/bookorbit          0750 bookorbit    bookorbit -"
     "d /Data/smb/Internal/Services/bookorbit/data     0750 bookorbit    bookorbit -"
     "d /Data/smb/Internal/Services/bookorbit/postgres 0700 root         root -"
-    # Udash history and its generated database credential. PostgreSQL's
-    # entrypoint initializes ownership inside the root-owned data directory.
-    "d /Data/smb/Internal/Services/updates-dashboard          0700 root root -"
-    "d /Data/smb/Internal/Services/updates-dashboard/postgres 0700 root root -"
   ];
 
   # Bazarr's upstream tmpfiles rule cannot safely cross the jmalexan-owned

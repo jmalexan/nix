@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Update Watch</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">NASA infrastructure</p>
+        <h1>Update Watch</h1>
+        <p class="subtitle">What can change before the next deployment.</p>
+      </div>
+      <button id="refresh" class="secondary-button" type="button">Refresh</button>
+    </header>
+
+    <nav class="tabs" aria-label="Dashboard views">
+      <button type="button" data-tab="overview" aria-selected="true">Overview</button>
+      <button type="button" data-tab="containers" aria-selected="false">Containers</button>
+      <button type="button" data-tab="nix" aria-selected="false">Nix</button>
+      <button type="button" data-tab="history" aria-selected="false">History</button>
+    </nav>
+
+    <main id="content" aria-live="polite">
+      <section class="empty-state"><p>Loading update reports…</p></section>
+    </main>
+
+    <footer>
+      <span>Read-only forecast</span>
+      <span>Nothing shown here is applied automatically.</span>
+    </footer>
+  </body>
+</html>

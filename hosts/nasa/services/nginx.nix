@@ -183,18 +183,14 @@ in
 
       "${internalHost "updates"}" = ssl // {
         serverAliases = [ "updates" ];
-        # Udash is intentionally running without an identity provider for this
-        # trial. Its API includes write endpoints, so the reverse proxy is the
-        # security boundary: only the LAN, tailnet, and this host may reach it.
+        # Update Watch is read-only, but it exposes infrastructure inventory.
+        # Keep it private to the LAN, tailnet, and this host.
         extraConfig = ''
           allow ${vars.nasa.lanSubnet};
           allow 100.64.0.0/10;
           allow 127.0.0.1;
           deny  all;
         '';
-        locations."/api/" = {
-          proxyPass = "http://127.0.0.1:8090";
-        };
         locations."/" = {
           proxyPass = "http://127.0.0.1:8091";
         };
