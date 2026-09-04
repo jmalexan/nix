@@ -24,7 +24,9 @@ Three read-only jobs populate normalized JSON reports under
   `virtualisation.oci-containers` with the newest policy-compatible registry
   tag. It preserves fixed database majors and the Frigate TensorRT variant.
 - The **container digest scan** checks whether the digest behind each current
-  tag still matches the digest committed in Nix.
+  tag still matches the digest committed in Nix. It fetches only the selected
+  manifest, retries transient registry failures, and follows the release scan
+  during boot so the two jobs do not create a DNS burst together.
 - The **Nix flake forecast** clones `main`, updates a temporary `flake.lock`,
   builds the current and candidate `nasa` and `htpc` closures, and records
   `nix store diff-closures` output.

@@ -132,12 +132,31 @@ let
   # create a permanent false alert against Renovate's index digest.
   registryDigest = pkgs.writeShellApplication {
     name = "registry-index-digest";
-    runtimeInputs = [ pkgs.skopeo ];
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.skopeo
+    ];
     text = ''
       repository="''${1:?image repository is required}"
       tag="''${2:?image tag is required}"
-      digest=$(skopeo inspect --format "{{.Digest}}" "docker://$repository:$tag")
-      printf '%s@%s\n' "$tag" "$digest"
+
+      for attempt in 1 2 3 4; do
+        if digest=$(skopeo inspect --no-tags --format "{{.Digest}}" "docker://$repository:$tag"); then
+          printf '%s@%s\n' "$tag" "$digest"
+          exit 0
+        fi
+
+        if [ "$attempt" -eq 4 ]; then
+          printf 'Digest lookup failed after %s attempts: %s:%s\n' \
+            "$attempt" "$repository" "$tag" >&2
+          exit 1
+        fi
+
+        delay=$((1 << attempt))
+        printf 'Digest lookup attempt %s failed; retrying in %ss: %s:%s\n' \
+          "$attempt" "$delay" "$repository" "$tag" >&2
+        sleep "$delay"
+      done
     '';
   };
 
@@ -245,7 +264,14 @@ in
     };
 
     updates-dashboard-oci-releases-report = reportService "releases" releaseInventory;
-    updates-dashboard-oci-digests-report = reportService "digests" digestInventory;
+    updates-dashboard-oci-digests-report = (reportService "digests" digestInventory) // {
+      # Both lightweight reports start after boot/deployment. Let the release
+      # inventory finish first so they do not burst the resolver together.
+      after = [
+        "network-online.target"
+        "updates-dashboard-oci-releases-report.service"
+      ];
+    };
     updates-dashboard-nix-report = {
       description = "Refresh the Nix closure forecast in Update Watch";
       after = [ "network-online.target" ];
