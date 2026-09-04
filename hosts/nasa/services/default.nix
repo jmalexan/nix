@@ -15,6 +15,7 @@
     # Container runtime and development infrastructure
     ./containers.nix
     ./gitlab-runner.nix
+    ./updates-dashboard.nix
 
     # Media acquisition and serving
     ./mullvad.nix

@@ -1,4 +1,44 @@
-# Updates and Renovate
+# Update dashboard and Renovate
+
+## Udash forecast dashboard
+
+The NAS hosts an internal Updatecli/Udash trial at
+`https://updates.nasa.jmalexan.com`. The nginx vhost admits only clients on the
+LAN or Tailscale because this first version does not configure an identity
+provider. Do not expose it through the router: unauthenticated Udash mode also
+leaves its report-write API open.
+
+Three read-only Updatecli pipelines populate the dashboard:
+
+- **OCI release forecast** compares every image declared through
+  `virtualisation.oci-containers` with the newest policy-compatible registry
+  tag. It preserves fixed database majors and the Frigate TensorRT variant.
+- **OCI pinned digest drift** checks whether the digest behind every current
+  tag still matches the digest committed in Nix.
+- **Nix flake update forecast** updates a temporary copy of `flake.lock`, builds
+  the current and candidate `nasa` and `htpc` closures, and records the exact
+  package/version changes from `nix store diff-closures`.
+
+The OCI reports run daily. The more expensive Nix closure forecast runs weekly;
+it can download candidates into the NAS Nix store, but it never changes the
+repository, opens a pull request, or deploys a host. Run any report immediately
+with:
+
+```console
+sudo systemctl start updates-dashboard-oci-releases-report.service
+sudo systemctl start updates-dashboard-oci-digests-report.service
+sudo systemctl start updates-dashboard-nix-report.service
+```
+
+Inspect failures with `journalctl -u <service>` and check the three containers
+with `docker ps --filter name=updates-dashboard`. Report history lives in the
+Udash PostgreSQL directory but is deliberately excluded from Restic during the
+trial; the next timer run reconstructs the current view.
+
+The dashboard is observational for now. Renovate remains responsible for
+editing files and opening reviewable pull requests. If Updatecli eventually
+replaces it, add authenticated SCM credentials and explicit targets only after
+the read-only reports have demonstrated reliable version policies.
 
 ## Initial setup
 

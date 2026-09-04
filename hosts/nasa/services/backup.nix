@@ -50,6 +50,10 @@ in
       "--exclude=/Data/smb/Internal/Services/immich-model-cache"
       # BookOrbit's live PostgreSQL files likewise require a logical dump.
       "--exclude=/Data/smb/Internal/Services/bookorbit/postgres"
+      # Udash is a trial and reconstructs its useful state from the next
+      # scheduled reports. Do not capture an inconsistent live PostgreSQL
+      # directory; add a logical dump here if its history becomes valuable.
+      "--exclude=/Data/smb/Internal/Services/updates-dashboard/postgres"
       # Frigate's recordings and snapshots. Deliberately NOT backed up: they
       # are surveillance video with a 14-day retention policy configured in
       # frigate.nix, they churn completely every fortnight, and they dedup
