@@ -4,9 +4,27 @@
   # Prowlarr hands the request to FlareSolverr, which drives Chromium to pass the
   # challenge and returns the resolved response — clearing the 503 errors you see
   # when an indexer is behind Cloudflare.  Listens on :8191 (its default).
-  services.flaresolverr = {
-    enable = true;
-    openFirewall = false;
+  virtualisation.oci-containers.containers.flaresolverr = {
+    # Keep the upstream application release visible to Renovate instead of
+    # inheriting it indirectly from the much broader nixpkgs lock update.
+    # Pin the manifest digest as well as the release tag so deployments remain
+    # reproducible if an upstream tag is ever republished.
+    # renovate: datasource=docker depName=ghcr.io/flaresolverr/flaresolverr
+    image = "ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47";
+    autoStart = true;
+
+    environment = {
+      LOG_LEVEL = "info";
+      TZ = "America/New_York";
+    };
+
+    # Bound to the host end of the veth pair, NOT 0.0.0.0. br0 is in
+    # networking.firewall.trustedInterfaces, so a wildcard publish would hand
+    # every device on the LAN an open fetch-any-URL proxy and the firewall
+    # would not stop it. 10.200.200.1 is reachable only from this host and from
+    # inside the Mullvad namespace, exactly matching the previous NixOS
+    # service's HOST setting. (Address is hostVethIP in mullvad.nix.)
+    ports = [ "${vars.nasa.hostVethIP}:8191:8191" ];
   };
 
   # ── Deliberately NOT in the Mullvad namespace ─────────────────────────────
@@ -27,33 +45,26 @@
   # that joins a swarm and it stays namespaced (see qbittorrent.nix) — this
   # service only ever makes HTTPS requests to indexer web servers.
   #
-  # To put it back on the VPN, restore
-  #   serviceConfig.NetworkNamespacePath = "/run/netns/mullvad";
-  # drop the HOST binding and the firewall rule below, and point Prowlarr's
-  # proxy back at http://localhost:8191.
-  systemd.services.flaresolverr = {
-    # Bound to the host end of the veth pair, NOT the 0.0.0.0 it defaults to.
-    # br0 is in networking.firewall.trustedInterfaces, so a wildcard bind would
-    # hand every device on the LAN an open fetch-any-URL proxy and the firewall
-    # would not stop it.  10.200.200.1 is reachable only from this host and from
-    # inside the Mullvad namespace, which is exactly the set of clients that
-    # need it.  (Address is hostVethIP in mullvad.nix.)
-    environment.HOST = vars.nasa.hostVethIP;
-
+  # Putting it back on the VPN would require an explicit Docker network whose
+  # default route traverses Mullvad, plus the matching change for Prowlarr so
+  # Cloudflare sees the same egress address from both applications.
+  systemd.services.docker-flaresolverr = {
     # The bind address only exists once mullvad-netns.service has created the
-    # veth pair, so this still orders after it even though it no longer joins
-    # the namespace — otherwise it would fail to bind and restart-loop.
+    # veth pair, so the container still orders after it even though it does not
+    # join the namespace — otherwise Docker would fail to publish the port.
     # partOf, not just requires: requires propagates stop but not restart, and a
-    # netns restart recreates veth-host, stranding the old socket.
+    # netns restart recreates veth-host, stranding the old port publication.
     after = [ "mullvad-netns.service" ];
     requires = [ "mullvad-netns.service" ];
     partOf = [ "mullvad-netns.service" ];
   };
 
-  # Prowlarr is still inside the namespace, so it reaches this service across
-  # the veth and lands in the host's INPUT chain.  veth-host is not a trusted
-  # interface, so 8191 has to be opened there explicitly — scoped to that
-  # interface only, so this does not expose the proxy on br0.
+  # Keep the service reachable from applications that are still inside the
+  # namespace. Traffic crossing the veth lands in the host's INPUT chain, and
+  # veth-host is not a trusted interface, so 8191 has to be opened there
+  # explicitly. The rule is scoped to that interface and does not expose the
+  # proxy on br0. Prowlarr itself now runs on the host but retains this same
+  # endpoint.
   #
   # Configure the FlareSolverr proxy in Prowlarr as http://10.200.200.1:8191;
   # it is no longer on localhost from Prowlarr's point of view.
