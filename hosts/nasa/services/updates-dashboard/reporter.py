@@ -75,6 +75,39 @@ def release_notes_url(service, item):
     return f"https://github.com/{metadata['repository']}/releases/tag/{quote(tag)}"
 
 
+def external_release_notes_url(service, item):
+    metadata = service.get("releaseNotes") or {}
+    prefix = metadata.get("externalUrlPrefix")
+    notes_url = release_notes_url(service, item)
+    if not prefix or not notes_url:
+        return None
+
+    tag = notes_url.rsplit("/", 1)[-1]
+    request = Request(
+        (
+            f"https://api.github.com/repos/{metadata['repository']}"
+            f"/releases/tags/{tag}"
+        ),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "nasa-updates-dashboard",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            body = json.load(response).get("body") or ""
+    except (OSError, HTTPError, json.JSONDecodeError) as error:
+        print(f"Optional release-post lookup failed: {error}", file=sys.stderr)
+        return None
+
+    for url in re.findall(r"https?://[^\s<>()\[\]]+", body):
+        url = url.rstrip(".,;:'\"")
+        if url.startswith(prefix):
+            return url
+    return None
+
+
 def record(args):
     candidate = args.candidate
     item = {
@@ -127,6 +160,10 @@ def finalize(args):
             notes_url = release_notes_url(service, item)
             if notes_url:
                 item["releaseNotesUrl"] = notes_url
+            if args.kind == "releases" and item.get("status") == "update":
+                external_url = external_release_notes_url(service, item)
+                if external_url:
+                    item["externalReleaseNotesUrl"] = external_url
             if service.get("updateGroup"):
                 item["updateGroup"] = service["updateGroup"]
             items.append(item)
@@ -508,7 +545,9 @@ def prepare_container_pr(args, checkout, target):
             }
         )
         if release.get("releaseNotesUrl"):
-            notes.append((name, release["releaseNotesUrl"]))
+            notes.append((f"{name} GitHub release", release["releaseNotesUrl"]))
+        if release.get("externalReleaseNotesUrl"):
+            notes.append((f"{name} release post", release["externalReleaseNotesUrl"]))
 
     if not changes:
         raise RuntimeError("The latest reports do not contain an update for this service")
@@ -523,7 +562,7 @@ def prepare_container_pr(args, checkout, target):
     )
     if notes:
         body.extend(["", "Release notes:"])
-        body.extend(f"- [{name}]({url})" for name, url in notes)
+        body.extend(f"- [{label}]({url})" for label, url in notes)
     return title, "\n".join(body), display
 
 

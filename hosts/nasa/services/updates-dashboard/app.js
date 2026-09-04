@@ -335,6 +335,15 @@ function availableVersionCell(service, available) {
       externalLink("Release notes", service.release.releaseNotesUrl, "release-link"),
     );
   }
+  if (service.release?.status === "update" && service.release.externalReleaseNotesUrl) {
+    cell.append(
+      externalLink(
+        "Release post",
+        service.release.externalReleaseNotesUrl,
+        "release-link",
+      ),
+    );
+  }
   return cell;
 }
 

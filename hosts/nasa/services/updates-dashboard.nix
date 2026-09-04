@@ -34,7 +34,10 @@ let
       repository = "AlexxIT/go2rtc";
       tagPrefix = "v";
     };
-    "home-assistant".releaseNotes.repository = "home-assistant/core";
+    "home-assistant".releaseNotes = {
+      repository = "home-assistant/core";
+      externalUrlPrefix = "https://www.home-assistant.io/blog/";
+    };
     "immich-machine-learning" = {
       updateGroup = "Immich application images";
       releaseNotes = {
@@ -98,6 +101,10 @@ let
       immich-redis = {
         kind = "regex";
         pattern = "^9$";
+      };
+      home-assistant = {
+        kind = "regex";
+        pattern = "^[0-9]+\\.[0-9]+\\.[0-9]+$";
       };
       music-assistant = {
         kind = "regex";
