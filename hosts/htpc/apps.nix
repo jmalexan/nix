@@ -4,6 +4,28 @@
   ...
 }:
 
+let
+  # Keep the network wait in the service's main process, not ExecStartPre.
+  # During a NixOS switch NetworkManager is stopped while Home Manager reloads
+  # user services; blocking their startup on nm-online prevents the switch from
+  # reaching the later step that starts NetworkManager again. A Type=simple
+  # service is considered started while this wrapper waits, breaking that
+  # ordering cycle while retaining the boot-time connectivity guard.
+  jellyfinMpvShimService = pkgs.writeShellApplication {
+    name = "jellyfin-mpv-shim-service";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.jellyfin-mpv-shim
+      pkgs.networkmanager
+    ];
+    text = ''
+      until nm-online -q -t 5; do
+        sleep 5
+      done
+      exec jellyfin-mpv-shim
+    '';
+  };
+in
 {
   environment.systemPackages = with pkgs; [
     vacuum-tube # YouTube "TV"/leanback interface (attr is hyphenated)
@@ -36,14 +58,10 @@
       # The autologin session (desktop.nix) is up seconds into boot, while
       # NetworkManager is still doing DHCP — so the shim used to start with no
       # resolv.conf yet, fail to resolve the server's hostname, and log its way
-      # through a few restart cycles before the link settled. A user unit can't
-      # order itself after the system's network-online.target (the user manager
-      # can't see system units), so block here instead: nm-online exits as soon
-      # as NetworkManager reports connectivity, i.e. DHCP is done and DNS is
-      # usable. The 60s cap stays under the 90s default TimeoutStartSec; if it
-      # ever expires, Restart=always just tries again 5s later.
-      ExecStartPre = "${pkgs.networkmanager}/bin/nm-online -q -t 60";
-      ExecStart = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
+      # through a few restart cycles before the link settled. The wrapper waits
+      # until NetworkManager reports connectivity, i.e. DHCP and DNS are ready.
+      # It is intentionally ExecStart rather than ExecStartPre; see above.
+      ExecStart = "${jellyfinMpvShimService}/bin/jellyfin-mpv-shim-service";
       Restart = "always";
       RestartSec = 5;
     };

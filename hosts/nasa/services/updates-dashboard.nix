@@ -14,6 +14,16 @@ let
   apiEnv = "${stateDir}/api.env";
   repositoryUrl = "https://github.com/${lib.removePrefix "github:" vars.repository}.git";
 
+  # Udash requires a config file even when every deploy-specific value comes
+  # from the environment. Keep the database URI out of the Nix store: its key
+  # is deliberately absent here so UDASH_DB_URI from apiEnv remains the
+  # fallback. nginx limits this unauthenticated trial to trusted networks.
+  apiConfig = pkgs.writeText "udash-config.yaml" ''
+    server:
+      auth:
+        mode: "none"
+  '';
+
   frontendConfig = pkgs.writeText "udash-config.json" (
     builtins.toJSON {
       AUTH_ENABLED = false;
@@ -320,6 +330,7 @@ in
         UDASH_AUTH_MODE = "none";
       };
       environmentFiles = [ apiEnv ];
+      volumes = [ "${apiConfig}:/home/udash/config.yaml:ro" ];
       extraOptions = [
         "--network=${network}"
         "--read-only"
