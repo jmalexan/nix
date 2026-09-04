@@ -1,16 +1,36 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --paper: #f4f5f6;
   --white: #ffffff;
   --ink: #202428;
   --muted: #66707a;
   --rule: #d7dce0;
+  --button-rule: #bcc4ca;
+  --button-hover: #8f999f;
+  --code-ink: #343a40;
   --blue: #315f7d;
   --green: #326847;
   --amber: #875b00;
   --red: #a13f3f;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-synthesis: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #171a1d;
+    --white: #202428;
+    --ink: #e5e8ea;
+    --muted: #a3abb2;
+    --rule: #343a40;
+    --button-rule: #505960;
+    --button-hover: #707b83;
+    --code-ink: #d8dde1;
+    --blue: #7fa6c1;
+    --green: #79b58c;
+    --amber: #d2a44b;
+    --red: #de7a7a;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -79,7 +99,7 @@ h3 {
 }
 
 .secondary-button {
-  border: 1px solid #bcc4ca;
+  border: 1px solid var(--button-rule);
   border-radius: 3px;
   padding: 7px 13px;
   background: var(--white);
@@ -87,7 +107,7 @@ h3 {
   font-size: 0.88rem;
 }
 
-.secondary-button:hover { border-color: #8f999f; }
+.secondary-button:hover { border-color: var(--button-hover); }
 .secondary-button:disabled { cursor: wait; color: var(--muted); }
 
 main {
@@ -276,10 +296,6 @@ td {
   vertical-align: middle;
 }
 
-th:first-child,
-td:first-child { padding-left: 0; }
-th:last-child,
-td:last-child { padding-right: 0; }
 tr:last-child td { border-bottom: 0; }
 
 .service-name { font-weight: 600; }
@@ -298,7 +314,7 @@ tr:last-child td { border-bottom: 0; }
 .nix-host header {
   display: flex;
   justify-content: space-between;
-  padding: 12px 0;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--rule);
   background: var(--paper);
 }
@@ -306,9 +322,9 @@ tr:last-child td { border-bottom: 0; }
 pre {
   max-height: 480px;
   margin: 0;
-  padding: 16px 0;
+  padding: 16px 14px;
   overflow: auto;
-  color: #343a40;
+  color: var(--code-ink);
   background: var(--white);
   font: 0.78rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
@@ -377,7 +393,7 @@ pre {
   .container-table,
   .container-table tbody,
   .container-table tr { display: block; }
-  .container-table tr { padding: 12px 0; }
+  .container-table tr { padding: 12px 14px; }
   .container-table tr + tr { border-top: 1px solid var(--rule); }
   .container-table td,
   .container-table td:first-child,
