@@ -1,6 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
 
+  // Update Watch now owns dependency discovery and pull-request creation.
+  // Keep the old policy below as rollback documentation, but do not let the
+  // hosted app create duplicate pull requests.
+  "enabled": false,
+
   // Keep the update queue visible in one issue. Updates create reviewable PRs;
   // nothing is merged automatically until the checks have earned our trust.
   "extends": [

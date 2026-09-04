@@ -8,7 +8,62 @@
 }:
 let
   reportState = "/var/lib/updates-dashboard-reporter";
-  repositoryUrl = "https://github.com/${lib.removePrefix "github:" vars.repository}.git";
+  triggerState = "${reportState}/triggers";
+  prQueue = "${reportState}/pr-queue";
+  prResults = "${reportState}/pr-results";
+  githubToken = "${reportState}/github-token";
+  repositoryName = lib.removePrefix "github:" vars.repository;
+  repositoryUrl = "https://github.com/${repositoryName}.git";
+
+  containerMetadata = {
+    bookorbit.releaseNotes = {
+      repository = "bookorbit/bookorbit";
+      tagPrefix = "v";
+    };
+    "eufy-security-ws".releaseNotes.repository = "bropat/eufy-security-ws";
+    flaresolverr.releaseNotes = {
+      repository = "FlareSolverr/FlareSolverr";
+      tagPrefix = "v";
+    };
+    frigate.releaseNotes = {
+      repository = "blakeblackshear/frigate";
+      tagPrefix = "v";
+      stripSuffix = "-tensorrt";
+    };
+    go2rtc.releaseNotes = {
+      repository = "AlexxIT/go2rtc";
+      tagPrefix = "v";
+    };
+    "home-assistant".releaseNotes.repository = "home-assistant/core";
+    "immich-machine-learning" = {
+      updateGroup = "Immich application images";
+      releaseNotes = {
+        repository = "immich-app/immich";
+        tagPrefix = "v";
+      };
+    };
+    "immich-server" = {
+      updateGroup = "Immich application images";
+      releaseNotes = {
+        repository = "immich-app/immich";
+        tagPrefix = "v";
+      };
+    };
+    "immich-public-proxy".releaseNotes = {
+      repository = "alangrainger/immich-public-proxy";
+      tagPrefix = "v";
+    };
+    "music-assistant".releaseNotes.repository = "music-assistant/server";
+    "ring-mqtt".releaseNotes = {
+      repository = "tsightler/ring-mqtt";
+      tagPrefix = "v";
+    };
+    romm.releaseNotes.repository = "rommapp/romm";
+    "romm-db".releaseNotes = {
+      repository = "MariaDB/server";
+      tagPrefix = "mariadb-";
+    };
+  };
 
   parseImage =
     image:
@@ -59,12 +114,16 @@ let
 
   inventory = pkgs.writeText "updates-dashboard-inventory.json" (
     builtins.toJSON {
-      services = lib.mapAttrsToList (name: image: {
-        inherit name;
-        inherit (image) repository;
-        currentTag = image.tag;
-        currentDigest = image.digest;
-      }) containerImages;
+      services = lib.mapAttrsToList (
+        name: image:
+        {
+          inherit name;
+          inherit (image) repository;
+          currentTag = image.tag;
+          currentDigest = image.digest;
+        }
+        // (containerMetadata.${name} or { })
+      ) containerImages;
     }
   );
 
@@ -207,6 +266,7 @@ let
       IOSchedulingClass = "idle";
     };
     script = ''
+      ${pkgs.coreutils}/bin/rm -f ${triggerState}/${kind}
       items=${reportState}/${kind}.items.jsonl
       : > "$items"
 
@@ -220,6 +280,15 @@ let
       exit "$scanner_status"
     '';
   };
+
+  triggerPathUnit = target: unit: {
+    description = "Watch for an on-demand ${target} update scan";
+    wantedBy = [ "paths.target" ];
+    pathConfig = {
+      PathExists = "${triggerState}/${target}";
+      Unit = unit;
+    };
+  };
 in
 {
   users.users.updates-dashboard-reporter = {
@@ -228,17 +297,27 @@ in
     home = reportState;
   };
   users.groups.updates-dashboard-reporter = { };
+  users.users.updates-dashboard-server = {
+    isSystemUser = true;
+    group = "updates-dashboard-reporter";
+  };
+
+  systemd.tmpfiles.rules = [
+    "d ${reportState} 0750 updates-dashboard-reporter updates-dashboard-reporter -"
+    "d ${triggerState} 0770 updates-dashboard-reporter updates-dashboard-reporter -"
+    "d ${prQueue} 0770 updates-dashboard-reporter updates-dashboard-reporter -"
+    "d ${prResults} 0770 updates-dashboard-reporter updates-dashboard-reporter -"
+  ];
 
   systemd.services = {
     updates-dashboard = {
-      description = "Update Watch read-only dashboard";
+      description = "System updates dashboard";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
       serviceConfig = {
         Type = "simple";
-        User = "updates-dashboard-reporter";
+        User = "updates-dashboard-server";
         Group = "updates-dashboard-reporter";
-        StateDirectory = "updates-dashboard-reporter";
         ExecStart = lib.escapeShellArgs [
           "${dashboardServer}/bin/update-dashboard-server"
           "--listen"
@@ -249,6 +328,12 @@ in
           dashboardStatic
           "--data"
           reportState
+          "--inventory"
+          inventory
+          "--systemctl"
+          "${pkgs.systemd}/bin/systemctl"
+          "--token"
+          githubToken
         ];
         Restart = "on-failure";
         RestartSec = 2;
@@ -256,7 +341,13 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
+        ReadWritePaths = [
+          triggerState
+          prQueue
+          prResults
+        ];
         RestrictAddressFamilies = [
+          "AF_UNIX"
           "AF_INET"
           "AF_INET6"
         ];
@@ -271,6 +362,30 @@ in
         "network-online.target"
         "updates-dashboard-oci-releases-report.service"
       ];
+    };
+    updates-dashboard-actions-report = {
+      description = "Refresh GitHub Action versions in the system updates dashboard";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "multi-user.target" ];
+      environment.HOME = reportState;
+      serviceConfig = {
+        Type = "oneshot";
+        User = "updates-dashboard-reporter";
+        Group = "updates-dashboard-reporter";
+        StateDirectory = "updates-dashboard-reporter";
+        CacheDirectory = "updates-dashboard-reporter";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        Nice = 10;
+      };
+      script = ''
+        ${pkgs.coreutils}/bin/rm -f ${triggerState}/actions
+        ${dashboardReporter}/bin/update-dashboard-reporter actions-scan \
+          ${reportState}/actions.json \
+          ${lib.escapeShellArg repositoryUrl} \
+          ${pkgs.git}/bin/git
+      '';
     };
     updates-dashboard-nix-report = {
       description = "Refresh the Nix closure forecast in Update Watch";
@@ -290,6 +405,7 @@ in
         TimeoutStartSec = "6h";
       };
       script = ''
+        ${pkgs.coreutils}/bin/rm -f ${triggerState}/nix
         ${dashboardReporter}/bin/update-dashboard-reporter nix-scan \
           ${reportState}/nix.json \
           ${lib.escapeShellArg repositoryUrl} \
@@ -298,6 +414,51 @@ in
           --max-jobs 1 \
           --cores 8
       '';
+    };
+    updates-dashboard-pr = {
+      description = "Create dependency pull requests requested by the system updates dashboard";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      environment.HOME = reportState;
+      serviceConfig = {
+        Type = "oneshot";
+        User = "updates-dashboard-reporter";
+        Group = "updates-dashboard-reporter";
+        StateDirectory = "updates-dashboard-reporter";
+        CacheDirectory = "updates-dashboard-reporter";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        Nice = 10;
+        TimeoutStartSec = "1h";
+      };
+      script = ''
+        ${dashboardReporter}/bin/update-dashboard-reporter pr-queue \
+          ${prQueue} \
+          ${prResults} \
+          ${reportState} \
+          ${inventory} \
+          ${lib.escapeShellArg repositoryUrl} \
+          ${lib.escapeShellArg repositoryName} \
+          ${githubToken} \
+          ${pkgs.git}/bin/git \
+          ${pkgs.nix}/bin/nix \
+          ${pkgs.skopeo}/bin/skopeo
+      '';
+    };
+  };
+
+  systemd.paths = {
+    updates-dashboard-trigger-releases = triggerPathUnit "releases" "updates-dashboard-oci-releases-report.service";
+    updates-dashboard-trigger-digests = triggerPathUnit "digests" "updates-dashboard-oci-digests-report.service";
+    updates-dashboard-trigger-actions = triggerPathUnit "actions" "updates-dashboard-actions-report.service";
+    updates-dashboard-trigger-nix = triggerPathUnit "nix" "updates-dashboard-nix-report.service";
+    updates-dashboard-pr = {
+      description = "Watch for dependency pull requests requested by the dashboard";
+      wantedBy = [ "paths.target" ];
+      pathConfig = {
+        DirectoryNotEmpty = prQueue;
+        Unit = "updates-dashboard-pr.service";
+      };
     };
   };
 
@@ -320,11 +481,20 @@ in
         Persistent = true;
       };
     };
+    updates-dashboard-actions-report = {
+      description = "Refresh GitHub Action versions in the system updates dashboard";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "daily";
+        RandomizedDelaySec = "30min";
+        Persistent = true;
+      };
+    };
     updates-dashboard-nix-report = {
       description = "Refresh the Nix closure forecast in Update Watch";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnCalendar = "Sun *-*-* 05:00:00";
+        OnCalendar = "*-*-* 05:00:00";
         RandomizedDelaySec = "1h";
         Persistent = true;
       };

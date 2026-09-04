@@ -32,25 +32,24 @@ credential-rotation details.
 
 ## Updates
 
-Renovate owns dependency discovery. Install the hosted Renovate GitHub App for
-this repository; it will create a Dependency Dashboard issue and propose flake,
-GitHub Actions, and annotated container-image updates. The configuration is in
-`renovate.json5`.
+The internal System updates dashboard discovers flake, GitHub Actions, and
+container-image updates. It shows closure forecasts and upstream release notes,
+runs scans on demand, and can open reviewable update PRs. Renovate is disabled
+to avoid duplicate proposals.
 
 Container images use two policies:
 
 - Versioned releases retain their version tag and receive tag/digest update PRs.
 - Intentional rolling channels such as `stable` and `latest` retain the channel
-  name, but Renovate pins and refreshes the digest in reviewable PRs.
+  name while the dashboard refreshes the pinned digest in a reviewable PR.
 
-Nothing auto-merges. Major container upgrades require approval from the
-Dependency Dashboard. See [docs/updates.md](docs/updates.md) for the review and
-deployment workflow.
+Nothing auto-merges. See [docs/updates.md](docs/updates.md) for credential
+setup, review, and deployment details.
 
 ## Operations
 
 - [Architecture and ownership](docs/architecture.md)
-- [Updates and Renovate](docs/updates.md)
+- [Updates dashboard and deployment](docs/updates.md)
 - [NAS backups and restore](docs/nasa-recovery.md)
 - [RomM library links with Igir](docs/romm-igir.md)
 - [qBittorrent ROM filename collisions](docs/qbittorrent-rom-filename-collisions.md)

@@ -1,23 +1,24 @@
-# Update Watch and Renovate
+# System updates
 
 ## Forecast dashboard
 
-The NAS hosts the internal, read-only **Update Watch** dashboard at
+The NAS hosts the internal **System updates** dashboard at
 `https://updates.nasa.jmalexan.com`. The nginx vhost admits only clients on the
 LAN or Tailscale. It presents update information as a service inventory rather
 than exposing Updatecli's source/target/action execution model.
 
-The dashboard has four views:
+The main page shows:
 
-- **Overview** shows pending changes, fully current services, scan errors, and
-  the freshness of each report.
-- **Containers** lists the installed and newest compatible tags alongside
-  pinned-digest status for every declared OCI container.
-- **Nix** shows the exact closure differences for `nasa` and `htpc` after a
-  temporary flake update.
-- **History** records the outcome and counts for the most recent 100 scans.
+- **Containers**, with installed and newest compatible tags, pinned-digest
+  status, scan times, and upstream release-note links where a release maps to a
+  GitHub tag.
+- **Nix package forecast**, with the version-only closure differences for
+  `nasa` and `htpc` after a temporary flake update.
+- **GitHub Actions**, with the major or semantic version channels used by the
+  repository workflows.
+- A collapsed history of the most recent 100 scans.
 
-Three read-only jobs populate normalized JSON reports under
+Four jobs populate normalized JSON reports under
 `/var/lib/updates-dashboard-reporter`:
 
 - The **container release scan** compares every image declared through
@@ -30,40 +31,74 @@ Three read-only jobs populate normalized JSON reports under
 - The **Nix flake forecast** clones `main`, updates a temporary `flake.lock`,
   builds the current and candidate `nasa` and `htpc` closures, and records
   `nix store diff-closures` output.
+- The **GitHub Actions scan** clones `main`, finds versioned external actions in
+  workflow files, and compares their current refs with upstream Git tags.
 
-The container reports run at boot and daily. The more expensive Nix closure
-forecast runs weekly; it can download candidates into the NAS Nix store, but it
-never changes the repository, opens a pull request, or deploys a host. Run any
-report now with:
+All four reports run at boot and daily. The Nix closure forecast starts at
+05:00 with up to one hour of jitter. It is intentionally limited to one Nix
+build job and can download candidates into the NAS store. The dashboard's Nix
+button asks for confirmation because this scan is materially heavier than the
+registry and Git tag lookups.
+
+Each section has an on-demand scan control. These controls write a fixed trigger
+file consumed by a corresponding systemd path unit; the web process is not
+allowed to invoke arbitrary commands or start arbitrary units. The equivalent
+shell commands are:
 
 ```console
 sudo systemctl start updates-dashboard-oci-releases-report.service
 sudo systemctl start updates-dashboard-oci-digests-report.service
+sudo systemctl start updates-dashboard-actions-report.service
 sudo systemctl start updates-dashboard-nix-report.service
 ```
 
 Inspect a failure with `journalctl -u <service>`. Check the web application with
 `systemctl status updates-dashboard.service` or `curl http://127.0.0.1:8091/health`.
 Report files are disposable operational state: a successful timer run recreates
-the current view. Renovate remains responsible for editing files and opening
-reviewable pull requests. The retired Udash PostgreSQL directory is left under
+the current view. The retired Udash PostgreSQL directory is left under
 `/Data/smb/Internal/Services/updates-dashboard` for rollback and remains
 excluded from Restic; it may be removed manually after the replacement has
 settled.
 
-## Initial setup
+## Pull-request setup
 
-Install the hosted Renovate GitHub App and grant it access to this repository.
-After it reads `renovate.json5`, Renovate creates a Dependency Dashboard issue.
-That issue is the UI for pending, rate-limited, ignored, and approval-gated
-updates. The first run may primarily open digest-pinning PRs; those establish an
-immutable baseline for later image updates.
+Update Watch can create reviewable pull requests for a displayed container,
+flake-input, or GitHub Action update. Container PRs resolve and commit an
+immutable digest; the two Immich application images remain grouped. Nix PRs run
+`nix flake update` against the latest `main`. No dashboard action merges a PR or
+deploys a host.
+
+Create a fine-grained GitHub personal access token restricted to the
+`jmalexan/nix` repository. Grant **Contents: read and write**, **Pull requests:
+read and write**, and **Workflows: read and write** (the latter permits Action
+update branches to modify `.github/workflows`). Install it on `nasa` without
+putting it in the Nix store:
+
+```console
+sudo install -o updates-dashboard-reporter -g updates-dashboard-reporter \
+  -m 0400 /path/to/github-token \
+  /var/lib/updates-dashboard-reporter/github-token
+```
+
+The web server can detect that this file exists but cannot read it. Only the
+short-lived PR worker runs as `updates-dashboard-reporter` and can read the
+credential. Delete the file to disable PR creation immediately.
+
+The dashboard is deliberately reachable only from the existing LAN and
+Tailscale allowlist. Mutating requests require a same-origin session token to
+prevent cross-site requests, but there is no per-user login: anyone admitted by
+that network allowlist can intentionally launch scans and request PRs.
+
+`renovate.json5` is disabled so the hosted Renovate app does not create duplicate
+PRs. Its previous policy is retained in that file as rollback documentation and
+can be re-enabled if needed.
 
 ## Review workflow
 
-1. Open the Dependency Dashboard and select any approval-gated major updates
-   that should receive a PR.
-2. Review the generated diff and wait for the Nix check workflow.
+1. Review the update and its linked release notes in System updates, then choose
+   **Create PR**.
+2. Open the resulting PR, review the generated diff, and wait for the Nix check
+   workflow.
 3. For a NixOS host, run `nix run .#package-diff -- nasa` or `-- htpc` to compare
    the proposed closure with the currently deployed `main` branch.
 4. Merge the PR. After checks pass, GitHub Actions deploys that exact commit to
@@ -72,10 +107,10 @@ immutable baseline for later image updates.
 5. Verify the affected service and keep the previous generation until the
    change has settled.
 
-Renovate updates flake inputs, GitHub Actions, and Nix container declarations
-carrying a `# renovate:` annotation. It does not provide meaningful version PRs
-for unversioned Homebrew formula/cask declarations; those follow Homebrew when
-the Mac is upgraded separately.
+Update Watch covers flake inputs, GitHub Actions, and the container declarations
+evaluated from the `nasa` NixOS configuration. It does not provide meaningful
+version PRs for unversioned Homebrew formula/cask declarations; those follow
+Homebrew when the Mac is upgraded separately.
 
 ## Deployment
 
@@ -110,13 +145,15 @@ ssh-keyscan -t ed25519 nasa htpc | \
 
 ## Adding a container image
 
-Put an annotation directly above the image assignment:
+Declare an exact image tag and digest:
 
 ```nix
-# renovate: datasource=docker depName=ghcr.io/example/application
-image = "ghcr.io/example/application:1.2.3";
+image = "ghcr.io/example/application:1.2.3@sha256:…";
 ```
 
 Use an exact upstream release tag when one is practical. Use a rolling channel
-only when that is intentional, and retain Renovate's digest pin. Couple images
-that must release together with a package rule in `renovate.json5`.
+only when that is intentional, and retain the digest pin. Add any compatibility
+policy to `versionFilter` in `hosts/nasa/services/updates-dashboard.nix`. When an
+upstream release has stable GitHub tags, add a `containerMetadata` entry there
+to expose exact release-note links. Use `updateGroup` for images that must be
+updated in one PR.

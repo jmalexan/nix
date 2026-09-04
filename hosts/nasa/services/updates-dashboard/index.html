@@ -19,5 +19,16 @@
     <main id="content" aria-live="polite">
       <section class="empty-state"><p>Loading update reports…</p></section>
     </main>
+
+    <dialog id="nix-scan-confirm">
+      <form method="dialog">
+        <h2>Run the Nix scan?</h2>
+        <p>This builds both host closures and may take a while.</p>
+        <div class="dialog-actions">
+          <button value="cancel" type="submit">Cancel</button>
+          <button id="confirm-nix-scan" value="confirm" type="submit">Run scan</button>
+        </div>
+      </form>
+    </dialog>
   </body>
 </html>

@@ -1,8 +1,12 @@
 const content = document.querySelector("#content");
+const nixScanDialog = document.querySelector("#nix-scan-confirm");
+const confirmNixScan = document.querySelector("#confirm-nix-scan");
 
 let dashboard = null;
 let containerFilter = "all";
 let loadInProgress = false;
+let actionMessage = null;
+const pendingActions = new Set();
 
 const AUTO_REFRESH_INTERVAL = 5_000;
 
@@ -31,6 +35,9 @@ function element(tag, options = {}, ...children) {
   if (options.text !== undefined) node.textContent = options.text;
   if (options.colSpan) node.colSpan = options.colSpan;
   if (options.dataLabel) node.dataset.label = options.dataLabel;
+  if (options.href) node.href = options.href;
+  if (options.title) node.title = options.title;
+  if (options.disabled) node.disabled = true;
   for (const child of children.flat()) {
     if (child !== null && child !== undefined) node.append(child);
   }
@@ -68,6 +75,81 @@ function countLabel(count, singular) {
 
 function reports() {
   return dashboard?.reports || {};
+}
+
+function actions() {
+  return dashboard?.actions || {};
+}
+
+function resultKey(kind, target) {
+  return `${kind}--${target.replace(/[^A-Za-z0-9_.-]+/g, "--")}`;
+}
+
+function externalLink(label, href, className = "") {
+  const link = element("a", { className, href, text: label });
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  return link;
+}
+
+function actionButton(label, handler, options = {}) {
+  const button = element("button", {
+    className: options.className || "action-button",
+    text: label,
+    title: options.title,
+    disabled: options.disabled,
+  });
+  button.type = "button";
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function jobRunning(target) {
+  return ["queued", "active", "activating", "reloading"].includes(actions().jobs?.[target]);
+}
+
+async function requestAction(payload, pendingKey, successMessage) {
+  if (pendingActions.has(pendingKey)) return;
+  pendingActions.add(pendingKey);
+  actionMessage = null;
+  render();
+  try {
+    const response = await fetch("/api/actions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Update-CSRF": actions().csrfToken,
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Action API returned ${response.status}`);
+    actionMessage = { status: "ok", text: successMessage };
+  } catch (error) {
+    actionMessage = { status: "error", text: error.message };
+    pendingActions.delete(pendingKey);
+  }
+  render();
+}
+
+function scanButton(target, confirm = false) {
+  const pendingKey = `scan:${target}`;
+  const running = jobRunning(target) || pendingActions.has(pendingKey);
+  return actionButton(
+    running ? "Running…" : "Run scan",
+    () => {
+      if (confirm) {
+        nixScanDialog.showModal();
+      } else {
+        requestAction(
+          { action: "scan", target },
+          pendingKey,
+          `${target[0].toUpperCase()}${target.slice(1)} scan queued.`,
+        );
+      }
+    },
+    { disabled: running },
+  );
 }
 
 function mergedContainers() {
@@ -109,12 +191,17 @@ function sectionHeader(title, caption, extra = null, metadata = null) {
   );
 }
 
-function scanTime(label, report) {
+function scanTime(label, report, target) {
   return element(
     "span",
-    {},
-    element("strong", { text: label }),
-    ` ${formatDate(report?.checkedAt)}`,
+    { className: "scan-time" },
+    element(
+      "span",
+      {},
+      element("strong", { text: label }),
+      ` ${formatDate(report?.checkedAt)}`,
+    ),
+    scanButton(target),
   );
 }
 
@@ -203,6 +290,54 @@ function statusCell(item, digest = false) {
   return cell;
 }
 
+function pullRequestControl(kind, target) {
+  const result = actions().pullRequests?.[resultKey(kind, target)];
+  const pendingKey = `pr:${kind}:${target}`;
+  if (result?.status === "complete" && result.url) {
+    return externalLink("View PR", result.url, "action-link");
+  }
+  const running = ["queued", "running"].includes(result?.status)
+    || pendingActions.has(pendingKey);
+  const configured = actions().prConfigured !== false;
+  const label = running ? "Creating…" : result?.status === "failed" ? "Retry PR" : "Create PR";
+  return actionButton(
+    label,
+    () => requestAction(
+      { action: "create-pr", kind, target },
+      pendingKey,
+      "Pull request creation queued.",
+    ),
+    {
+      disabled: running || !configured,
+      title: !configured
+        ? "Configure the GitHub token on NASA to enable pull requests."
+        : result?.error,
+    },
+  );
+}
+
+function containerPrTarget(service) {
+  const group = service.release?.updateGroup || service.digest?.updateGroup;
+  if (!group) return service.name;
+  return mergedContainers()
+    .filter((candidate) => (
+      candidate.release?.updateGroup || candidate.digest?.updateGroup
+    ) === group)
+    .map((candidate) => candidate.name)
+    .sort()[0] || service.name;
+}
+
+function availableVersionCell(service, available) {
+  const cell = element("td", { className: "version", dataLabel: "Available" });
+  cell.append(element("span", { text: available || "—" }));
+  if (service.release?.status === "update" && service.release.releaseNotesUrl) {
+    cell.append(
+      externalLink("Release notes", service.release.releaseNotesUrl, "release-link"),
+    );
+  }
+  return cell;
+}
+
 function renderContainers() {
   let containers = mergedContainers();
   if (containerFilter === "updates") {
@@ -224,8 +359,8 @@ function renderContainers() {
       element(
         "div",
         { className: "scan-times" },
-        scanTime("Releases", reports().releases),
-        scanTime("Digests", reports().digests),
+        scanTime("Releases", reports().releases, "releases"),
+        scanTime("Digests", reports().digests, "digests"),
       ),
     ),
   );
@@ -243,7 +378,7 @@ function renderContainers() {
       element(
         "tr",
         {},
-        ...["Service", "Installed", "Available", "Release", "Digest"].map((label) => element("th", { text: label })),
+        ...["Service", "Installed", "Available", "Release", "Digest", "Action"].map((label) => element("th", { text: label })),
       ),
     ),
   );
@@ -256,9 +391,16 @@ function renderContainers() {
         {},
         element("td", { dataLabel: "Service" }, element("div", { className: "service-name", text: serviceName(service.name) }), element("div", { className: "repository", text: service.repository })),
         element("td", { className: "version", dataLabel: "Installed", text: service.currentTag || "—" }),
-        element("td", { className: "version", dataLabel: "Available", text: available || "—" }),
+        availableVersionCell(service, available),
         statusCell(service.release),
         statusCell(service.digest, true),
+        element(
+          "td",
+          { dataLabel: "Action" },
+          service.release?.status === "update" || service.digest?.status === "update"
+            ? pullRequestControl("container", containerPrTarget(service))
+            : element("span", { className: "muted", text: "—" }),
+        ),
       ),
     );
   }
@@ -270,13 +412,23 @@ function renderContainers() {
 function renderNix() {
   const report = reports().nix;
   const body = element("div", { className: "stack" });
-  body.append(sectionHeader("Nix package forecast", "Package versions after a temporary flake update."));
+  body.append(
+    sectionHeader(
+      "Nix package forecast",
+      "Package versions after a temporary flake update.",
+      element(
+        "div",
+        { className: "section-actions" },
+        scanButton("nix", true),
+        report?.inputsChanged === true ? pullRequestControl("nix", "nix") : null,
+      ),
+    ),
+  );
   if (!report) {
     body.append(
       emptyState(
         "No forecast yet",
-        "This runs weekly because it evaluates and builds both hosts.",
-        "sudo systemctl start updates-dashboard-nix-report.service",
+        "The nightly scan evaluates and builds both hosts.",
       ),
     );
     return body;
@@ -293,6 +445,76 @@ function renderNix() {
       ),
     );
   }
+  return body;
+}
+
+function renderActions() {
+  const report = reports().actions;
+  const body = element("div", { className: "stack" });
+  body.append(
+    sectionHeader(
+      "GitHub Actions",
+      "Version channels used by repository workflows.",
+      null,
+      element(
+        "div",
+        { className: "scan-times" },
+        scanTime("Last scan", report, "actions"),
+      ),
+    ),
+  );
+  if (!report) {
+    body.append(emptyState("No Action scan yet", "Run the scan to check workflow dependencies."));
+    return body;
+  }
+  if (report.error) body.append(emptyState("Action scan failed", report.error));
+  if (!report.items?.length) {
+    body.append(emptyState("No workflow actions found", "No external versioned actions were detected."));
+    return body;
+  }
+
+  const table = element("table", { className: "action-table" });
+  table.setAttribute("aria-label", "GitHub Action versions");
+  table.append(
+    element(
+      "thead",
+      {},
+      element(
+        "tr",
+        {},
+        ...["Workflow action", "Installed", "Available", "Status", "Action"].map(
+          (label) => element("th", { text: label }),
+        ),
+      ),
+    ),
+  );
+  const tableBody = element("tbody");
+  for (const item of report.items) {
+    const available = element("td", { className: "version", dataLabel: "Available" });
+    available.append(element("span", { text: item.availableRef || "—" }));
+    if (item.status === "update" && item.releaseNotesUrl) {
+      available.append(externalLink("Release notes", item.releaseNotesUrl, "release-link"));
+    }
+    tableBody.append(
+      element(
+        "tr",
+        {},
+        element("td", { dataLabel: "Workflow action" }, element("div", { className: "service-name", text: item.name })),
+        element("td", { className: "version", dataLabel: "Installed", text: item.currentRef || "—" }),
+        available,
+        element("td", { dataLabel: "Status" }, chip(item.status), item.error ? element("div", { className: "error-text", text: item.error }) : null),
+        element(
+          "td",
+          { dataLabel: "Action" },
+          item.status === "update"
+            ? pullRequestControl("action", item.name)
+            : element("span", { className: "muted", text: "—" }),
+        ),
+      ),
+    );
+  }
+  table.append(tableBody);
+  body.append(element("section", { className: "panel table-scroll" }, table));
   return body;
 }
 
@@ -346,8 +568,12 @@ function render() {
     "div",
     { className: "page-stack" },
     renderSummary(),
+    actionMessage
+      ? element("p", { className: `action-message ${actionMessage.status}`, text: actionMessage.text })
+      : null,
     renderContainers(),
     renderNix(),
+    renderActions(),
     renderHistory(),
   );
   const history = page.querySelector(".history-disclosure");
@@ -362,7 +588,9 @@ async function load() {
     const response = await fetch("/api/status", { cache: "no-store" });
     if (!response.ok) throw new Error(`Dashboard API returned ${response.status}`);
     const latest = await response.json();
-    if (!dashboard || JSON.stringify(latest) !== JSON.stringify(dashboard)) {
+    const hadPendingAction = pendingActions.size > 0;
+    pendingActions.clear();
+    if (!dashboard || hadPendingAction || JSON.stringify(latest) !== JSON.stringify(dashboard)) {
       dashboard = latest;
       render();
     }
@@ -379,4 +607,9 @@ window.setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) load();
 });
+confirmNixScan.addEventListener("click", () => requestAction(
+  { action: "scan", target: "nix" },
+  "scan:nix",
+  "Nix scan queued.",
+));
 load();

@@ -183,8 +183,8 @@ in
 
       "${internalHost "updates"}" = ssl // {
         serverAliases = [ "updates" ];
-        # Update Watch is read-only, but it exposes infrastructure inventory.
-        # Keep it private to the LAN, tailnet, and this host.
+        # The dashboard exposes infrastructure inventory and can queue scans
+        # and update PRs. Keep it private to the LAN, tailnet, and this host.
         extraConfig = ''
           allow ${vars.nasa.lanSubnet};
           allow 100.64.0.0/10;
