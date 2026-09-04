@@ -459,6 +459,30 @@ in
           ${pkgs.skopeo}/bin/skopeo
       '';
     };
+    updates-dashboard-pr-status = {
+      description = "Refresh update pull request states from GitHub";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      environment.HOME = reportState;
+      serviceConfig = {
+        Type = "oneshot";
+        User = "updates-dashboard-reporter";
+        Group = "updates-dashboard-reporter";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        Nice = 10;
+      };
+      script = ''
+        if [ -s ${githubToken} ]; then
+          ${dashboardReporter}/bin/update-dashboard-reporter pr-status \
+            ${prResults} \
+            ${reportState} \
+            ${inventory} \
+            ${lib.escapeShellArg repositoryName} \
+            ${githubToken}
+        fi
+      '';
+    };
   };
 
   systemd.paths = {
@@ -502,6 +526,14 @@ in
         OnCalendar = "daily";
         RandomizedDelaySec = "30min";
         Persistent = true;
+      };
+    };
+    updates-dashboard-pr-status = {
+      description = "Refresh update pull request states from GitHub";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "10s";
+        OnUnitActiveSec = "10s";
       };
     };
     updates-dashboard-nix-report = {

@@ -5,8 +5,8 @@ const confirmNixScan = document.querySelector("#confirm-nix-scan");
 let dashboard = null;
 let containerFilter = "all";
 let loadInProgress = false;
-let actionMessage = null;
 const pendingActions = new Set();
+const actionErrors = new Map();
 
 const AUTO_REFRESH_INTERVAL = 5_000;
 
@@ -108,10 +108,10 @@ function jobRunning(target) {
   return ["queued", "active", "activating", "reloading"].includes(actions().jobs?.[target]);
 }
 
-async function requestAction(payload, pendingKey, successMessage) {
+async function requestAction(payload, pendingKey) {
   if (pendingActions.has(pendingKey)) return;
   pendingActions.add(pendingKey);
-  actionMessage = null;
+  actionErrors.delete(pendingKey);
   render();
   try {
     const response = await fetch("/api/actions", {
@@ -124,9 +124,8 @@ async function requestAction(payload, pendingKey, successMessage) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Action API returned ${response.status}`);
-    actionMessage = { status: "ok", text: successMessage };
   } catch (error) {
-    actionMessage = { status: "error", text: error.message };
+    actionErrors.set(pendingKey, error.message);
     pendingActions.delete(pendingKey);
   }
   render();
@@ -135,8 +134,9 @@ async function requestAction(payload, pendingKey, successMessage) {
 function scanButton(target, confirm = false) {
   const pendingKey = `scan:${target}`;
   const running = jobRunning(target) || pendingActions.has(pendingKey);
+  const error = actionErrors.get(pendingKey);
   return actionButton(
-    running ? "Running…" : "Run scan",
+    running ? "Running…" : error ? "Retry scan" : "Run scan",
     () => {
       if (confirm) {
         nixScanDialog.showModal();
@@ -144,11 +144,10 @@ function scanButton(target, confirm = false) {
         requestAction(
           { action: "scan", target },
           pendingKey,
-          `${target[0].toUpperCase()}${target.slice(1)} scan queued.`,
         );
       }
     },
-    { disabled: running },
+    { disabled: running, title: error },
   );
 }
 
@@ -293,25 +292,31 @@ function statusCell(item, digest = false) {
 function pullRequestControl(kind, target) {
   const result = actions().pullRequests?.[resultKey(kind, target)];
   const pendingKey = `pr:${kind}:${target}`;
-  if (result?.status === "complete" && result.url) {
+  if (["complete", "open"].includes(result?.status) && result.url) {
     return externalLink("View PR", result.url, "action-link");
+  }
+  if (result?.status === "merged" && result.url) {
+    return externalLink("View merged PR", result.url, "action-link");
   }
   const running = ["queued", "running"].includes(result?.status)
     || pendingActions.has(pendingKey);
   const configured = actions().prConfigured !== false;
-  const label = running ? "Creating…" : result?.status === "failed" ? "Retry PR" : "Create PR";
+  const requestError = actionErrors.get(pendingKey);
+  let label = "Create PR";
+  if (running) label = "Creating…";
+  else if (result?.status === "closed") label = "Create new PR";
+  else if (result?.status === "failed" || requestError) label = "Retry PR";
   return actionButton(
     label,
     () => requestAction(
       { action: "create-pr", kind, target },
       pendingKey,
-      "Pull request creation queued.",
     ),
     {
       disabled: running || !configured,
       title: !configured
         ? "Configure the GitHub token on NASA to enable pull requests."
-        : result?.error,
+        : requestError || result?.error,
     },
   );
 }
@@ -577,9 +582,6 @@ function render() {
     "div",
     { className: "page-stack" },
     renderSummary(),
-    actionMessage
-      ? element("p", { className: `action-message ${actionMessage.status}`, text: actionMessage.text })
-      : null,
     renderContainers(),
     renderNix(),
     renderActions(),
@@ -619,6 +621,5 @@ document.addEventListener("visibilitychange", () => {
 confirmNixScan.addEventListener("click", () => requestAction(
   { action: "scan", target: "nix" },
   "scan:nix",
-  "Nix scan queued.",
 ));
 load();

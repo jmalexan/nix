@@ -632,6 +632,20 @@ def github_request(token, repository, path, method="GET", payload=None):
         raise RuntimeError(f"GitHub API returned {error.code}: {detail}") from error
 
 
+def pull_request_state(pull):
+    if pull.get("merged_at"):
+        return "merged"
+    return pull.get("state", "unknown")
+
+
+def pull_request_result(pull):
+    return {
+        "status": pull_request_state(pull),
+        "url": pull["html_url"],
+        "number": pull["number"],
+    }
+
+
 def publish_pull_request(args, checkout, title, body, target):
     changed = run(
         [args.git, "diff", "--name-only", "--"], capture=True, cwd=checkout
@@ -650,12 +664,15 @@ def publish_pull_request(args, checkout, title, body, target):
     if not token:
         raise RuntimeError("The GitHub token file is empty")
     owner = args.github_repository.split("/", 1)[0]
-    query = urlencode({"state": "open", "head": f"{owner}:{branch}"})
-    existing = github_request(
-        token, args.github_repository, f"/pulls?{query}"
+    query = urlencode({"state": "all", "head": f"{owner}:{branch}"})
+    existing = github_request(token, args.github_repository, f"/pulls?{query}")
+    open_pull = next(
+        (pull for pull in existing if pull_request_state(pull) == "open"), None
     )
+    if open_pull:
+        return pull_request_result(open_pull)
     if existing:
-        return existing[0]["html_url"]
+        branch = f"{branch}-retry-{os.urandom(3).hex()}"
 
     base_commit = run([args.git, "rev-parse", "HEAD"], capture=True, cwd=checkout)
     commit = github_request(
@@ -704,7 +721,7 @@ def publish_pull_request(args, checkout, title, body, target):
         method="POST",
         payload={"title": title, "body": body, "head": branch, "base": "main"},
     )
-    return pull["html_url"]
+    return pull_request_result(pull)
 
 
 def create_pr(args, job):
@@ -753,8 +770,8 @@ def pr_queue(args):
             }
             atomic_json(result_path, state)
             try:
-                url = create_pr(args, job)
-                state.update({"status": "complete", "url": url, "finishedAt": utc_now()})
+                pull = create_pr(args, job)
+                state.update({**pull, "finishedAt": utc_now()})
             except Exception as error:
                 state.update(
                     {"status": "failed", "error": str(error), "finishedAt": utc_now()}
@@ -763,6 +780,87 @@ def pr_queue(args):
             atomic_json(result_path, state)
         finally:
             path.unlink(missing_ok=True)
+
+
+def optional_json(path, fallback):
+    try:
+        return json.loads(Path(path).read_text())
+    except (OSError, json.JSONDecodeError):
+        return fallback
+
+
+def visible_pull_request_keys(state_root, inventory_path):
+    state_root = Path(state_root)
+    inventory = optional_json(inventory_path, {"services": []}).get("services", [])
+    inventory_by_name = {item["name"]: item for item in inventory}
+    keys = set()
+
+    updates = set()
+    for report_name in ("releases.json", "digests.json"):
+        report = optional_json(state_root / report_name, {})
+        updates.update(
+            item["name"]
+            for item in report.get("items", [])
+            if item.get("status") == "update"
+        )
+    for name in updates:
+        service = inventory_by_name.get(name, {})
+        group = service.get("updateGroup")
+        if group:
+            targets = sorted(
+                item["name"]
+                for item in inventory
+                if item.get("updateGroup") == group
+            )
+            target = targets[0] if targets else name
+        else:
+            target = name
+        keys.add(result_key("container", target))
+
+    actions = optional_json(state_root / "actions.json", {})
+    keys.update(
+        result_key("action", item["name"])
+        for item in actions.get("items", [])
+        if item.get("status") == "update"
+    )
+    nix = optional_json(state_root / "nix.json", {})
+    if nix.get("inputsChanged") is True:
+        keys.add(result_key("nix", "nix"))
+    return keys
+
+
+def pr_status(args):
+    candidates = []
+    visible_keys = visible_pull_request_keys(args.state, args.inventory)
+    for key in visible_keys:
+        path = Path(args.results) / f"{key}.json"
+        result = optional_json(path, {})
+        if result.get("status") in ("complete", "open") and result.get("url"):
+            candidates.append((path, result))
+    if not candidates:
+        return
+
+    token = Path(args.token).read_text().strip()
+    if not token:
+        return
+    query = urlencode(
+        {
+            "state": "all",
+            "sort": "updated",
+            "direction": "desc",
+            "per_page": 100,
+        }
+    )
+    pulls = github_request(token, args.github_repository, f"/pulls?{query}")
+    by_url = {pull["html_url"]: pull for pull in pulls}
+    for path, result in candidates:
+        pull = by_url.get(result.get("url"))
+        if not pull:
+            continue
+        status = pull_request_state(pull)
+        if result.get("status") != status:
+            result["status"] = status
+            atomic_json(path, result)
 
 
 def parser():
@@ -814,6 +912,14 @@ def parser():
     pr_parser.add_argument("nix")
     pr_parser.add_argument("skopeo")
     pr_parser.set_defaults(handler=pr_queue)
+
+    status_parser = commands.add_parser("pr-status")
+    status_parser.add_argument("results")
+    status_parser.add_argument("state")
+    status_parser.add_argument("inventory")
+    status_parser.add_argument("github_repository")
+    status_parser.add_argument("token")
+    status_parser.set_defaults(handler=pr_status)
     return result
 
 

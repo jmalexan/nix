@@ -66,7 +66,11 @@ Update Watch can create reviewable pull requests for a displayed container,
 flake-input, or GitHub Action update. Container PRs resolve and commit an
 immutable digest; the two Immich application images remain grouped. Nix PRs run
 `nix flake update` against the latest `main`. No dashboard action merges a PR or
-deploys a host.
+deploys a host. While the dashboard has a currently relevant open PR link, a
+lightweight job reconciles its state with GitHub every ten seconds. It makes no
+GitHub request when there are no such links. Closing a PR without merging changes
+its control to **Create new PR**; a replacement uses a fresh branch even when the
+proposed diff is unchanged.
 
 Create a fine-grained GitHub personal access token restricted to the
 `jmalexan/nix` repository. Grant **Contents: read and write**, **Pull requests:

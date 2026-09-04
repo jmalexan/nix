@@ -179,17 +179,6 @@ main {
 
 .action-link { font-size: 0.78rem; }
 
-.action-message {
-  margin: -24px 0;
-  padding: 9px 12px;
-  border-left: 2px solid var(--green);
-  background: var(--white);
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.action-message.error { border-color: var(--red); color: var(--red); }
-
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
