@@ -35,6 +35,18 @@
 }:
 
 let
+  # nixpkgs 26.05 still fetches Flirc 3.27.15 from the Wayback Machine, whose
+  # rate limiting repeatedly broke unattended HTPC deployments. Flirc publishes
+  # the current Linux archive directly; pin its content hash so the mutable
+  # `latest` URL cannot silently change what this configuration installs.
+  flirc = pkgs.flirc.overrideAttrs (_: {
+    version = "3.27.19";
+    src = pkgs.fetchurl {
+      url = "https://apt.flirc.tv/arch/x86_64/flirc.latest.x86_64.tar.gz";
+      hash = "sha256-oQCplncTkcpxnclyh0wqe2veoWEtIeSnEeDgN8Qi9fY=";
+    };
+  });
+
   # ── The mapping ─────────────────────────────────────────────────────────────
   # Chosen against what Bigscreen and the media apps actually listen for, rather
   # than what a Kodi remote traditionally sends. The Bigscreen side is not
@@ -223,7 +235,7 @@ let
   flirc-skip-setup = pkgs.writeShellApplication {
     name = "flirc-skip-setup";
     runtimeInputs = [
-      pkgs.flirc
+      flirc
       pkgs.coreutils
     ];
     text = ''
@@ -334,14 +346,14 @@ in
   # The package installs no .desktop file, so it won't show up as a Bigscreen
   # tile. The GUI needs a pointer; from the couch prefer the CLI or the wizard.
   environment.systemPackages = [
-    pkgs.flirc
+    flirc
     flirc-skip-setup
   ];
 
   # flirc_util talks to the dongle over raw USB/hidraw, which is root-only by
   # default. The package carries the udev rules that loosen this (vendor 20a0,
   # covering both the bootloader and application interfaces of gen1 and gen2).
-  services.udev.packages = [ pkgs.flirc ];
+  services.udev.packages = [ flirc ];
 
   # ── Wake from suspend ───────────────────────────────────────────────────────
   # Unlike the Bluetooth Xbox controller (see controller.nix), the Flirc *can*

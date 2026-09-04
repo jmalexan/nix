@@ -95,8 +95,16 @@ jobs:
           DEPLOY_HOST: ${{ matrix.host }}
           DEPLOY_REVISION: ${{ github.sha }}
         run: |
+          # The new host configuration cannot constrain the daemon until it has
+          # activated once, so apply nasa's limits to this build explicitly too.
+          if [[ "$DEPLOY_HOST" == "nasa" ]]; then
+            build_limits="--max-jobs 1 --cores 8"
+          else
+            build_limits=""
+          fi
+
           ssh -o BatchMode=yes -o ConnectTimeout=15 "deploy@$DEPLOY_HOST" \
-            "sudo nixos-rebuild switch --refresh --flake 'github:jmalexan/nix/$DEPLOY_REVISION#$DEPLOY_HOST'"
+            "sudo nixos-rebuild switch $build_limits --refresh --flake 'github:jmalexan/nix/$DEPLOY_REVISION#$DEPLOY_HOST'"
 
       - name: Return deployment-woken HTPC to sleep
         if: matrix.host == 'htpc' && steps.wake_htpc.outputs.was_asleep == 'true'

@@ -27,6 +27,24 @@ in
     options zfs zfs_arc_min=2147483648
   '';
 
+  # This host builds its own deployment closures while also running the media,
+  # camera, and inference workloads. Building Open WebUI and CUDA-heavy
+  # derivations concurrently exhausted RAM during an unattended deployment and
+  # made the kernel kill both the build and unrelated services. Keep host-side
+  # builds, but serialize derivations and bound the parallelism each derivation
+  # is told to use so the running services retain headroom.
+  nix.settings = {
+    max-jobs = 1;
+    cores = 8;
+  };
+
+  # There is no disk swap on the ZFS root. Compressed RAM swap is a final buffer
+  # for short build-time spikes; max-jobs above remains the primary safeguard.
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+  };
+
   networking.hostName = "nasa";
   networking.hostId = "e878c22f";
 
