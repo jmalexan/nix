@@ -1,8 +1,10 @@
 const content = document.querySelector("#content");
-const refreshButton = document.querySelector("#refresh");
 
 let dashboard = null;
 let containerFilter = "all";
+let loadInProgress = false;
+
+const AUTO_REFRESH_INTERVAL = 5_000;
 
 const serviceNames = {
   bookorbit: "BookOrbit",
@@ -339,33 +341,42 @@ function renderHistory() {
 
 function render() {
   if (!dashboard) return;
-  content.replaceChildren(
-    element(
-      "div",
-      { className: "page-stack" },
-      renderSummary(),
-      renderContainers(),
-      renderNix(),
-      renderHistory(),
-    ),
+  const historyOpen = content.querySelector(".history-disclosure")?.open || false;
+  const page = element(
+    "div",
+    { className: "page-stack" },
+    renderSummary(),
+    renderContainers(),
+    renderNix(),
+    renderHistory(),
   );
+  const history = page.querySelector(".history-disclosure");
+  if (history) history.open = historyOpen;
+  content.replaceChildren(page);
 }
 
 async function load() {
-  refreshButton.disabled = true;
-  refreshButton.textContent = "Refreshing…";
+  if (loadInProgress) return;
+  loadInProgress = true;
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
     if (!response.ok) throw new Error(`Dashboard API returned ${response.status}`);
-    dashboard = await response.json();
-    render();
+    const latest = await response.json();
+    if (!dashboard || JSON.stringify(latest) !== JSON.stringify(dashboard)) {
+      dashboard = latest;
+      render();
+    }
   } catch (error) {
-    content.replaceChildren(emptyState("Could not load reports", error.message));
+    if (!dashboard) content.replaceChildren(emptyState("Could not load reports", error.message));
   } finally {
-    refreshButton.disabled = false;
-    refreshButton.textContent = "Refresh";
+    loadInProgress = false;
   }
 }
 
-refreshButton.addEventListener("click", load);
+window.setInterval(() => {
+  if (!document.hidden) load();
+}, AUTO_REFRESH_INTERVAL);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) load();
+});
 load();
