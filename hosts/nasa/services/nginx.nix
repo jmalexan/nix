@@ -88,6 +88,20 @@ in
         };
       };
 
+      "${internalHost "dav"}" = ssl // {
+        serverAliases = [
+          (internalHost "calendar")
+          (internalHost "contacts")
+          "dav"
+          "calendar"
+          "contacts"
+        ];
+        # Apple and other DAV clients use these standard discovery endpoints.
+        locations."= /.well-known/caldav".extraConfig = "return 301 /;";
+        locations."= /.well-known/carddav".extraConfig = "return 301 /;";
+        locations."/".proxyPass = "http://127.0.0.1:5232";
+      };
+
       "${internalHost "romm"}" = ssl // {
         serverAliases = [ "romm" ];
         extraConfig = ''

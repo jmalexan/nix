@@ -102,6 +102,9 @@
         /Data/smb/Internal/Services/bazarr
       ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root \
         /Data/smb/Internal/Services/prowlarr
+      ${pkgs.coreutils}/bin/install -d -m 0750 -o radicale -g radicale \
+        /Data/smb/Internal/Services/radicale \
+        /Data/smb/Internal/Services/radicale/collections
     '';
   };
 }

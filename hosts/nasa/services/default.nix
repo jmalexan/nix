@@ -11,6 +11,7 @@
     ./tailscale.nix
     ./nginx.nix
     ./samba.nix
+    ./radicale.nix
 
     # Container runtime and development infrastructure
     ./containers.nix
