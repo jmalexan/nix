@@ -100,8 +100,14 @@
     script = ''
       ${pkgs.coreutils}/bin/install -d -m 0700 -o bazarr -g bazarr \
         /Data/smb/Internal/Services/bazarr
-      ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root \
-        /Data/smb/Internal/Services/prowlarr
+      # Prowlarr uses DynamicUser.  Once its StateDirectory is bind-mounted,
+      # systemd gives this directory to the allocated service UID.  Re-running
+      # install against it would reset it to root:root and lock the live service
+      # out of its config and SQLite databases, so only seed it when absent.
+      if [[ ! -d /Data/smb/Internal/Services/prowlarr ]]; then
+        ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root \
+          /Data/smb/Internal/Services/prowlarr
+      fi
       ${pkgs.coreutils}/bin/install -d -m 0750 -o radicale -g radicale \
         /Data/smb/Internal/Services/radicale \
         /Data/smb/Internal/Services/radicale/collections
