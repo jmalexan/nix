@@ -156,13 +156,27 @@ in
             ${pkgs.findutils}/bin/find /Data/smb/Media/Books -type d \
               -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
 
-            # Future Requests imports only need to read completed downloads.
+            # Preserve read access to existing downloads outside BookOrbit's
+            # own category; only the dedicated category below is writable.
             ${pkgs.acl}/bin/setfacl -R -m u:985:r-X /Data/smb/Torrents
             ${pkgs.findutils}/bin/find /Data/smb/Torrents -type d \
               -exec ${pkgs.acl}/bin/setfacl -m d:u:985:r-x '{}' +
 
             ${pkgs.coreutils}/bin/touch "$stamp"
             ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$stamp"
+          fi
+
+          requests_stamp=${stateDir}/data/.requests-storage-access-v1
+          if [ ! -e "$requests_stamp" ]; then
+            # BookOrbit creates a temporary file in the mapped download path
+            # to prove hardlinks work. Grant its stable UID write access to
+            # this category and propagate that ACL to future qBittorrent files.
+            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX /Data/smb/Torrents/BookOrbit
+            ${pkgs.findutils}/bin/find /Data/smb/Torrents/BookOrbit -type d \
+              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
+
+            ${pkgs.coreutils}/bin/touch "$requests_stamp"
+            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$requests_stamp"
           fi
 
           manga_stamp=${stateDir}/data/.manga-storage-access-v1

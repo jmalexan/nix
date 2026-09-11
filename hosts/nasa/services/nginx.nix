@@ -247,8 +247,12 @@ in
             # cross-site requests.
             proxy_set_header   Referer            "http://$proxy_host/";
             proxy_set_header   X-Forwarded-For    $proxy_add_x_forwarded_for;
-            proxy_set_header   X-Forwarded-Host   $http_host;
-            proxy_set_header   X-Forwarded-Proto  $scheme;
+            # qBittorrent's reverse-proxy support also uses these headers when
+            # calculating the target origin. Keep the entire upstream-facing
+            # origin internal and consistent; clients still connect to nginx
+            # over the public HTTPS origin.
+            proxy_set_header   X-Forwarded-Host   $proxy_host;
+            proxy_set_header   X-Forwarded-Proto  http;
           '';
         };
       };
