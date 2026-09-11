@@ -292,19 +292,40 @@ function statusCell(item, digest = false) {
   return cell;
 }
 
-function pullRequestControl(kind, target, labels = {}) {
+function containerResultCovers(result, service = null) {
+  if (!result) return false;
+  const covered = result.containerUpdates;
+  if (!covered || typeof covered !== "object") {
+    return ["queued", "running", "complete", "open"].includes(result.status);
+  }
+  const current = service
+    ? [service]
+    : mergedContainers().filter(containerHasUpdate);
+  if (!service && Object.keys(covered).length !== current.length) return false;
+  return current.every((candidate) => {
+    const update = covered[candidate.name];
+    if (!update) return false;
+    if (candidate.release?.status === "update") {
+      return update.tag === candidate.release.availableTag;
+    }
+    return update.tag === candidate.currentTag
+      && update.digest === candidate.digest?.availableDigest;
+  });
+}
+
+function pullRequestControl(kind, target, labels = {}, service = null) {
   const ownResult = actions().pullRequests?.[resultKey(kind, target)];
-  const ownIsActive = ["queued", "running", "complete", "open", "merged"].includes(
-    ownResult?.status,
-  );
+  const ownIsRelevant = kind !== "container" || containerResultCovers(ownResult, service);
+  const ownIsActive = ownIsRelevant
+    && ["queued", "running", "complete", "open", "merged"].includes(ownResult?.status);
   const combinedResult = kind === "container" && target !== "all"
     ? actions().pullRequests?.[resultKey("container", "all")]
     : null;
-  const combinedIsActive = ["queued", "running", "complete", "open", "merged"].includes(
-    combinedResult?.status,
-  ) || pendingActions.has("pr:container:all");
+  const combinedIsActive = containerResultCovers(combinedResult, service)
+    && ["queued", "running", "complete", "open", "merged"].includes(combinedResult?.status)
+    || pendingActions.has("pr:container:all");
   const usesCombined = !ownIsActive && combinedIsActive;
-  const result = usesCombined ? combinedResult : ownResult;
+  const result = usesCombined ? combinedResult : ownIsRelevant ? ownResult : null;
   const pendingKey = `pr:${kind}:${target}`;
   if (["complete", "open"].includes(result?.status) && result.url) {
     return externalLink(
@@ -461,7 +482,7 @@ function renderContainers() {
           "td",
           { dataLabel: "Action" },
           service.release?.status === "update" || service.digest?.status === "update"
-            ? pullRequestControl("container", containerPrTarget(service))
+            ? pullRequestControl("container", containerPrTarget(service), {}, service)
             : element("span", { className: "muted", text: "—" }),
         ),
       ),

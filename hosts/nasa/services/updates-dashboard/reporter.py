@@ -556,6 +556,7 @@ def prepare_container_pr(args, checkout, target):
                 "path": path,
                 "current": installed["currentTag"],
                 "available": target_tag,
+                "availableDigest": target_digest,
                 "digestChanged": target_digest != installed.get("currentDigest"),
             }
         )
@@ -594,7 +595,18 @@ def prepare_container_pr(args, checkout, target):
     if notes:
         body.extend(["", "Release notes:"])
         body.extend(f"- [{label}]({url})" for label, url in notes)
-    return title, "\n".join(body), branch_target
+    return (
+        title,
+        "\n".join(body),
+        branch_target,
+        {
+            change["name"]: {
+                "tag": change["available"],
+                "digest": change["availableDigest"],
+            }
+            for change in changes
+        },
+    )
 
 
 def prepare_action_pr(args, checkout, target):
@@ -781,14 +793,21 @@ def create_pr(args, job):
             ]
         )
         if kind == "container":
-            title, body, branch_target = prepare_container_pr(args, checkout, target)
+            title, body, branch_target, container_updates = prepare_container_pr(
+                args, checkout, target
+            )
         elif kind == "action":
             title, body, branch_target = prepare_action_pr(args, checkout, target)
+            container_updates = None
         elif kind == "nix":
             title, body, branch_target = prepare_nix_pr(args, checkout)
+            container_updates = None
         else:
             raise RuntimeError(f"Unsupported pull request kind: {kind}")
-        return publish_pull_request(args, checkout, title, body, branch_target)
+        result = publish_pull_request(args, checkout, title, body, branch_target)
+        if container_updates is not None:
+            result["containerUpdates"] = container_updates
+        return result
 
 
 def pr_queue(args):
@@ -868,14 +887,79 @@ def visible_pull_request_keys(state_root, inventory_path):
     return keys
 
 
+def current_container_updates(state_root):
+    state_root = Path(state_root)
+    releases = {
+        item["name"]: item
+        for item in optional_json(state_root / "releases.json", {}).get("items", [])
+    }
+    digests = {
+        item["name"]: item
+        for item in optional_json(state_root / "digests.json", {}).get("items", [])
+    }
+    updates = {}
+    for name in releases.keys() | digests.keys():
+        release = releases.get(name, {})
+        digest = digests.get(name, {})
+        if release.get("status") == "update":
+            updates[name] = {"tag": release.get("availableTag")}
+        elif digest.get("status") == "update":
+            updates[name] = {
+                "tag": digest.get("currentTag") or release.get("currentTag"),
+                "digest": digest.get("availableDigest"),
+            }
+    return updates
+
+
+def container_result_matches(result, current_updates, inventory):
+    covered = result.get("containerUpdates")
+    if not isinstance(covered, dict):
+        # Results created by older dashboard versions cannot prove that a
+        # completed PR contains a newly reported update. Keep an open legacy PR
+        # visible to avoid creating a duplicate, then retire it after it closes.
+        return result.get("status") in ("queued", "running", "complete", "open")
+
+    target = result.get("target")
+    if target == "all":
+        expected = current_updates
+    else:
+        inventory_by_name = {item["name"]: item for item in inventory}
+        selected = inventory_by_name.get(target, {})
+        group = selected.get("updateGroup")
+        names = {
+            item["name"]
+            for item in inventory
+            if item["name"] == target or (group and item.get("updateGroup") == group)
+        }
+        expected = {
+            name: update for name, update in current_updates.items() if name in names
+        }
+
+    if covered.keys() != expected.keys():
+        return False
+    for name, update in expected.items():
+        if covered[name].get("tag") != update.get("tag"):
+            return False
+        if update.get("digest") and covered[name].get("digest") != update["digest"]:
+            return False
+    return True
+
+
 def pr_status(args):
     candidates = []
     visible_keys = visible_pull_request_keys(args.state, args.inventory)
+    inventory = optional_json(args.inventory, {"services": []}).get("services", [])
+    container_updates = current_container_updates(args.state)
     for path in Path(args.results).glob("*.json"):
         result = optional_json(path, {})
-        if path.stem not in visible_keys and result.get("status") not in (
-            "queued",
-            "running",
+        stale_container_result = (
+            result.get("kind") == "container"
+            and result.get("status") not in ("queued", "running", "complete", "open")
+            and not container_result_matches(result, container_updates, inventory)
+        )
+        if stale_container_result or (
+            path.stem not in visible_keys
+            and result.get("status") not in ("queued", "running")
         ):
             path.unlink(missing_ok=True)
     for key in visible_keys:
