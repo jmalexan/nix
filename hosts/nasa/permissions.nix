@@ -70,6 +70,10 @@
     # with media as its container GID, so 02770 permits its hardlink probe and
     # keeps the writable mount scoped away from every other torrent category.
     "d /Data/smb/Torrents/BookOrbit                   02770 qbittorrent media -"
+    # Keep the Requests Book Dock below the same bind-mounted directory as its
+    # downloads. Separate Docker bind mounts return EXDEV even on one backing
+    # filesystem, because Linux treats them as distinct mount objects.
+    "d /Data/smb/Torrents/BookOrbit/.book-dock        02770 bookorbit   media -"
     # *arr services write organised, hardlinked content here; Jellyfin reads it.
     # setgid propagates the media group to all new subdirectories.
     # Migration: move actual media files to /Data/smb/Torrents first, then

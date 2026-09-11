@@ -17,6 +17,8 @@ in
   # files use the media group so they remain writable through SMB.
   # The /downloads mount below exposes only BookOrbit's qBittorrent category,
   # rather than granting the Requests workflow access to unrelated torrents.
+  # Its Book Dock is nested below that same bind mount because Linux rejects
+  # hardlinks between distinct bind mounts even when ZFS backs both paths.
   users.users.bookorbit = {
     uid = 985;
     group = "bookorbit";
@@ -76,7 +78,7 @@ in
         # Keep prose and manga as separate BookOrbit libraries while preserving
         # the existing /books path already stored in BookOrbit's database.
         LIBRARY_BROWSE_ROOT = "/";
-        BOOK_DOCK_PATH = "/data/book-dock";
+        BOOK_DOCK_PATH = "/downloads/.book-dock";
         # Trust the private CA that signs the internal nginx certificate so
         # Requests can connect securely to Prowlarr through its HTTPS vhost.
         NODE_EXTRA_CA_CERTS = "/etc/ssl/certs/jmalexan-private-ca.crt";
@@ -90,8 +92,8 @@ in
         "/Data/smb/Media/Manga:/manga"
         "${privateCa}:/etc/ssl/certs/jmalexan-private-ca.crt:ro"
         # Requests creates a short-lived probe here when testing hardlinks, so
-        # this dedicated category mount must be writable. It shares the
-        # /Data/smb filesystem with the Book Dock for zero-copy imports.
+        # this dedicated category mount must be writable. The Book Dock lives
+        # beneath this same container mount at /downloads/.book-dock.
         "/Data/smb/Torrents/BookOrbit:/downloads"
       ];
       extraOptions = [
@@ -177,6 +179,29 @@ in
 
             ${pkgs.coreutils}/bin/touch "$requests_stamp"
             ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$requests_stamp"
+          fi
+
+          single_mount_stamp=${stateDir}/data/.requests-single-mount-v1
+          if [ ! -e "$single_mount_stamp" ]; then
+            old_dock=${stateDir}/data/book-dock
+            new_dock=/Data/smb/Torrents/BookOrbit/.book-dock
+
+            ${pkgs.coreutils}/bin/install -d -m 02770 -o bookorbit -g media "$new_dock"
+
+            # Preserve anything already waiting in the old Book Dock while
+            # moving the active path below the Requests download bind mount.
+            # -n keeps an existing destination entry if names collide.
+            if [ -d "$old_dock" ]; then
+              ${pkgs.findutils}/bin/find "$old_dock" -mindepth 1 -maxdepth 1 \
+                -exec ${pkgs.coreutils}/bin/mv -n -t "$new_dock" -- '{}' +
+            fi
+
+            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX "$new_dock"
+            ${pkgs.findutils}/bin/find "$new_dock" -type d \
+              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
+
+            ${pkgs.coreutils}/bin/touch "$single_mount_stamp"
+            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$single_mount_stamp"
           fi
 
           manga_stamp=${stateDir}/data/.manga-storage-access-v1
