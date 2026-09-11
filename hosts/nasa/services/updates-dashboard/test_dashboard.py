@@ -137,12 +137,16 @@ class DashboardTests(unittest.TestCase):
             with mock.patch.object(
                 reporter, "resolve_digest", return_value="sha256:new"
             ):
-                title, body, target = reporter.prepare_container_pr(
+                title, body, target, updates = reporter.prepare_container_pr(
                     args, checkout, "app"
                 )
             self.assertEqual(title, "Update app to 1.1.0")
             self.assertEqual(target, "app")
             self.assertIn("Release notes", body)
+            self.assertEqual(
+                updates,
+                {"app": {"tag": "1.1.0", "digest": "sha256:new"}},
+            )
             self.assertEqual(
                 module.read_text(),
                 'image = "ghcr.io/example/app:1.1.0@sha256:new";\n',
@@ -222,7 +226,7 @@ class DashboardTests(unittest.TestCase):
             with mock.patch.object(
                 reporter, "resolve_digest", return_value="sha256:app-new"
             ):
-                title, body, target = reporter.prepare_container_pr(
+                title, body, target, updates = reporter.prepare_container_pr(
                     args, checkout, "all"
                 )
 
@@ -230,6 +234,13 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(target, "all-containers")
             self.assertIn("`app`: `1.0.0` → `1.1.0`", body)
             self.assertIn("`worker`: refresh the `2.0.0` image digest", body)
+            self.assertEqual(
+                updates,
+                {
+                    "app": {"tag": "1.1.0", "digest": "sha256:app-new"},
+                    "worker": {"tag": "2.0.0", "digest": "sha256:worker-new"},
+                },
+            )
             self.assertEqual(
                 module.read_text(),
                 'image = "ghcr.io/example/app:1.1.0@sha256:app-new";\n'
@@ -400,6 +411,84 @@ class DashboardTests(unittest.TestCase):
                 )
             self.assertEqual(result["status"], "open")
             self.assertIn("-retry-", refs[0])
+
+    def test_merged_combined_pr_is_retired_when_a_new_update_appears(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            state = root / "state"
+            results = root / "results"
+            state.mkdir()
+            results.mkdir()
+            token = root / "token"
+            token.write_text("github_pat_example")
+            inventory = root / "inventory.json"
+            inventory.write_text(
+                json.dumps(
+                    {
+                        "services": [
+                            {
+                                "name": "immich-server",
+                                "repository": "ghcr.io/immich-app/immich-server",
+                                "currentTag": "v3.1.0",
+                            }
+                        ]
+                    }
+                )
+            )
+            (state / "releases.json").write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "name": "immich-server",
+                                "currentTag": "v3.1.0",
+                                "availableTag": "v3.2.0",
+                                "status": "update",
+                            }
+                        ]
+                    }
+                )
+            )
+            (state / "digests.json").write_text(json.dumps({"items": []}))
+            result = results / "container--all.json"
+            result.write_text(
+                json.dumps(
+                    {
+                        "kind": "container",
+                        "target": "all",
+                        "status": "merged",
+                        "url": "https://github.com/example/repo/pull/35",
+                        "containerUpdates": {
+                            "immich-redis": {
+                                "tag": "9",
+                                "digest": "sha256:new",
+                            }
+                        },
+                    }
+                )
+            )
+            args = argparse.Namespace(
+                token=str(token),
+                github_repository="example/repo",
+                results=str(results),
+                state=str(state),
+                inventory=str(inventory),
+            )
+
+            with mock.patch.object(reporter, "github_request") as request:
+                reporter.pr_status(args)
+
+            request.assert_not_called()
+            self.assertFalse(result.exists())
+
+    def test_legacy_open_container_pr_remains_conflict_protected(self):
+        current = {"immich-server": {"tag": "v3.2.0"}}
+        self.assertTrue(
+            reporter.container_result_matches({"status": "open"}, current, [])
+        )
+        self.assertFalse(
+            reporter.container_result_matches({"status": "merged"}, current, [])
+        )
 
 
 if __name__ == "__main__":
