@@ -66,6 +66,10 @@
     #   sudo chown -R :media /Data/smb/Torrents
     #   sudo chmod -R g+rw /Data/smb/Torrents   # g+w needed for hardlinks
     "d /Data/smb/Torrents                             02750 qbittorrent media -"
+    # Dedicated qBittorrent category for BookOrbit Requests. BookOrbit runs
+    # with media as its container GID, so 02770 permits its hardlink probe and
+    # keeps the writable mount scoped away from every other torrent category.
+    "d /Data/smb/Torrents/BookOrbit                   02770 qbittorrent media -"
     # *arr services write organised, hardlinked content here; Jellyfin reads it.
     # setgid propagates the media group to all new subdirectories.
     # Migration: move actual media files to /Data/smb/Torrents first, then

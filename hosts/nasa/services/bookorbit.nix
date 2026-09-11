@@ -15,9 +15,8 @@ in
 {
   # BookOrbit owns its application state and the shared book library. Library
   # files use the media group so they remain writable through SMB.
-  # The /downloads mount below is reserved for BookOrbit's documented Requests
-  # workflow. As of v2.6.0 and public main on 2026-08-22, that workflow has
-  # documentation but no released or public implementation.
+  # The /downloads mount below exposes only BookOrbit's qBittorrent category,
+  # rather than granting the Requests workflow access to unrelated torrents.
   users.users.bookorbit = {
     uid = 985;
     group = "bookorbit";
@@ -90,10 +89,10 @@ in
         "/Data/smb/Media/Books:/books"
         "/Data/smb/Media/Manga:/manga"
         "${privateCa}:/etc/ssl/certs/jmalexan-private-ca.crt:ro"
-        # Reserved for the documented but unreleased Requests workflow. Keep
-        # the torrent tree read-only; when the feature ships, configure its
-        # download client to copy rather than hardlink between bind mounts.
-        "/Data/smb/Torrents:/downloads:ro"
+        # Requests creates a short-lived probe here when testing hardlinks, so
+        # this dedicated category mount must be writable. It shares the
+        # /Data/smb filesystem with the Book Dock for zero-copy imports.
+        "/Data/smb/Torrents/BookOrbit:/downloads"
       ];
       extraOptions = [
         "--network=${network}"

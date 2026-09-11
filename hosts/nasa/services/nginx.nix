@@ -241,6 +241,11 @@ in
           extraConfig = ''
             proxy_http_version 1.1;
             proxy_set_header   Host               $proxy_host;
+            # API clients such as BookOrbit send the public base URL as their
+            # Referer. Keep it aligned with the rewritten Host header or
+            # qBittorrent accepts the login but rejects later API calls as
+            # cross-site requests.
+            proxy_set_header   Referer            "http://$proxy_host/";
             proxy_set_header   X-Forwarded-For    $proxy_add_x_forwarded_for;
             proxy_set_header   X-Forwarded-Host   $http_host;
             proxy_set_header   X-Forwarded-Proto  $scheme;
