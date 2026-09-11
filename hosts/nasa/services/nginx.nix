@@ -37,6 +37,22 @@ in
     recommendedProxySettings = true;
     recommendedTlsSettings = true;
 
+    # qBittorrent 5.2 replaced the Web API's SID cookie with a port-specific
+    # QBT_SID_<port> cookie. BookOrbit 2.9 still recognizes only SID, so
+    # translate the name at this reverse-proxy boundary in both directions.
+    # The value and all security attributes pass through unchanged.
+    appendHttpConfig = ''
+      map $http_cookie $qbittorrent_request_cookie {
+        "~^SID=(?<qbittorrent_legacy_sid>[^;]+)$" "QBT_SID_8080=$qbittorrent_legacy_sid";
+        default $http_cookie;
+      }
+
+      map $upstream_http_set_cookie $qbittorrent_response_cookie {
+        "~^QBT_SID_[0-9]+=(?<qbittorrent_sid>[^;]+)(?<qbittorrent_sid_attributes>.*)$" "SID=$qbittorrent_sid$qbittorrent_sid_attributes";
+        default $upstream_http_set_cookie;
+      }
+    '';
+
     virtualHosts = {
       # The router maps public TCP 443 to this dedicated listener. Keeping it
       # off nginx's normal 443 listener prevents any private vhost from being
@@ -241,18 +257,13 @@ in
           extraConfig = ''
             proxy_http_version 1.1;
             proxy_set_header   Host               $proxy_host;
-            # API clients such as BookOrbit send the public base URL as their
-            # Referer. Keep it aligned with the rewritten Host header or
-            # qBittorrent accepts the login but rejects later API calls as
-            # cross-site requests.
-            proxy_set_header   Referer            "http://$proxy_host/";
             proxy_set_header   X-Forwarded-For    $proxy_add_x_forwarded_for;
-            # qBittorrent's reverse-proxy support also uses these headers when
-            # calculating the target origin. Keep the entire upstream-facing
-            # origin internal and consistent; clients still connect to nginx
-            # over the public HTTPS origin.
-            proxy_set_header   X-Forwarded-Host   $proxy_host;
-            proxy_set_header   X-Forwarded-Proto  http;
+            proxy_set_header   X-Forwarded-Host   $http_host;
+            proxy_set_header   X-Forwarded-Proto  $scheme;
+
+            proxy_set_header   Cookie             $qbittorrent_request_cookie;
+            proxy_hide_header  Set-Cookie;
+            add_header         Set-Cookie         $qbittorrent_response_cookie always;
           '';
         };
       };
