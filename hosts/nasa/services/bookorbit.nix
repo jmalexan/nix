@@ -10,6 +10,7 @@ let
   network = "bookorbit";
   stateDir = "/Data/smb/Internal/Services/bookorbit";
   publicUrl = "https://bookorbit.${vars.nasa.domain}";
+  privateCa = ../../../certs/ca.crt;
 in
 {
   # BookOrbit owns its application state and the shared book library. Library
@@ -77,6 +78,9 @@ in
         # the existing /books path already stored in BookOrbit's database.
         LIBRARY_BROWSE_ROOT = "/";
         BOOK_DOCK_PATH = "/data/book-dock";
+        # Trust the private CA that signs the internal nginx certificate so
+        # Requests can connect securely to Prowlarr through its HTTPS vhost.
+        NODE_EXTRA_CA_CERTS = "/etc/ssl/certs/jmalexan-private-ca.crt";
         NODE_MAX_OLD_SPACE_SIZE = "2048";
         LOG_LEVEL = "info";
       };
@@ -85,6 +89,7 @@ in
         "${stateDir}/data:/data"
         "/Data/smb/Media/Books:/books"
         "/Data/smb/Media/Manga:/manga"
+        "${privateCa}:/etc/ssl/certs/jmalexan-private-ca.crt:ro"
         # Reserved for the documented but unreleased Requests workflow. Keep
         # the torrent tree read-only; when the feature ships, configure its
         # download client to copy rather than hardlink between bind mounts.
