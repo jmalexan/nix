@@ -9,7 +9,7 @@
     # inheriting it indirectly from the much broader nixpkgs lock update.
     # Pin the manifest digest as well as the release tag so deployments remain
     # reproducible if an upstream tag is ever republished.
-    image = "ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47";
+    image = "ghcr.io/flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767";
     autoStart = true;
 
     environment = {
