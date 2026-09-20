@@ -30,8 +30,8 @@ in
   #                          HA + eufy_security integration (HACS)
   #                                     │  raw H264 bytes over HTTP POST
   #                                     ▼
-  #                          go2rtc (services/go2rtc.nix, on 127.0.0.2)
-  #                                     │  rtsp://127.0.0.2:8554/<serial>
+  #                          Frigate's bundled go2rtc (on 127.0.0.1)
+  #                                     │  rtsp://127.0.0.1:8554/<serial>
   #                                     ▼
   #                                 HA camera entity
   #
@@ -88,7 +88,7 @@ in
     };
 
     # Bridged with the websocket on loopback, for exactly the reason spelled out
-    # in ring-mqtt.nix and go2rtc.nix: br0 is in
+    # in ring-mqtt.nix and frigate.nix: br0 is in
     # networking.firewall.trustedInterfaces, so a host-networked container
     # publishes every port to the whole LAN regardless of allowedTCPPorts. This
     # websocket is COMPLETELY UNAUTHENTICATED and is full control of the eufy
@@ -127,7 +127,7 @@ in
   '';
 
   # No networking.firewall entry on purpose, and no 172.17.0.1 publish either —
-  # unlike the RTSP gateways in go2rtc.nix and ring-mqtt.nix, the consumer here
+  # unlike the RTSP gateway in ring-mqtt.nix, the consumer here
   # is Home Assistant, which runs with host networking. It reaches 127.0.0.1:3000
   # directly, so none of the docker0-gateway plumbing those two need applies.
 
@@ -175,17 +175,14 @@ in
   #
   # 7. In the integration's Configure → options, set
   #
-  #      rtsp_server_address = 127.0.0.2
+  #      rtsp_server_address = 127.0.0.1
   #
   #    ⚠️  This is the step that is easy to get wrong and hard to debug. The
   #    integration hard-codes go2rtc's ports (1984 for the API, 8554 for RTSP —
   #    see eufy_security_api/const.py) and lets you configure only the address.
-  #    On this host 127.0.0.1:1984/:8554 is *Frigate's* bundled go2rtc, so the
-  #    default would push eufy video into the wrong instance. services/go2rtc.nix
-  #    therefore also publishes the standalone go2rtc on the loopback alias
-  #    127.0.0.2 at go2rtc's default ports, purely so this field has something
-  #    correct to point at. Leaving it at 127.0.0.1 fails in a confusing way:
-  #    the stream appears to start and then no video ever arrives.
+  #    Frigate publishes its bundled go2rtc on exactly those loopback ports, so
+  #    the integration can now publish Eufy's dynamic streams directly into the
+  #    same instance Frigate consumes.
   #
   #    Cameras that support RTSP natively (a "continuous/NAS recording" option
   #    in the app) do not need go2rtc at all — the integration uses the camera's
@@ -204,7 +201,7 @@ in
   #   ssh -N -L 3000:127.0.0.1:3000 nasa
   #   websocat ws://127.0.0.1:3000  # then: {"messageId":"1","command":"start_listening"}
   #
-  #   # once a stream is running, confirm it landed in the RIGHT go2rtc:
-  #   ssh -N -L 1985:127.0.0.1:1985 nasa   # then http://127.0.0.1:1985
+  #   # once a stream is running, confirm it landed in Frigate's go2rtc:
+  #   ssh -N -L 1984:127.0.0.1:1984 nasa   # then http://127.0.0.1:1984
   #   # a stream named after the camera's serial should be present
 }

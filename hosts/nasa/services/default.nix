@@ -37,7 +37,6 @@
     ./homeassistant.nix
     ./eufy-security.nix
     ./ring-mqtt.nix
-    ./go2rtc.nix
     ./frigate.nix
 
     # Local inference

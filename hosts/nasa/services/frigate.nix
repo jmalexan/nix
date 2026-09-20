@@ -101,6 +101,12 @@ let
     # doorbells, so every extra "connection" is a metered session against
     # Ring's or Google's servers, not a cheap LAN socket.
     go2rtc:
+      # Keep the Nest producer warm across its initial WebRTC renegotiation.
+      # Frigate 0.18 bundles go2rtc 1.9.14, which supports preload directly;
+      # the old standalone go2rtc container is no longer needed.
+      preload:
+        front_door: "video=h264&audio=opus"
+
       streams:
         # ── Back door: Ring doorbell ──────────────────────────────────────────
         # Ring has no local RTSP/ONVIF/snapshot API — everything is brokered
@@ -119,22 +125,15 @@ let
           - rtsp://frigate:frigate@host.docker.internal:8555/<RING_DEVICE_ID>_live
 
         # ── Front door: Nest doorbell ─────────────────────────────────────────
-        # Deliberately NOT a `nest:` source, even though this go2rtc supports
-        # one. The Nest stream is produced by the standalone go2rtc container in
-        # services/go2rtc.nix and arrives here as ordinary RTSP.
+        # Frigate 0.18 bundles go2rtc v1.9.14. That is new enough to support the
+        # preload setting above, so it can own the Nest WebRTC session directly
+        # instead of proxying through a second go2rtc container. Replace all five
+        # placeholders in the live NAS config; see the credential runbook below.
         #
-        # Frigate 0.17.2 bundles go2rtc v1.9.10, and the `preload` setting that
-        # makes a Nest doorbell usable only exists from v1.9.11. Without it the
-        # consumer binds to a video track that Nest abandons during its initial
-        # WebRTC renegotiation, and ffmpeg dies with "Video: h264, none ...
-        # unspecified size" forever. The full diagnosis is in the seeded config
-        # in services/go2rtc.nix.
-        #
-        # Plain RTSP in, so nothing here has to care about WebRTC sessions,
-        # token refresh, or track renegotiation — that all stays on the far side
-        # of this hop, held stable by preload.
+        # The nest source ignores video/audio URL parameters. Track selection is
+        # performed by the preload query above.
         front_door:
-          - rtsp://host.docker.internal:8556/front_door
+          - "nest:?client_id=<CLIENT_ID>&client_secret=<CLIENT_SECRET>&refresh_token=<REFRESH_TOKEN>&project_id=<PROJECT_ID>&device_id=<DEVICE_ID>&protocols=WEB_RTC"
 
     cameras:
       # ── Back door: Ring doorbell ───────────────────────────────────────────
@@ -252,7 +251,8 @@ let
               # after a restart, NOT as the fix for anything: the original
               # "Could not find codec parameters ... unspecified size" failure
               # was a track-binding bug in go2rtc and no probe window ever
-              # solved it. That story is in services/go2rtc.nix.
+              # solved it. The preload consumer above handles that initial
+              # renegotiation.
               #
               # Do not raise it much past 10s regardless. Frigate's own watchdog
               # kills ffmpeg after 20s without a frame, so a longer probe only
@@ -495,6 +495,21 @@ in
   #  - Both clients now poll the same SDM project, so the API quota is shared.
   #    It is generous for two consumers, but if streams start failing with 429s
   #    this is where to look first.
+  #
+  # Apply the values to the live Frigate config (the seed above is deliberately
+  # copy-once and will not replace an existing file):
+  #
+  # 1. Open Frigate → Settings → Configuration editor.
+  # 2. Under `go2rtc`, add the `preload.front_door` entry shown in seedConfig.
+  # 3. Replace `go2rtc.streams.front_door` with the quoted `nest:?…` source
+  #    shown in seedConfig, substituting all five extracted values.
+  # 4. Save and restart Frigate. Then verify the producer from the bundled
+  #    go2rtc UI at http://127.0.0.1:1984 (use an SSH tunnel if remote).
+  #
+  # When migrating from the retired standalone go2rtc service, also change the
+  # Eufy Security integration's `rtsp_server_address` from 127.0.0.2 to
+  # 127.0.0.1 before deploying this NixOS configuration. Toggle each Eufy camera
+  # off/on afterward so the integration republishes its dynamic stream.
   #
   # Keep the HA integration regardless of Frigate: go2rtc supplies pixels, but
   # only HA delivers the doorbell-press event over Pub/Sub — and a press is not

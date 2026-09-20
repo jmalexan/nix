@@ -30,10 +30,6 @@ let
       tagPrefix = "v";
       stripSuffix = "-tensorrt";
     };
-    go2rtc.releaseNotes = {
-      repository = "AlexxIT/go2rtc";
-      tagPrefix = "v";
-    };
     "home-assistant".releaseNotes = {
       repository = "home-assistant/core";
       externalUrlPrefix = "https://www.home-assistant.io/blog/";

@@ -16,7 +16,6 @@ const serviceNames = {
   "eufy-security-ws": "Eufy Security",
   flaresolverr: "FlareSolverr",
   frigate: "Frigate",
-  go2rtc: "go2rtc",
   "home-assistant": "Home Assistant",
   "immich-machine-learning": "Immich machine learning",
   "immich-postgres": "Immich database",
