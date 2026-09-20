@@ -70,6 +70,18 @@ class DashboardTests(unittest.TestCase):
             ),
             "https://github.com/blakeblackshear/frigate/releases/tag/v0.17.2",
         )
+        self.assertEqual(
+            reporter.release_notes_url(
+                {
+                    "releaseNotes": {
+                        "repository": "immich-app/immich",
+                        "tagPrefix": "v",
+                    }
+                },
+                {"availableTag": "v3.2.0"},
+            ),
+            "https://github.com/immich-app/immich/releases/tag/v3.2.0",
+        )
 
     def test_nix_changes_are_version_only(self):
         value = "\x1b[31;1mage: 1.0 → 1.1, 9.9 KiB\x1b[0m\nsource: 46.7 KiB"

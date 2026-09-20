@@ -70,7 +70,8 @@ def release_notes_url(service, item):
     suffix = metadata.get("stripSuffix", "")
     if suffix and version.endswith(suffix):
         version = version[: -len(suffix)]
-    tag = metadata.get("tagPrefix", "") + version
+    prefix = metadata.get("tagPrefix", "")
+    tag = version if version.startswith(prefix) else prefix + version
     return f"https://github.com/{metadata['repository']}/releases/tag/{quote(tag)}"
 
 
