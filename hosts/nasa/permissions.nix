@@ -128,4 +128,36 @@
         /Data/smb/Internal/Services/radicale/collections
     '';
   };
+
+  # SMB clients can bring restrictive source ACLs along with copied folders.
+  # Give each importer explicit access to its own staging tree and install a
+  # default ACL so later uploads inherit the same access. The recursive pass is
+  # intentionally limited to transient Imports content.
+  systemd.services.nasa-import-permissions = {
+    description = "Apply per-service ACLs to media import staging directories";
+    wantedBy = [ "multi-user.target" ];
+    before = [
+      "sonarr.service"
+      "radarr.service"
+      "lidarr.service"
+    ];
+    after = [ "zfs-mount.service" ];
+    requires = [ "zfs-mount.service" ];
+    unitConfig.AssertPathIsMountPoint = "/Data/smb";
+    serviceConfig.Type = "oneshot";
+    script = ''
+      apply_import_acl() {
+        service_user=$1
+        import_dir=$2
+
+        ${pkgs.acl}/bin/setfacl -R -m "u:$service_user:rwX" "$import_dir"
+        ${pkgs.findutils}/bin/find "$import_dir" -type d \
+          -exec ${pkgs.acl}/bin/setfacl -m "d:u:$service_user:rwx" '{}' +
+      }
+
+      apply_import_acl radarr /Data/smb/Imports/Movies
+      apply_import_acl sonarr /Data/smb/Imports/TV
+      apply_import_acl lidarr /Data/smb/Imports/Music
+    '';
+  };
 }

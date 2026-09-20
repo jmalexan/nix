@@ -40,6 +40,10 @@
         "read only" = "no";
         "guest ok" = "no";
         "valid users" = "jmalexan";
+        # Preserve each parent directory's collaboration policy. In particular,
+        # files copied into the setgid Imports directories must remain writable
+        # by the media service that will move them into its library.
+        "inherit permissions" = "yes";
         "create mask" = "0664";
         "directory mask" = "0775";
       };
