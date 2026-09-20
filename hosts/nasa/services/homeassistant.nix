@@ -73,9 +73,11 @@
   # plus mDNS-based airplay/sonos discovery on br0.
   #
   # Providers are configured through the web UI and persist in /data — this
-  # replaced the module's declarative `providers` list, so spotify, jellyfin,
-  # lastfm_scrobble, sendspin, airplay, and sonos must be re-added there on
-  # first boot (state does NOT carry over from the old /var/lib/music-assistant).
+  # replaced the module's declarative `providers` list, so spotify, Filesystem
+  # (local disk), lastfm_scrobble, sendspin, airplay, and sonos must be re-added
+  # there on first boot (state does NOT carry over from the old
+  # /var/lib/music-assistant). The local provider should use /media, which is a
+  # read-only bind mount of the Lidarr-managed music library below.
   # apple_music can now be enabled too: the image bundles the CDM, so it just
   # needs an Apple Music subscription to authenticate.
   virtualisation.oci-containers.containers.music-assistant = {
@@ -84,6 +86,7 @@
     extraOptions = [ "--network=host" ];
     volumes = [
       "/Data/smb/Internal/Services/music-assistant:/data"
+      "/Data/smb/Media/Music:/media:ro"
       # Mount our CA bundle so the container's Python can verify internal HTTPS
       # services signed by our private CA — the Alpine image's trust store lacks
       # it. The SSL_CERT_FILE/REQUESTS_CA_BUNDLE env vars point the stdlib ssl
