@@ -44,6 +44,9 @@ in
     # backup starts. It also captures Home Assistant's host PostgreSQL database.
     # immich-model-cache is downloaded models — regenerable, so skip it too.
     extraBackupArgs = [
+      # Temporary SMB drop zone. Imported media is protected under Media after
+      # Sonarr, Radarr, or Lidarr has matched, renamed, and moved it.
+      "--exclude=/Data/smb/Imports"
       "--exclude=/Data/smb/Internal/Services/immich/thumbs"
       "--exclude=/Data/smb/Internal/Services/immich/encoded-video"
       "--exclude=/Data/smb/Internal/Services/immich-postgres"

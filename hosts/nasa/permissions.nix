@@ -60,6 +60,13 @@
     "d /Data/smb/Internal/Services/radarr            0700 radarr      radarr -"
     "d /Data/smb/Internal/Services/lidarr            0700 lidarr      lidarr -"
     "d /Data/smb/Media                                2755 root        media -"
+    # SMB-visible staging area for files acquired outside the download client.
+    # The *arr services import from their matching directory and move the files
+    # into the organised Media libraries without involving the Torrents tree.
+    "d /Data/smb/Imports                              02770 jmalexan    media -"
+    "d /Data/smb/Imports/Movies                       02770 jmalexan    media -"
+    "d /Data/smb/Imports/TV                           02770 jmalexan    media -"
+    "d /Data/smb/Imports/Music                        02770 jmalexan    media -"
     # setgid (02750) ensures new files/dirs created by qbittorrent inherit the
     # media group, so the *arr services and Jellyfin can follow symlinks into
     # this dir.  After changing this, backfill ownership on existing files:
@@ -69,11 +76,11 @@
     # Dedicated qBittorrent category for BookOrbit Requests. BookOrbit runs
     # with media as its container GID, so 02770 permits its hardlink probe and
     # keeps the writable mount scoped away from every other torrent category.
-    "d /Data/smb/Torrents/BookOrbit                   02770 qbittorrent media -"
+    "d /Data/smb/Torrents/bookorbit                   02770 qbittorrent media -"
     # Keep the Requests Book Dock below the same bind-mounted directory as its
     # downloads. Separate Docker bind mounts return EXDEV even on one backing
     # filesystem, because Linux treats them as distinct mount objects.
-    "d /Data/smb/Torrents/BookOrbit/.book-dock        02770 bookorbit   media -"
+    "d /Data/smb/Torrents/bookorbit/.book-dock        02770 bookorbit   media -"
     # *arr services write organised, hardlinked content here; Jellyfin reads it.
     # setgid propagates the media group to all new subdirectories.
     # Migration: move actual media files to /Data/smb/Torrents first, then
