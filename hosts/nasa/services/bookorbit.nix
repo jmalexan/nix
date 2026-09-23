@@ -149,6 +149,38 @@ in
           TimeoutStartSec = "30min";
         };
         script = ''
+          uppercase_repair_stamp=${stateDir}/data/.requests-uppercase-access-v1
+          if [ ! -e "$uppercase_repair_stamp" ]; then
+            requests_dir=/Data/smb/Torrents/BookOrbit
+            old_requests_dir=/Data/smb/Torrents/bookorbit
+
+            # Keep the configured qBittorrent category path canonical and
+            # writable, then grant BookOrbit access for hardlink imports.
+            ${pkgs.coreutils}/bin/install -d -m 02770 -o qbittorrent -g media \
+              "$requests_dir"
+            ${pkgs.coreutils}/bin/chown qbittorrent:media "$requests_dir"
+            ${pkgs.coreutils}/bin/chmod 02770 "$requests_dir"
+            ${pkgs.acl}/bin/setfacl -m u:985:rwx,d:u:985:rwx "$requests_dir"
+
+            ${pkgs.coreutils}/bin/install -d -m 02770 -o bookorbit -g media \
+              "$requests_dir/.book-dock"
+            ${pkgs.acl}/bin/setfacl -m u:985:rwx,d:u:985:rwx \
+              "$requests_dir/.book-dock"
+
+            # An earlier torrent retained the lowercase save path. Make any
+            # partial data there movable by qBittorrent, but let qBittorrent's
+            # Set location operation perform the actual relocation.
+            if [ -d "$old_requests_dir" ]; then
+              ${pkgs.coreutils}/bin/chown -R qbittorrent:media "$old_requests_dir"
+              ${pkgs.coreutils}/bin/chmod -R u+rwX,g+rwX,o-rwx "$old_requests_dir"
+              ${pkgs.findutils}/bin/find "$old_requests_dir" -type d \
+                -exec ${pkgs.coreutils}/bin/chmod 02770 '{}' +
+            fi
+
+            ${pkgs.coreutils}/bin/touch "$uppercase_repair_stamp"
+            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$uppercase_repair_stamp"
+          fi
+
           stamp=${stateDir}/data/.storage-access-v2
           if [ ! -e "$stamp" ]; then
             # The image drops to UID 985 with su-exec, which does not preserve
