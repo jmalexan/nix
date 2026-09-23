@@ -145,123 +145,26 @@ in
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
-          # The one-time ownership migration may walk a large existing library.
-          TimeoutStartSec = "30min";
         };
         script = ''
-          uppercase_repair_stamp=${stateDir}/data/.requests-uppercase-access-v1
-          if [ ! -e "$uppercase_repair_stamp" ]; then
-            requests_dir=/Data/smb/Torrents/BookOrbit
-            old_requests_dir=/Data/smb/Torrents/bookorbit
+          # tmpfiles refuses these paths because /Data/smb is user-owned. Keep
+          # the current storage contract explicit and safe to reapply at boot.
+          ${pkgs.coreutils}/bin/install -d -m 02775 -o bookorbit -g media \
+            /Data/smb/Media/Books
+          ${pkgs.coreutils}/bin/install -d -m 02775 -o root -g media \
+            /Data/smb/Media/Manga
+          ${pkgs.coreutils}/bin/install -d -m 02770 -o qbittorrent -g media \
+            /Data/smb/Torrents/BookOrbit
+          ${pkgs.coreutils}/bin/install -d -m 02770 -o bookorbit -g media \
+            /Data/smb/Torrents/BookOrbit/.book-dock
 
-            # Keep the configured qBittorrent category path canonical and
-            # writable, then grant BookOrbit access for hardlink imports.
-            ${pkgs.coreutils}/bin/install -d -m 02770 -o qbittorrent -g media \
-              "$requests_dir"
-            ${pkgs.coreutils}/bin/chown qbittorrent:media "$requests_dir"
-            ${pkgs.coreutils}/bin/chmod 02770 "$requests_dir"
-            ${pkgs.acl}/bin/setfacl -m u:985:rwx,d:u:985:rwx "$requests_dir"
-
-            ${pkgs.coreutils}/bin/install -d -m 02770 -o bookorbit -g media \
-              "$requests_dir/.book-dock"
-            ${pkgs.acl}/bin/setfacl -m u:985:rwx,d:u:985:rwx \
-              "$requests_dir/.book-dock"
-
-            # An earlier torrent retained the lowercase save path. Make any
-            # partial data there movable by qBittorrent, but let qBittorrent's
-            # Set location operation perform the actual relocation.
-            if [ -d "$old_requests_dir" ]; then
-              ${pkgs.coreutils}/bin/chown -R qbittorrent:media "$old_requests_dir"
-              ${pkgs.coreutils}/bin/chmod -R u+rwX,g+rwX,o-rwx "$old_requests_dir"
-              ${pkgs.findutils}/bin/find "$old_requests_dir" -type d \
-                -exec ${pkgs.coreutils}/bin/chmod 02770 '{}' +
-            fi
-
-            ${pkgs.coreutils}/bin/touch "$uppercase_repair_stamp"
-            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$uppercase_repair_stamp"
-          fi
-
-          stamp=${stateDir}/data/.storage-access-v2
-          if [ ! -e "$stamp" ]; then
-            # The image drops to UID 985 with su-exec, which does not preserve
-            # Docker supplemental groups reliably. Named ACLs express the
-            # intended access directly and survive the Calibre transition.
-            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX /Data/smb/Media/Books
-            ${pkgs.findutils}/bin/find /Data/smb/Media/Books -type d \
-              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
-
-            # Preserve read access to existing downloads outside BookOrbit's
-            # own category; only the dedicated category below is writable.
-            ${pkgs.acl}/bin/setfacl -R -m u:985:r-X /Data/smb/Torrents
-            ${pkgs.findutils}/bin/find /Data/smb/Torrents -type d \
-              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:r-x '{}' +
-
-            ${pkgs.coreutils}/bin/touch "$stamp"
-            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$stamp"
-          fi
-
-          requests_stamp=${stateDir}/data/.requests-storage-access-v1
-          if [ ! -e "$requests_stamp" ]; then
-            # BookOrbit creates a temporary file in the mapped download path
-            # to prove hardlinks work. Grant its stable UID write access to
-            # this category and propagate that ACL to future qBittorrent files.
-            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX /Data/smb/Torrents/BookOrbit
-            ${pkgs.findutils}/bin/find /Data/smb/Torrents/BookOrbit -type d \
-              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
-
-            ${pkgs.coreutils}/bin/touch "$requests_stamp"
-            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$requests_stamp"
-          fi
-
-          single_mount_stamp=${stateDir}/data/.requests-single-mount-v1
-          if [ ! -e "$single_mount_stamp" ]; then
-            old_dock=${stateDir}/data/book-dock
-            new_dock=/Data/smb/Torrents/BookOrbit/.book-dock
-
-            ${pkgs.coreutils}/bin/install -d -m 02770 -o bookorbit -g media "$new_dock"
-
-            # Preserve anything already waiting in the old Book Dock while
-            # moving the active path below the Requests download bind mount.
-            # -n keeps an existing destination entry if names collide.
-            if [ -d "$old_dock" ]; then
-              ${pkgs.findutils}/bin/find "$old_dock" -mindepth 1 -maxdepth 1 \
-                -exec ${pkgs.coreutils}/bin/mv -n -t "$new_dock" -- '{}' +
-            fi
-
-            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX "$new_dock"
-            ${pkgs.findutils}/bin/find "$new_dock" -type d \
-              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
-
-            ${pkgs.coreutils}/bin/touch "$single_mount_stamp"
-            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$single_mount_stamp"
-          fi
-
-          manga_stamp=${stateDir}/data/.manga-storage-access-v1
-          if [ ! -e "$manga_stamp" ]; then
-            # Manga is a distinct writable library. Existing files may retain
-            # ownership from the retired Komga deployment, so use the same
-            # stable named-ACL approach as the prose library.
-            ${pkgs.acl}/bin/setfacl -R -m u:985:rwX /Data/smb/Media/Manga
-            ${pkgs.findutils}/bin/find /Data/smb/Media/Manga -type d \
-              -exec ${pkgs.acl}/bin/setfacl -m d:u:985:rwx '{}' +
-
-            ${pkgs.coreutils}/bin/touch "$manga_stamp"
-            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$manga_stamp"
-          fi
-
-          ownership_stamp=${stateDir}/data/.book-library-ownership-v1
-          if [ ! -e "$ownership_stamp" ]; then
-            # Complete the Calibre retirement without deleting metadata.db or
-            # any library content. BookOrbit owns the files; the shared media
-            # group preserves direct SMB access.
-            ${pkgs.coreutils}/bin/chown -R bookorbit:media /Data/smb/Media/Books
-            ${pkgs.coreutils}/bin/chmod -R g+rwX /Data/smb/Media/Books
-            ${pkgs.findutils}/bin/find /Data/smb/Media/Books -type d \
-              -exec ${pkgs.coreutils}/bin/chmod g+s '{}' +
-
-            ${pkgs.coreutils}/bin/touch "$ownership_stamp"
-            ${pkgs.coreutils}/bin/chown bookorbit:bookorbit "$ownership_stamp"
-          fi
+          # BookOrbit runs as UID 985. Defaults make new SMB and qBittorrent
+          # content writable without recursively touching existing libraries.
+          ${pkgs.acl}/bin/setfacl -m u:985:rwx,d:u:985:rwx \
+            /Data/smb/Media/Books \
+            /Data/smb/Media/Manga \
+            /Data/smb/Torrents/BookOrbit \
+            /Data/smb/Torrents/BookOrbit/.book-dock
         '';
       };
 
