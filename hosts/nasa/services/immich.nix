@@ -53,7 +53,7 @@ in
     # Postgres — the container's `postgres` user is already a superuser, so
     # Immich can CREATE EXTENSION without any host-side grant.
     immich-postgres = {
-      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:b2ffa7b9021dab3f047a297d88ac74245e2f47348bbbaaa20ef1e720d52e1a5f";
+      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:cbe03f6dbd2e31f0f8dbf56c95d15edbbdf432acde7f428fd5c7627539a9c569";
       autoStart = true;
       environment = {
         POSTGRES_USER = "postgres";
@@ -69,20 +69,20 @@ in
     };
 
     immich-redis = {
-      image = "docker.io/valkey/valkey:9@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d";
+      image = "docker.io/valkey/valkey:9@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd";
       autoStart = true;
       extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-machine-learning = {
-      image = "ghcr.io/immich-app/immich-machine-learning:v3.2.2@sha256:60dfcf266a9ef3b7376f5678e8c980d4fb61db5fc48c078fe8a326ab1535d60d";
+      image = "ghcr.io/immich-app/immich-machine-learning:v3.2.4@sha256:e16c2f166a8174901959fdf85e2e4c7bd1ebc4b37e0b6655de97c41408a260c4";
       autoStart = true;
       volumes = [ "${modelCache}:/cache" ];
       extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-server = {
-      image = "ghcr.io/immich-app/immich-server:v3.2.2@sha256:79cc1623323d5894922686d8743b4780181428f98eecbfb58ce12c41ef02d1ea";
+      image = "ghcr.io/immich-app/immich-server:v3.2.4@sha256:d317916b28090c33eb36b308464ea391f8b7df1d850fcfea227a39ec879718c2";
       autoStart = true;
       dependsOn = [
         "immich-postgres"
