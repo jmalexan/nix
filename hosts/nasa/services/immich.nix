@@ -165,16 +165,16 @@ in
           # Docker accepts only one network at container creation. Attach the
           # server to the public-edge bridge after every start. ExecStartPost can
           # race `docker run` before it has created the container, so wait for the
-          # container to exist before inspecting or connecting it.
+          # container to exist before inspecting or connecting it. On an image
+          # update, docker run may spend several minutes pulling layers first.
           postStart = ''
-            attempt=0
+            deadline=$(( $(${pkgs.coreutils}/bin/date +%s) + 900 ))
             until ${docker} container inspect immich-server >/dev/null 2>&1; do
-              attempt=$((attempt + 1))
-              if [ "$attempt" -ge 300 ]; then
-                echo "Timed out waiting for the immich-server container" >&2
+              if [ "$(${pkgs.coreutils}/bin/date +%s)" -ge "$deadline" ]; then
+                echo "Timed out waiting 15 minutes for the immich-server container" >&2
                 exit 1
               fi
-              ${pkgs.coreutils}/bin/sleep 0.1
+              ${pkgs.coreutils}/bin/sleep 1
             done
 
             if ! ${docker} network inspect ${publicNetwork} \

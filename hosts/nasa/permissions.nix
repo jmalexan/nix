@@ -104,6 +104,10 @@
   # that /Data/smb is the mounted dataset. Their units require this oneshot.
   systemd.services.nasa-service-directories = {
     description = "Create service directories on the mounted Data pool";
+    # The Prowlarr bind mount is wanted by local-fs.target and requires this
+    # service. Default service dependencies put it after sysinit.target, which
+    # itself waits for local-fs.target and creates an ordering cycle.
+    unitConfig.DefaultDependencies = false;
     after = [ "zfs-mount.service" ];
     requires = [ "zfs-mount.service" ];
     unitConfig.AssertPathIsMountPoint = "/Data/smb";
