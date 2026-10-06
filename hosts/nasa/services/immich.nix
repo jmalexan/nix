@@ -120,7 +120,7 @@ in
     immich-public-proxy = {
       # IPP 2.x is incompatible with Immich 3.x and crashes while reading
       # shared-album assets. Keep this on a 3.x release and pin the amd64 image.
-      image = "docker.io/alangrainger/immich-public-proxy:3.4.0@sha256:b442829bb99e25f39e2979bb45bb12a6db991d98a1cd90938799b84ab262692a";
+      image = "docker.io/alangrainger/immich-public-proxy:3.4.1@sha256:d29ffe35c81f784685b6e06bc8b7d62bfb654f6e6e7ef8db95bb8aa3d7122694";
       autoStart = true;
       dependsOn = [ "immich-server" ];
       # Port 3000 on the host is already used by eufy-security-ws. Keep the
