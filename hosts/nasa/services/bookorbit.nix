@@ -37,7 +37,7 @@ in
     bookorbit-postgres = {
       # BookOrbit 2.2+ ships PostgreSQL 18 with pgvector. Keep this major pinned:
       # changing it requires a dump into a fresh data directory and restore.
-      image = "docker.io/pgvector/pgvector:pg18@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a";
+      image = "docker.io/pgvector/pgvector:pg18@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11";
       autoStart = true;
       environment = {
         POSTGRES_USER = "bookorbit";
