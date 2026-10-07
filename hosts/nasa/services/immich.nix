@@ -53,7 +53,7 @@ in
     # Postgres — the container's `postgres` user is already a superuser, so
     # Immich can CREATE EXTENSION without any host-side grant.
     immich-postgres = {
-      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:cbe03f6dbd2e31f0f8dbf56c95d15edbbdf432acde7f428fd5c7627539a9c569";
+      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:1fb2585c687cd58ddf10ed4eb34eac6fd0e4f0bc7cae41c1309f3847bc93c8f4";
       autoStart = true;
       environment = {
         POSTGRES_USER = "postgres";
