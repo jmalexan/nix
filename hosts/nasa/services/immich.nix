@@ -75,14 +75,14 @@ in
     };
 
     immich-machine-learning = {
-      image = "ghcr.io/immich-app/immich-machine-learning:v3.2.4@sha256:e16c2f166a8174901959fdf85e2e4c7bd1ebc4b37e0b6655de97c41408a260c4";
+      image = "ghcr.io/immich-app/immich-machine-learning:v3.3.0@sha256:aa88ec3aef3bdc97ab31eff66acecc98bb6ee14d47b6122c25e761ed9f31a7da";
       autoStart = true;
       volumes = [ "${modelCache}:/cache" ];
       extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-server = {
-      image = "ghcr.io/immich-app/immich-server:v3.2.4@sha256:d317916b28090c33eb36b308464ea391f8b7df1d850fcfea227a39ec879718c2";
+      image = "ghcr.io/immich-app/immich-server:v3.3.0@sha256:be56bc12c17a84617a979ad1eab1d9105bbec1955ffa7da09b3f9cf79d3bd09d";
       autoStart = true;
       dependsOn = [
         "immich-postgres"
@@ -120,7 +120,7 @@ in
     immich-public-proxy = {
       # IPP 2.x is incompatible with Immich 3.x and crashes while reading
       # shared-album assets. Keep this on a 3.x release and pin the amd64 image.
-      image = "docker.io/alangrainger/immich-public-proxy:3.4.1@sha256:d29ffe35c81f784685b6e06bc8b7d62bfb654f6e6e7ef8db95bb8aa3d7122694";
+      image = "docker.io/alangrainger/immich-public-proxy:4.0.0@sha256:54eb2a83f2d76a2e7e6b971638b011863ccb57a248e1d0a3e8a0f703c1f795dd";
       autoStart = true;
       dependsOn = [ "immich-server" ];
       # Port 3000 on the host is already used by eufy-security-ws. Keep the
