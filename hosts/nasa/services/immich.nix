@@ -77,6 +77,7 @@ in
     immich-machine-learning = {
       image = "ghcr.io/immich-app/immich-machine-learning:v3.3.0@sha256:aa88ec3aef3bdc97ab31eff66acecc98bb6ee14d47b6122c25e761ed9f31a7da";
       autoStart = true;
+      environment.MACHINE_LEARNING_MODEL_REVISION = "v2";
       volumes = [ "${modelCache}:/cache" ];
       extraOptions = [ "--network=${backendNetwork}" ];
     };
