@@ -128,14 +128,41 @@ in
         after = [
           "bookorbit-network.service"
         ]
-        ++ lib.optional (name == "docker-bookorbit") "bookorbit-library-access.service";
+        ++ lib.optionals (name == "docker-bookorbit") [
+          "bookorbit-library-access.service"
+          "bookorbit-db-ready.service"
+        ];
         requires = [
           "bookorbit-network.service"
         ]
-        ++ lib.optional (name == "docker-bookorbit") "bookorbit-library-access.service";
+        ++ lib.optionals (name == "docker-bookorbit") [
+          "bookorbit-library-access.service"
+          "bookorbit-db-ready.service"
+        ];
       })
     )
     // {
+      bookorbit-db-ready = {
+        description = "Wait for the BookOrbit database";
+        after = [ "docker-bookorbit-postgres.service" ];
+        requires = [ "docker-bookorbit-postgres.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          TimeoutStartSec = "6min";
+        };
+        script = ''
+          attempt=0
+          until [ "$(${docker} inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' bookorbit-postgres 2>/dev/null)" = healthy ]; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 300 ]; then
+              echo "Timed out waiting for the BookOrbit database" >&2
+              exit 1
+            fi
+            ${pkgs.coreutils}/bin/sleep 1
+          done
+        '';
+      };
+
       bookorbit-library-access = {
         description = "Grant BookOrbit access to library and download storage";
         after = [ "zfs-mount.service" ];
