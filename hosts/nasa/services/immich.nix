@@ -75,7 +75,7 @@ in
     };
 
     immich-machine-learning = {
-      image = "ghcr.io/immich-app/immich-machine-learning:v3.3.0@sha256:aa88ec3aef3bdc97ab31eff66acecc98bb6ee14d47b6122c25e761ed9f31a7da";
+      image = "ghcr.io/immich-app/immich-machine-learning:v3.3.3@sha256:73915f07e1f4289ba45b174c58443db74cef47ddf502613f475fc5e52458ea42";
       autoStart = true;
       environment.MACHINE_LEARNING_MODEL_REVISION = "v2";
       volumes = [ "${modelCache}:/cache" ];
@@ -83,7 +83,7 @@ in
     };
 
     immich-server = {
-      image = "ghcr.io/immich-app/immich-server:v3.3.0@sha256:be56bc12c17a84617a979ad1eab1d9105bbec1955ffa7da09b3f9cf79d3bd09d";
+      image = "ghcr.io/immich-app/immich-server:v3.3.3@sha256:bae7664ff3aa4c2c1fcbdcdd86b40b105643c5f861f3e6a770fc760089f25862";
       autoStart = true;
       dependsOn = [
         "immich-postgres"
