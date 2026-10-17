@@ -185,21 +185,23 @@
           disko.nixosModules.disko
           ./hosts/htpc/disko.nix
           home-manager.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.extraSpecialArgs = { inherit vars; };
-            home-manager.users.jmalexan = import ./home/htpc.nix;
-            home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
-            # Rename anything a newly-managed file would overwrite instead of
-            # aborting activation. Without this, the first time home-manager
-            # takes ownership of a path that already exists on disk — e.g.
-            # jellyfin-mpv-shim's runtime-written input.conf — the whole switch
-            # fails. GitHub Actions rebuilds this host unattended after every
-            # successful main-branch check, so a single stray dotfile would
-            # otherwise wedge every deploy until someone notices.
-            home-manager.backupFileExtension = "hm-bak";
-          }
+          (
+            { pkgs, ... }:
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.extraSpecialArgs = { inherit vars; };
+              home-manager.users.jmalexan = import ./home/htpc.nix;
+              home-manager.sharedModules = [ plasma-manager.homeModules.plasma-manager ];
+              # Runtime-written files such as jellyfin-mpv-shim/input.conf can
+              # conflict repeatedly. Rotate existing .hm-bak files to numbered
+              # backups so unattended activation preserves every copy without
+              # failing on a backup left by an earlier deployment.
+              home-manager.backupCommand = pkgs.writeShellScript "home-manager-backup" ''
+                exec ${pkgs.coreutils}/bin/mv --backup=numbered --no-target-directory -- "$1" "$1.hm-bak"
+              '';
+            }
+          )
         ];
       };
 
