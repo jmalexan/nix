@@ -65,7 +65,7 @@ in
     romm-db = {
       # Keep the database major explicit. Changing it requires a supported
       # MariaDB upgrade rather than an ordinary container-image refresh.
-      image = "docker.io/library/mariadb:13.0.2@sha256:f1bba652ba57bea3099ca2fe1af692af537c27d96e0bcde39dce29e2ba1ec4f3";
+      image = "docker.io/library/mariadb:13.0.2@sha256:fe70467ededa74ba50d127b5822c2d554d56be27a90b3ef23da9624d993b1a74";
       autoStart = true;
       environment = {
         MARIADB_DATABASE = "romm";
@@ -84,7 +84,7 @@ in
     };
 
     romm = {
-      image = "docker.io/rommapp/romm:5.3.1@sha256:0d66b4ea152a237c7f24b95e87459f46d3c596a7c0b35a82f26bc971487278b3";
+      image = "docker.io/rommapp/romm:5.4.0@sha256:03295f95a6290e752641f9553ac4198b0e5b71b879d57f7b2371b98f608feb54";
       autoStart = true;
       dependsOn = [ "romm-db" ];
       ports = [ "127.0.0.1:8086:8080" ];
