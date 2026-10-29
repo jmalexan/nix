@@ -20,6 +20,10 @@ let
       repository = "bookorbit/bookorbit";
       tagPrefix = "v";
     };
+    "bookorbit-mangabaka".releaseNotes = {
+      repository = "bookorbit/bookorbit-metadata-providers";
+      tagPrefix = "mangabaka-v";
+    };
     "eufy-security-ws".releaseNotes.repository = "bropat/eufy-security-ws";
     flaresolverr.releaseNotes = {
       repository = "FlareSolverr/FlareSolverr";

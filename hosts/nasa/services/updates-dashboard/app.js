@@ -12,6 +12,7 @@ const AUTO_REFRESH_INTERVAL = 5_000;
 
 const serviceNames = {
   bookorbit: "BookOrbit",
+  "bookorbit-mangabaka": "BookOrbit MangaBaka metadata",
   "bookorbit-postgres": "BookOrbit database",
   "eufy-security-ws": "Eufy Security",
   flaresolverr: "FlareSolverr",

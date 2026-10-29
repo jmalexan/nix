@@ -56,7 +56,21 @@ in
       ];
     };
 
+    # Register http://bookorbit-mangabaka:8080 under Metadata > Providers >
+    # External after deployment; see docs/bookorbit-metadata.md.
+    bookorbit-mangabaka = {
+      image = "ghcr.io/bookorbit/mangabaka-provider:0.1.0@sha256:c9471def1965232be7934df81b0e8a4df1b9b471b92e74c378622490c6d34742";
+      autoStart = true;
+      extraOptions = [
+        "--network=${network}"
+        "--read-only"
+        "--cap-drop=ALL"
+        "--security-opt=no-new-privileges:true"
+      ];
+    };
+
     bookorbit = {
+      # External HTTP metadata providers require BookOrbit 3.6.0+.
       image = "ghcr.io/bookorbit/bookorbit:3.6.0@sha256:bbb5da52e96dbbff1dd36f55454f9845e6cde264b4b3428a3ea783124a4ca62e";
       autoStart = true;
       dependsOn = [ "bookorbit-postgres" ];
@@ -122,6 +136,7 @@ in
     (lib.genAttrs
       [
         "docker-bookorbit"
+        "docker-bookorbit-mangabaka"
         "docker-bookorbit-postgres"
       ]
       (name: {

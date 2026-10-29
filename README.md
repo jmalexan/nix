@@ -50,6 +50,7 @@ setup, review, and deployment details.
 - [Architecture and ownership](docs/architecture.md)
 - [Updates dashboard and deployment](docs/updates.md)
 - [NAS backups and restore](docs/nasa-recovery.md)
+- [BookOrbit manga metadata](docs/bookorbit-metadata.md)
 - [RomM library links with Igir](docs/romm-igir.md)
 - [qBittorrent ROM filename collisions](docs/qbittorrent-rom-filename-collisions.md)
 - [HTPC remote and playback](docs/htpc-remote.md)
