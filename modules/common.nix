@@ -13,6 +13,7 @@
   imports = [
     ./dev-environment.nix
     ./linux-server.nix
+    ./rex.nix
   ];
 
   # ── Boot ──────────────────────────────────────────────────────────────────

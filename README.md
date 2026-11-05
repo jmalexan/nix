@@ -54,6 +54,7 @@ setup, review, and deployment details.
 - [RomM library links with Igir](docs/romm-igir.md)
 - [qBittorrent ROM filename collisions](docs/qbittorrent-rom-filename-collisions.md)
 - [HTPC remote and playback](docs/htpc-remote.md)
+- [Rex remote terminals](docs/rex.md)
 
 Secrets are encrypted with agenix. `secrets.nix` is the recipient inventory;
 encrypted payloads remain safe to commit, but decrypted material must never be

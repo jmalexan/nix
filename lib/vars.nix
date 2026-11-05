@@ -3,6 +3,7 @@
     name = "jmalexan";
     fullName = "Jonathan Alexander";
     email = "me@jmalexan.com";
+    tailscaleLogin = "me@jmalexan.com";
   };
 
   timeZone = "America/New_York";

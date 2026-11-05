@@ -20,6 +20,11 @@
     plasma-manager.inputs.nixpkgs.follows = "nixpkgs-unstable";
     plasma-manager.inputs.home-manager.follows = "home-manager";
     claude-code-nix.url = "github:sadjow/claude-code-nix";
+    rex.url = "https://pkgs.superlogical.com/rex/nix/preview.tar.gz";
+    rex.inputs.nixpkgs.follows = "nixpkgs";
+    # The login server loads the host's PAM modules, so its glibc must match.
+    rex-unstable.url = "https://pkgs.superlogical.com/rex/nix/preview.tar.gz";
+    rex-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
   outputs =
@@ -34,6 +39,8 @@
       home-manager-stable,
       plasma-manager,
       claude-code-nix,
+      rex,
+      rex-unstable,
       ...
     }:
     let
@@ -57,7 +64,12 @@
       nixosSpecialArgs = {
         pkgs-unstable = mkUnstable linuxSystem;
         claude-code-pkg = claude-code-nix.packages.${linuxSystem}.default;
-        inherit agenix home-manager-stable vars;
+        inherit
+          agenix
+          home-manager-stable
+          rex
+          vars
+          ;
       };
       darwinSpecialArgs = {
         pkgs-unstable = mkUnstable darwinSystem;
@@ -177,7 +189,9 @@
       # Deploy with: nixos-rebuild switch --flake .#htpc
       nixosConfigurations.htpc = nixpkgs-unstable.lib.nixosSystem {
         system = linuxSystem;
-        specialArgs = nixosSpecialArgs;
+        specialArgs = nixosSpecialArgs // {
+          rex = rex-unstable;
+        };
         modules = commonModules ++ [
           ./hosts/htpc/default.nix
           ./modules/ssh-deploy.nix

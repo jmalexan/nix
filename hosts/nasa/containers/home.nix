@@ -2,6 +2,7 @@
   pkgs-unstable,
   claude-code-pkg,
   home-manager-stable,
+  rex,
   vars,
   ...
 }:
@@ -46,11 +47,15 @@
           }
         )
         ../../../modules/linux-server.nix
+        (import ../../../modules/rex.nix { inherit rex vars; })
         ../../../modules/trust-private-ca.nix
         home-manager-stable.nixosModules.home-manager
       ];
 
       networking.hostName = "home";
+
+      # Serve Rex without a TUN device or extra container device permissions.
+      services.tailscale.interfaceName = "userspace-networking";
 
       # eth0 is the veth interface the container sees when joined to a bridge.
       networking.useDHCP = false;
