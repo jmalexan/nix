@@ -16,14 +16,17 @@
 
   nixpkgs.config.allowUnfree = true;
 
-  environment.systemPackages = with pkgs; [
-    git
-    curl
-    wget
-    htop
-    nano
-    tree
-    pkgs-unstable.codex
-    claude-code-pkg
-  ];
+  environment.systemPackages =
+    with pkgs;
+    [
+      git
+      curl
+      wget
+      htop
+      nano
+      tree
+      pkgs-unstable.codex
+      claude-code-pkg
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isLinux [ bubblewrap ];
 }
