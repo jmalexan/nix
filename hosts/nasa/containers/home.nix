@@ -1,4 +1,7 @@
 {
+  config,
+  lib,
+  pkgs,
   pkgs-unstable,
   claude-code-pkg,
   home-manager-stable,
@@ -100,6 +103,25 @@
 
       system.stateVersion = "25.11";
     };
+  };
+
+  systemd.services."container@home" = {
+    # Guest sessions can need 90s to stop. Leave time for nspawn to finish
+    # shutdown and release its mounts/network before the host kills it.
+    serviceConfig = {
+      TimeoutStopSec = "3min";
+      ExecStopPost = "${config.systemd.package}/bin/systemd-nspawn --cleanup --machine=%i --directory=/var/lib/nixos-containers/%i";
+    };
+
+    # Recover leftovers from an interrupted nspawn. The upstream pre-start
+    # only removes the main veth when an explicit IP address is configured;
+    # this container uses hostBridge and obtains its address with DHCP.
+    preStart = lib.mkAfter ''
+      ${config.systemd.package}/bin/systemd-nspawn --cleanup --machine=home --directory=/var/lib/nixos-containers/home
+      if ${pkgs.iproute2}/bin/ip link show dev vb-home > /dev/null 2>&1; then
+        ${pkgs.iproute2}/bin/ip link delete dev vb-home
+      fi
+    '';
   };
 
   # Ensure the directory shared above exists and survives reboots.
