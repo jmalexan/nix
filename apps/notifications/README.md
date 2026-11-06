@@ -225,7 +225,7 @@ it. Only the broker worker needs outbound APNs HTTPS; no new public inbound rout
 is added. Do not relax robots' private-network policy to provision or test it.
 
 The enabled module installs `notification-admin`. The operator runs `notification-admin --database
-/var/lib/microapp-notifications/state.sqlite enroll --recipient owner` using the
+/var/lib/microapp-notifications/state.sqlite enroll --recipient owner` as
 an account authorized to access that database.
 Deliver the printed ten-minute code privately to the owner. Enter the HTTPS origin
 and code in the companion. Do not place this output in agent logs. A local operator
