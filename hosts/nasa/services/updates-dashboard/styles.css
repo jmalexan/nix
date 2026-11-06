@@ -50,12 +50,15 @@ main {
 }
 .page-stack {
   display: grid;
-  gap: 36px;
+  gap: 24px;
 }
 .stack {
   display: grid;
   gap: 18px;
   min-width: 0;
+}
+.update-section {
+  padding: 20px;
 }
 .section-header {
   display: flex;
@@ -88,7 +91,7 @@ main {
 }
 .container-actions {
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: space-between;
 }
 .release-link,
 .action-link {
@@ -117,13 +120,13 @@ main {
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-start;
-  padding: 12px 0 20px;
+  padding: 0 0 16px;
 }
 .metric + .metric {
   padding-left: 24px;
 }
 .metric-value {
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
 }
@@ -140,35 +143,17 @@ main {
 .metric.error .metric-value {
   color: var(--red);
 }
-.scan-card {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.scan-summary,
+.scan-result {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  padding: 16px 0;
-  border-block: 1px solid var(--rule);
-}
-.scan-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-.scan-card .scan-card-top {
-  display: contents;
-}
-.scan-card .chip {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
-}
-.scan-card p {
-  margin: 0;
   color: var(--muted);
   font-size: 0.8rem;
 }
-.scan-card p + p {
-  justify-self: end;
+.scan-summary {
+  justify-content: space-between;
 }
 .repository {
   margin: 4px 0 0;
@@ -179,6 +164,9 @@ main {
 .filters {
   display: flex;
   gap: 2px;
+  padding: 3px;
+  background: var(--paper);
+  border-radius: var(--app-radius);
 }
 .filter-button {
   padding-inline: 10px;
@@ -188,9 +176,6 @@ main {
   background: var(--white);
   color: var(--blue);
   border-color: var(--rule);
-}
-.panel {
-  overflow: hidden;
 }
 .table-scroll {
   overflow-x: auto;
@@ -242,13 +227,13 @@ tr:last-child td {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px;
-  border-bottom: 1px solid var(--rule);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
 }
 pre {
   max-height: 480px;
   margin: 0;
-  padding: 16px 14px;
+  padding: 0 0 8px;
   overflow: auto;
   color: var(--ink);
   font:
@@ -269,29 +254,6 @@ pre {
   margin-top: 12px;
   color: var(--blue);
   font-size: 0.8rem;
-}
-.history-disclosure {
-  border-block: 1px solid var(--rule);
-}
-.history-summary {
-  padding: 16px 0;
-  cursor: pointer;
-}
-.history-summary-copy {
-  display: inline-block;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-.history-title {
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-.history-disclosure[open] .history-summary {
-  border-bottom: 1px solid var(--rule);
-}
-.history-disclosure .panel {
-  border: 0;
-  border-radius: 0;
 }
 dialog {
   width: min(420px, calc(100% - 32px));
@@ -314,23 +276,39 @@ dialog p {
 }
 @media (max-width: 700px) {
   .page-stack {
-    gap: 28px;
+    gap: 20px;
   }
   .metric + .metric {
     padding-left: 16px;
   }
-  .scan-card p,
-  .scan-card p + p {
-    grid-column: 1 / -1;
-    justify-self: start;
+  main {
+    padding-inline: max(12px, env(safe-area-inset-left))
+      max(12px, env(safe-area-inset-right));
+  }
+  .update-section {
+    padding: 16px;
+    gap: 16px;
   }
   .section-header {
     align-items: start;
-    flex-direction: column;
+    flex-wrap: wrap;
+  }
+  .section-header > div:first-child {
+    flex: 1 1 130px;
   }
   .section-actions {
     flex-wrap: wrap;
-    justify-content: flex-start;
+  }
+  .container-actions .filters {
+    width: 100%;
+  }
+  .filter-button {
+    flex: 1;
+  }
+  .container-actions > :is(button, a),
+  .scan-summary > :is(button, a) {
+    width: 100%;
+    justify-content: center;
   }
   :is(.container-table, .action-table) thead {
     display: none;
@@ -341,9 +319,7 @@ dialog p {
     display: block;
   }
   :is(.container-table, .action-table) tr {
-    padding: 16px;
-  }
-  :is(.container-table, .action-table) tr + tr {
+    padding: 16px 0;
     border-top: 1px solid var(--rule);
   }
   :is(.container-table, .action-table) td {

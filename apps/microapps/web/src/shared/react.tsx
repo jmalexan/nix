@@ -20,6 +20,33 @@ export function Icon({ name }: { name: string }) {
 export function Empty({ children }: { children: React.ReactNode }) {
   return React.createElement("app-empty", {}, children);
 }
+export function Disclosure({
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      className="ui-disclosure"
+      open={open}
+      onToggle={(event) => onToggle(event.currentTarget.open)}
+    >
+      <summary className="ui-disclosure-summary">
+        <span>{title}</span>
+        <span className="ui-count">{count}</span>
+      </summary>
+      {children}
+    </details>
+  );
+}
 export function Button({
   variant = "default",
   className = "",

@@ -63,7 +63,7 @@ dark header, phone layout, and scripts for each app without submitting actions.
 Installed-iPhone status-bar behavior still needs a physical-device check. Native
 notification actions remain deferred.
 
-## Next design pass (deferred until PR deployments are ready)
+## Mobile refinements (prepared for PR release)
 
 - Add horizontal padding inside highlighted mobile request rows; the selection
   background currently touches the text at both edges.
@@ -74,5 +74,24 @@ notification actions remain deferred.
 - Improve grouping and hierarchy on System updates, especially on mobile. Make
   each section's filters, scan controls, status, and results read as one group.
 
+Implemented in the mobile-refinements PR; not yet deployed. Both apps now use the
+same native disclosure styling. Pending requests are the inbox; approved/claimed
+requests remain available under **In progress**, and terminal requests under
+**History**. Request links still open their details directly.
+
+Notification setup checks the browser subscription and saves it on the server
+before hiding. Blocked/unsupported browsers get brief setup guidance, and failed
+saves remain retryable. No notification decision actions are added.
+
+System updates groups each category's scan control, timestamp, status, and results
+inside one shared surface. Container counts and filters stay with Containers.
+
 The owner prefers GitHub PRs as release notifications and an explicit deployment
 button, with concise summaries rather than an expectation of detailed code review.
+
+Validation: eight Chromium browser tests passed, including real passkey/decision
+flows, request history/deep links, notification setup and failed-save retries,
+and dashboard filters/scan confirmation. Light/dark screenshots were reviewed
+at phone and desktop widths, with overflow checks down to 320px. Packaged Approve,
+backend/schema checks, and repository lint passed. Browser notification doubles
+do not replace installed-iPhone testing.

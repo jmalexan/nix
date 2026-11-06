@@ -127,7 +127,9 @@ For push, provision a VAPID private PEM key at
 `/var/lib/microapp-secrets/approvals/vapid.pem`, with the same file protections.
 Set `services.approvals.vapidPublicKey` to the corresponding URL-safe base64
 uncompressed P-256 public key. This enables the serialized notification timer.
-The browser's **Settings → Notifications** action registers its own subscription.
+The main-screen **Enable notifications** helper registers this browser's subscription
+and disappears once setup succeeds. Existing subscriptions are reconciled with
+server storage when the app opens; permission alone does not count as setup.
 On iPhone, first install the app on the Home Screen. The NAS requires outbound
 HTTPS to the push provider. Opening a request still needs LAN or Tailscale access.
 

@@ -118,7 +118,22 @@ test("shared dashboard components, responsive tables, filters, and scan confirma
   await expect(
     page.getByRole("heading", { name: "System updates" }),
   ).toBeVisible();
-  const containers = page.getByRole("table", { name: "Container versions" });
+  const containerSection = page.getByRole("region", {
+    name: "Containers",
+    exact: true,
+  });
+  await expect(
+    containerSection.getByText("Changes", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    containerSection.getByRole("button", { name: "Run scan" }),
+  ).toBeVisible();
+  await expect(
+    containerSection.getByRole("button", { name: "Updates", exact: true }),
+  ).toBeVisible();
+  const containers = containerSection.getByRole("table", {
+    name: "Container versions",
+  });
   await expect(
     containers.getByText("Home Assistant", { exact: true }),
   ).toBeVisible();
@@ -130,7 +145,7 @@ test("shared dashboard components, responsive tables, filters, and scan confirma
   await page.getByRole("button", { name: "Updates", exact: true }).click();
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
-    for (const width of [390, 1100]) {
+    for (const width of [320, 390, 1100]) {
       await page.setViewportSize({ width, height: 844 });
       expect(
         await page.evaluate(
@@ -150,9 +165,14 @@ test("shared dashboard components, responsive tables, filters, and scan confirma
       });
     }
   }
-  const nixSection = page.locator(".stack").filter({
-    has: page.getByRole("heading", { name: "Nix package forecast" }),
-  });
+  const scanHistory = page.locator("details");
+  await expect(scanHistory).not.toHaveAttribute("open");
+  await scanHistory.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("table", { name: "Scan history" })).toBeVisible();
+  await page.getByRole("button", { name: "All", exact: true }).click();
+  await expect(scanHistory).toHaveAttribute("open");
+  const nixSection = page.getByRole("region", { name: "Nix package forecast" });
   await nixSection.getByRole("button", { name: "Run scan" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();

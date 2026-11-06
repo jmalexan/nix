@@ -11,31 +11,21 @@ import "@ionic/react/css/structure.css";
 import "@ionic/react/css/typography.css";
 import "./theme.css";
 import type { components } from "./api";
-import { Toolbar, Status, Icon, Empty, Button } from "./shared/react";
+import {
+  Toolbar,
+  Status,
+  Icon,
+  Empty,
+  Button,
+  Disclosure,
+} from "./shared/react";
+
+import { api } from "./api-client";
+import { NotificationSetup } from "./notifications";
 
 type Approval = components["schemas"]["RequestView"];
 type Session = components["schemas"]["SessionView"];
 setupIonicReact();
-async function api<T>(path: string, body?: unknown, csrf?: string): Promise<T> {
-  const response = await fetch("/api" + path, {
-    method: body === undefined ? "GET" : "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const value = await response.json();
-    throw new Error(
-      typeof value.detail === "string"
-        ? value.detail
-        : "Request could not be completed",
-    );
-  }
-  return response.json();
-}
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [requests, setRequests] = useState<Approval[]>([]);
@@ -48,6 +38,8 @@ function App() {
   const [enrolling, setEnrolling] = useState(false);
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
   async function refresh() {
     setRequests(await api<Approval[]>("/requests"));
   }
@@ -114,34 +106,19 @@ function App() {
       setNotice("Passkey created. Sign in to continue.");
     });
   }
-  async function notifications() {
-    await run(async () => {
-      if (!("PushManager" in window))
-        throw new Error(
-          "Add this app to your Home Screen, then open it there to enable notifications.",
-        );
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted")
-        throw new Error(
-          "Notifications were not enabled. You can change permission in Settings.",
-        );
-      const registration = await navigator.serviceWorker.ready;
-      const key = session!.vapid_public;
-      const raw = atob(
-        key.replace(/-/g, "+").replace(/_/g, "/") +
-          "=".repeat((4 - (key.length % 4)) % 4),
-      );
-      const subscription =
-        (await registration.pushManager.getSubscription()) ||
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)),
-        }));
-      await api("/subscriptions", subscription.toJSON(), session!.csrf);
-      setNotice("Notifications enabled.");
-    });
-  }
   const active = requests.find((r) => r.id === selected);
+  const pending = requests.filter((r) => r.state === "pending");
+  const inProgress = requests.filter((r) =>
+    ["approved", "claimed"].includes(r.state),
+  );
+  const past = requests.filter(
+    (r) => !["pending", "approved", "claimed"].includes(r.state),
+  );
+  useEffect(() => {
+    if (!active || active.state === "pending") return;
+    if (["approved", "claimed"].includes(active.state)) setProgressOpen(true);
+    else setHistoryOpen(true);
+  }, [active?.id, active?.state]);
   function selectRequest(id: string | null) {
     setSelected(id);
     const url = new URL(location.href);
@@ -158,6 +135,29 @@ function App() {
       hour: "numeric",
       minute: "2-digit",
     }).format(new Date(seconds * 1000));
+  function requestRows(items: Approval[]) {
+    return (
+      <ul>
+        {items.map((r) => (
+          <li key={r.id}>
+            <button
+              className={`request${r.id === selected ? " selected" : ""}`}
+              aria-current={r.id === selected ? "true" : undefined}
+              onClick={() => selectRequest(r.id)}
+            >
+              <span>
+                <strong>{requestTitle(r)}</strong>
+                <time dateTime={new Date(r.created * 1000).toISOString()}>
+                  {shortDate(r.created)}
+                </time>
+              </span>
+              <Status state={r.state} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return (
     <IonApp>
       <IonPage>
@@ -173,16 +173,6 @@ function App() {
                 <Icon name="more" />
               </summary>
               <div className="ui-menu-items ui-panel">
-                {session.vapid_public && (
-                  <Button
-                    variant="quiet"
-                    disabled={busy}
-                    onClick={notifications}
-                  >
-                    <Icon name="bell" />
-                    Notifications
-                  </Button>
-                )}
                 <Button
                   variant="quiet"
                   disabled={busy}
@@ -257,151 +247,157 @@ function App() {
                   </form>
                 )}
               </section>
-            ) : requests.length === 0 ? (
-              <Empty>No requests</Empty>
             ) : (
-              <div className={`workspace${active ? " detail-open" : ""}`}>
-                <section className="request-list" aria-label="Requests">
-                  <ul>
-                    {requests.map((r) => (
-                      <li key={r.id}>
-                        <button
-                          className={`request${r.id === selected ? " selected" : ""}`}
-                          aria-current={r.id === selected ? "true" : undefined}
-                          onClick={() => selectRequest(r.id)}
-                        >
-                          <span>
-                            <strong>{requestTitle(r)}</strong>
-                            <time
-                              dateTime={new Date(
-                                r.created * 1000,
-                              ).toISOString()}
-                            >
-                              {shortDate(r.created)}
-                            </time>
-                          </span>
-                          <Status state={r.state} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-                <section className="detail ui-panel" aria-live="polite">
-                  {active ? (
-                    <>
-                      <Button
-                        className="back-button"
-                        variant="quiet"
-                        onClick={() => selectRequest(null)}
+              <>
+                <NotificationSetup
+                  csrf={session.csrf}
+                  publicKey={session.vapid_public}
+                />
+                <div className={`workspace${active ? " detail-open" : ""}`}>
+                  <section className="request-list" aria-label="Requests">
+                    {pending.length ? (
+                      requestRows(pending)
+                    ) : (
+                      <Empty>No pending requests</Empty>
+                    )}
+                    {inProgress.length > 0 && (
+                      <Disclosure
+                        title="In progress"
+                        count={inProgress.length}
+                        open={progressOpen}
+                        onToggle={setProgressOpen}
                       >
-                        <Icon name="back" />
-                        Requests
-                      </Button>
-                      <div className="detail-heading">
-                        <h2>{requestTitle(active)}</h2>
-                        <Status state={active.state} />
-                      </div>
-                      <p className="reason">{active.reason}</p>
-                      {active.connection ? (
-                        <dl className="scope">
-                          <div>
-                            <dt>Access</dt>
-                            <dd>Read-only · No sudo</dd>
-                          </div>
-                          <div>
-                            <dt>Limit</dt>
-                            <dd>
-                              1 connection ·{" "}
-                              {active.connection.max_seconds / 60} min
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>Account</dt>
-                            <dd>{active.connection.account}</dd>
-                          </div>
-                        </dl>
-                      ) : (
-                        <p className="muted">Test only · No host access</p>
-                      )}
-                      <div className="request-meta">
-                        <span>From {active.requester}</span>
-                        {["pending", "approved", "claimed"].includes(
-                          active.state,
-                        ) && (
-                          <span>
-                            {active.connection_deadline
-                              ? "Ends by"
-                              : active.state === "approved"
-                                ? "Connect by"
-                                : "Expires"}{" "}
-                            <time
-                              dateTime={new Date(
-                                (active.connection_deadline ?? active.expires) *
-                                  1000,
-                              ).toISOString()}
-                            >
-                              {new Intl.DateTimeFormat(undefined, {
-                                hour: "numeric",
-                                minute: "2-digit",
-                              }).format(
-                                new Date(
+                        {requestRows(inProgress)}
+                      </Disclosure>
+                    )}
+                    {past.length > 0 && (
+                      <Disclosure
+                        title="History"
+                        count={past.length}
+                        open={historyOpen}
+                        onToggle={setHistoryOpen}
+                      >
+                        {requestRows(past)}
+                      </Disclosure>
+                    )}
+                  </section>
+                  <section className="detail ui-panel" aria-live="polite">
+                    {active ? (
+                      <>
+                        <Button
+                          className="back-button"
+                          variant="quiet"
+                          onClick={() => selectRequest(null)}
+                        >
+                          <Icon name="back" />
+                          Requests
+                        </Button>
+                        <div className="detail-heading">
+                          <h2>{requestTitle(active)}</h2>
+                          <Status state={active.state} />
+                        </div>
+                        <p className="reason">{active.reason}</p>
+                        {active.connection ? (
+                          <dl className="scope">
+                            <div>
+                              <dt>Access</dt>
+                              <dd>Read-only · No sudo</dd>
+                            </div>
+                            <div>
+                              <dt>Limit</dt>
+                              <dd>
+                                1 connection ·{" "}
+                                {active.connection.max_seconds / 60} min
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Account</dt>
+                              <dd>{active.connection.account}</dd>
+                            </div>
+                          </dl>
+                        ) : (
+                          <p className="muted">Test only · No host access</p>
+                        )}
+                        <div className="request-meta">
+                          <span>From {active.requester}</span>
+                          {["pending", "approved", "claimed"].includes(
+                            active.state,
+                          ) && (
+                            <span>
+                              {active.connection_deadline
+                                ? "Ends by"
+                                : active.state === "approved"
+                                  ? "Connect by"
+                                  : "Expires"}{" "}
+                              <time
+                                dateTime={new Date(
                                   (active.connection_deadline ??
                                     active.expires) * 1000,
-                                ),
-                              )}
-                            </time>
-                          </span>
-                        )}
-                      </div>
-                      {active.result && active.state === "failed" && (
-                        <p role="alert" className="ui-message">
-                          {active.result}
-                        </p>
-                      )}
-                      {active.state === "pending" && (
-                        <div className="decisions">
-                          <Button
-                            disabled={busy}
-                            onClick={() =>
-                              run(async () => {
-                                await api(
-                                  `/requests/${active.id}/decision`,
-                                  { decision: "deny" },
-                                  session.csrf,
-                                );
-                                await refresh();
-                              })
-                            }
-                          >
-                            Deny
-                          </Button>
-                          <Button
-                            variant="primary"
-                            disabled={busy}
-                            onClick={() =>
-                              run(async () => {
-                                await api(
-                                  `/requests/${active.id}/decision`,
-                                  {
-                                    decision: "approve",
-                                    connection: active.connection,
-                                  },
-                                  session.csrf,
-                                );
-                                await refresh();
-                              })
-                            }
-                          >
-                            Approve
-                          </Button>
+                                ).toISOString()}
+                              >
+                                {new Intl.DateTimeFormat(undefined, {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                }).format(
+                                  new Date(
+                                    (active.connection_deadline ??
+                                      active.expires) * 1000,
+                                  ),
+                                )}
+                              </time>
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </>
-                  ) : (
-                    <Empty>Select a request</Empty>
-                  )}
-                </section>
-              </div>
+                        {active.result && active.state === "failed" && (
+                          <p role="alert" className="ui-message">
+                            {active.result}
+                          </p>
+                        )}
+                        {active.state === "pending" && (
+                          <div className="decisions">
+                            <Button
+                              disabled={busy}
+                              onClick={() =>
+                                run(async () => {
+                                  await api(
+                                    `/requests/${active.id}/decision`,
+                                    { decision: "deny" },
+                                    session.csrf,
+                                  );
+                                  await refresh();
+                                })
+                              }
+                            >
+                              Deny
+                            </Button>
+                            <Button
+                              variant="primary"
+                              disabled={busy}
+                              onClick={() =>
+                                run(async () => {
+                                  await api(
+                                    `/requests/${active.id}/decision`,
+                                    {
+                                      decision: "approve",
+                                      connection: active.connection,
+                                    },
+                                    session.csrf,
+                                  );
+                                  await refresh();
+                                })
+                              }
+                            >
+                              Approve
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <Empty>Select a request</Empty>
+                    )}
+                  </section>
+                </div>
+              </>
             )}
           </main>
         </IonContent>
