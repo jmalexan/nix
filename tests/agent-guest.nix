@@ -47,12 +47,14 @@ let
             "nix-daemon.service"
             "sshd.service"
             "tailscaled-set.service"
+            "dev-zram0.swap"
           ];
           after = [
             "agent-github-identity.service"
             "nix-daemon.service"
             "sshd.service"
             "tailscaled-set.service"
+            "dev-zram0.swap"
           ];
           serviceConfig = {
             Type = "oneshot";
@@ -71,6 +73,9 @@ let
             test -s /etc/robot/systems.md
             test -s /etc/robot/repositories.json
             test -d /home/robot/dev
+            # Check the real device on both boots, not just the Nix option.
+            test "$(cat /sys/block/zram0/disksize)" -gt 0
+            swapon --show=NAME --noheadings | grep -Fx /dev/zram0
             test ! -e /run/credentials/@system/agent-tailscale
             systemctl is-active --quiet tailscaled.service
             test "$(systemctl show tailscaled-set.service -p Result --value)" = success

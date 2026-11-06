@@ -56,6 +56,13 @@ in
   };
   # QEMU fw_cfg credentials arrive in PID 1, never in the Nix store.
   boot.initrd.kernelModules = [ "qemu_fw_cfg" ];
+  # Concurrent agents and builds share 4 GiB. Give short memory spikes a
+  # compressed buffer instead of immediately reclaiming working sets or killing
+  # sessions. This stays inside the guest's existing host RAM allocation.
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+  };
   networking.hostName = "robots";
   networking.useDHCP = false;
   systemd.network.enable = true;

@@ -9,6 +9,9 @@ separate clones and Git branches to move changes between environments.
 
 - 2 vCPUs, 4 GiB RAM, a 64 GiB sparse persistent root disk in
   `/var/lib/microvms/robots/root.img`, and its own writable Nix store.
+- Compressed swap (zram, logical capacity 50% of guest RAM) buffers transient
+  memory spikes from concurrent agents/builds within that same RAM allocation.
+  It does not provide more physical RAM or guarantee sustained workloads fit.
 - `robot` account, no sudo, no trusted Nix daemon access. Shared development
   packages and Home Manager styling; a bot Git author identity.
 - No host directory, host Nix daemon, Docker socket, journal directory, private
