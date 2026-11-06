@@ -14,10 +14,13 @@ button and no routine SSH agent forwarding.
    target hosts, validation, and expected interruption. The review request is
    the owner's GitHub notification; notification delivery follows their settings.
 4. Wait for the required `nix` check. Its summary lists the host deployment plan.
-5. The owner merges normally once checks pass. The administrator's exception
-   applies automatically to the owner-update rule; the separate required-check
-   and PR rules still apply. GitHub Actions deploys the exact merged revision using the
-   existing production identity. The bot cannot merge into main or push to it.
+5. Once checks pass, the owner selects **Merge without waiting for requirements
+   to be met** if GitHub shows **Cannot update this protected ref**, then merges.
+   The checkbox invokes the owner's exception to the update-only ruleset; the
+   separate PR/check ruleset has no bypass and still applies. **Always allow**
+   describes bypass eligibility, not automatic removal of this UI warning.
+   GitHub Actions deploys the exact merged revision using the existing production
+   identity. The bot cannot merge into main or push to it.
 6. Monitor the Actions run. Its deployment jobs verify activation and report the
    result in GitHub's production deployment history.
 
@@ -89,9 +92,11 @@ Two independent rulesets apply to main:
   set to **Always allow** in this ruleset's bypass list. The bot is not an
   administrator or bypass actor. The separate `main` ruleset still requires a PR
   and passing checks for everyone, so this does not permit direct owner pushes.
-  The former **For pull requests only** mode required the owner to check a bypass
-  box on each merge and displayed **Cannot update this protected ref**. The owner
-  changed only this bypass mode on 2026-11-06 to remove that extra interaction.
+  The owner changed from **For pull requests only** to **Always allow** on
+  2026-11-06, but the protected-ref warning persisted. Do not describe that change
+  as eliminating the merge checkbox. Removing `Restrict updates` without a
+  replacement human-approval boundary would also allow the bot to merge passing
+  PRs, so it is not a cosmetic fix.
 
 The reviewed API payloads are in `.github/rulesets/`. The production environment
 allows only the `main` branch. Its existing SSH and Tailscale secrets remain in
