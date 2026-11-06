@@ -34,9 +34,9 @@ let
           "systemd.log_target=console"
           "systemd.show_status=yes"
         ];
-        # No real enrollment or external network is involved in a boot test.
+        # Run the real daemon/settings unit to catch unsupported flags. With no
+        # guest network interfaces or auth key, no enrollment/network is involved.
         systemd.services.agent-tailscale-ready.enable = false;
-        services.tailscale.enable = lib.mkForce false;
         systemd.services.agent-ready.enable = false;
         services.rex.loginServer.enable = lib.mkForce false;
         systemd.services.agent-boot-test = {
@@ -46,11 +46,13 @@ let
             "agent-github-identity.service"
             "nix-daemon.service"
             "sshd.service"
+            "tailscaled-set.service"
           ];
           after = [
             "agent-github-identity.service"
             "nix-daemon.service"
             "sshd.service"
+            "tailscaled-set.service"
           ];
           serviceConfig = {
             Type = "oneshot";
@@ -70,6 +72,8 @@ let
             test -s /etc/robot/repositories.json
             test -d /home/robot/dev
             test ! -e /run/credentials/@system/agent-tailscale
+            systemctl is-active --quiet tailscaled.service
+            test "$(systemctl show tailscaled-set.service -p Result --value)" = success
             ssh-keygen -F 10.0.1.10 -f /etc/ssh/ssh_known_hosts | grep -F 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8xM12gVZXzdvRDHwXwP9kIxj5fecxG5gU39rSTxUXr'
             test "$(cat /home/robot/.local/share/nasa-github-app/private-key.pem)" = test-only-github-key
             test "$(stat -c '%a:%U' /home/robot/.local/share/nasa-github-app/private-key.pem)" = 600:robot
