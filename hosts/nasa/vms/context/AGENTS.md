@@ -14,9 +14,12 @@ commit, a pushed branch, or a PR. A pushed branch does not imply creating a PR.
 Do not impose the Nix repository's release process on other projects.
 
 For `jmalexan/nix`, use `github-bot` for authenticated Git/GitHub operations.
-Prepare a branch and PR; the owner's merge is deployment approval. Do not merge,
-push main, dispatch production, or change protections without authorization for
-that specific action. No routine maintenance SSH tunnel is needed for releases.
+Prepare a branch and PR. Once the policy in `docs/deployments.md` is activated,
+the owner's approval of the current changes authorizes release; auto-merge still
+waits for required checks. Do not merge, enable auto-merge, push main, dispatch
+production, or change protections without authorization for that specific action.
+The owner's administrator exemption is not an agent permission. No routine
+maintenance SSH tunnel is needed for releases.
 
 Public repos can be cloned over HTTPS. Only `jmalexan/nix` currently has write
 credentials here. Private collaborator-repo access through a trusted Git broker

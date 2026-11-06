@@ -1,9 +1,10 @@
 # PR releases
 
-Routine deployments use GitHub. The bot prepares a PR; the owner clicks **Merge
-pull request** when ready to release. The description is a release summary, not
-an expectation of detailed code review. There is no additional review-approval
-button and no routine SSH agent forwarding.
+The bot proposes releases through PRs. After the policy transition below, the
+owner approves the final changes and auto-merge can finish when checks pass.
+The owner is exempt: personal direct pushes and manual PR merges are allowed.
+Descriptions remain concise release summaries, not an expectation of detailed
+code review. No routine SSH agent forwarding is needed.
 
 ## Release flow
 
@@ -13,14 +14,13 @@ button and no routine SSH agent forwarding.
    --title '...' --body-file /tmp/release.md`. Include the behavior change,
    target hosts, validation, and expected interruption. The review request is
    the owner's GitHub notification; notification delivery follows their settings.
-4. Wait for the required `nix` check. Its summary lists the host deployment plan.
-5. Once checks pass, the owner selects **Merge without waiting for requirements
-   to be met** if GitHub shows **Cannot update this protected ref**, then merges.
-   The checkbox invokes the owner's exception to the update-only ruleset; the
-   separate PR/check ruleset has no bypass and still applies. **Always allow**
-   describes bypass eligibility, not automatic removal of this UI warning.
-   GitHub Actions deploys the exact merged revision using the existing production
-   identity. The bot cannot merge into main or push to it.
+4. Enable auto-merge when the owner requests it. The owner approves the final
+   changes; new changes invalidate the approval. The bot cannot supply the
+   required code-owner approval.
+5. GitHub merges after owner approval, required `nix` checks, and resolved review
+   threads. The check summary lists the deployment plan. The owner can instead
+   manually merge using their administrator exemption. GitHub Actions deploys
+   the exact main revision using the existing production identity.
 6. Monitor the Actions run. Its deployment jobs verify activation and report the
    result in GitHub's production deployment history.
 
@@ -54,7 +54,8 @@ The private GitHub App is installed on **only `jmalexan/nix`**. Permissions:
 
 It has no Administration, Secrets, Environments, Deployments, or Actions write
 permission. Workflow-writing permission can propose changes, but production
-secrets are available only on main and main updates require the owner's merge.
+secrets are available only on main. Bot changes require owner approval before
+merging; the owner's personal updates are exempt.
 
 `tools/github-bot.py` signs an App JWT and requests a token scoped to this single
 repository and the listed permissions. Tokens are passed through the child
@@ -83,20 +84,47 @@ or revoke personal credentials as part of that migration.
 
 ## Repository protections
 
-Two independent rulesets apply to main:
+The desired policy is recorded in `.github/rulesets/`:
 
-- `main`: require a PR, the up-to-date `nix` check from GitHub Actions, and resolved
-  review threads; prohibit deletion and force pushes. No bypass actors. No formal
-  approving-review count is required.
-- `Owner merges releases`: restrict updates, with only repository administrators
-  set to **Always allow** in this ruleset's bypass list. The bot is not an
-  administrator or bypass actor. The separate `main` ruleset still requires a PR
-  and passing checks for everyone, so this does not permit direct owner pushes.
-  The owner changed from **For pull requests only** to **Always allow** on
-  2026-11-06, but the protected-ref warning persisted. Do not describe that change
-  as eliminating the merge checkbox. Removing `Restrict updates` without a
-  replacement human-approval boundary would also allow the bot to merge passing
-  PRs, so it is not a cosmetic fix.
+- `main`: require a PR, one approval from the code owner, approval after the last
+  push, dismissal of stale approvals, the up-to-date `nix` check from GitHub
+  Actions, and resolved review threads. Prohibit deletion and force pushes for
+  non-exempt actors. `Repository admin` has **Always allow** bypass.
+- `.github/CODEOWNERS`: `* @jmalexan` covers every file, including CODEOWNERS itself.
+- `Owner merges releases`: disabled after the replacement is active. Its
+  `Restrict updates` rule blocked auto-merge because it required a bypass even
+  when reviews and checks passed. Changing its bypass mode did not fix that.
+
+This is a personal-account repository. On 2026-11-06 the live collaborators API
+listed only `jmalexan`, with role `admin`; the bot has no administration access.
+Thus the administrator exception currently covers only the owner. Revisit this
+assumption if ownership or access changes. The owner may push directly to main
+or manually merge their own PR without self-approval. GitHub does not support
+approving your own PR, and auto-merge should not be expected to invoke a bypass
+for an owner-authored PR; use a manual merge for that case.
+
+## One-time policy transition
+
+The JSON files describe the requested policy; committing them does not configure
+GitHub. Activate in this order so bot changes always require a human decision:
+
+1. Merge PR #58, which installs `.github/CODEOWNERS` on main, using the existing
+   owner bypass checkbox once checks pass. The old update-only gate stays active
+   during this bootstrap release.
+2. In [main settings](https://github.com/jmalexan/nix/settings/rules/20579942),
+   add **Repository admin → Always allow** to the bypass list. Under required
+   pull requests, require **1 approval**, **code-owner review**, **dismiss stale
+   approvals**, and **approval of the most recent reviewable push**. Keep the
+   required `nix` check, up-to-date branches, and resolved review threads. Save.
+3. Verify CODEOWNERS is recognized on main and the new rules are active, then
+   set [Owner merges releases](https://github.com/jmalexan/nix/settings/rules/26669022)
+   to **Disabled**. Do not disable it before the replacement is in place.
+4. Verify a subsequent bot PR requires the owner's review and passing checks,
+   has no update restriction, and can auto-merge after those requirements pass.
+
+The bot has no Administration permission, so the owner applies steps 2–3 from
+their trusted GitHub session. Agent use of the owner's bypass credentials is not
+authorized. Normal agent operations continue through `github-bot`.
 
 The reviewed API payloads are in `.github/rulesets/`. The production environment
 allows only the `main` branch. Its existing SSH and Tailscale secrets remain in
@@ -111,7 +139,9 @@ References: [GitHub rulesets](https://docs.github.com/en/repositories/configurin
 
 ## Setup status
 
-The `main` ruleset (`20579942`) and owner-merge ruleset (`26669022`) are active.
+The original `main` (`20579942`) and owner-merge (`26669022`) rulesets are active
+as of preparation. The replacement owner-exempt approval policy above is pending
+the one-time transition; do not treat it as live based on this document alone.
 The production environment now allows only the `main` branch (policy `65695987`);
 its four existing deployment secrets were preserved. GitHub App `5637230`,
 installation `179132993`, is configured and restricted to `jmalexan/nix`. Bot

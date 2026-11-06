@@ -5,8 +5,11 @@ The audit and original proposal below are historical. The current design is
 create `robots` with `tag:agent`, and move automation there. **Do not retag `home`
 or remove its personal credentials using the superseded proposal below.**
 
-GitHub PR/check requirements, owner-only merges, and the production main-branch
-restriction are active. The scoped bot, release workflow, and isolated `robots`
+GitHub PR/check requirements, the original owner-only merge gate, and the production
+main-branch restriction are active. The requested replacement is documented in
+[deployments.md](deployments.md): require owner approval for bot PRs while exempting
+the owner's personal work. Its one-time settings transition is not yet complete.
+The scoped bot, release workflow, and isolated `robots`
 VM were deployed through owner-merged PR #57 on 2026-11-06. The owner reported
 applying the replacement [Tailscale policy](tailscale-agent-policy.json), including
 its tests. Live probes from `robots` confirmed NASA's app API is reachable and

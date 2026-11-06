@@ -48,13 +48,15 @@ run checks, and open a concise PR through `nix run .#github-bot -- gh ...`.
 Use the same wrapper's `git` subcommand for pushes. Never fall back to the owner's
 GitHub credential or a forwarded SSH identity when bot authentication fails.
 
-The owner's merge is deployment approval. Do not merge, enable auto-merge, push
-to main, dispatch a production deployment, or change repository protections on
-an ordinary implementation request. Obtain explicit authorization for that
-specific release/action. PR descriptions should state behavior changes, target
-hosts, test results, and any expected interruption; do not assume detailed code
-review. Request the owner as reviewer for the release notification, but no
-separate formal review approval is required before their merge.
+For bot PRs, the owner's approval of the current changes authorizes release;
+required checks must pass before auto-merge can complete. Follow the activation
+status in `docs/deployments.md`; never assume checked-in rulesets are already live.
+Do not merge, enable auto-merge, push to main, dispatch production, or change
+protections on an ordinary implementation request without authorization for that
+specific action. The owner's administrator exemption is for their personal work;
+never use their credentials to inherit it. PR descriptions should state behavior
+changes, target hosts, tests, and expected interruption; do not assume detailed
+code review. Request the owner as reviewer for the release notification.
 
 SSH forwarding is reserved for explicitly authorized recovery or work that CI
 cannot perform. New bot credentials and owner-only protections are provisioned

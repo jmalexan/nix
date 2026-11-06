@@ -45,7 +45,7 @@ Home Manager installs the shared instructions as `~/.codex/AGENTS.md` and
 configuration or credentials are copied. `/home/robot/dev` is the project workspace.
 
 The repository catalog distinguishes access from delivery: `jmalexan/nix` uses
-the scoped bot and owner-merged PR releases; ordinary projects follow the user's
+the scoped bot and owner-approved PR releases; ordinary projects follow the user's
 request, including branch-only work. Public cloning works now. Other private
 repos or push targets need deliberately provisioned access. A trusted Git broker
 for private repos owned by another person is planned, not implemented here; it
@@ -116,8 +116,10 @@ merging a guest update. Removing the VM declaration does not erase its disk.
    files and personal machines are unavailable. This setup session remains in
    `home` until the client is switched; preparing the VM does not move it.
 
-The bot key is deliberately repository-scoped and can propose PRs, not merge or
-change protections. Your personal credentials remain in `home`. Do not revoke
+The bot key is deliberately repository-scoped. After the approval-based policy
+is activated, its PRs require the owner's current approval and passing checks;
+the bot cannot push main directly, approve its own work, or change protections.
+Your personal credentials remain in `home`. Do not revoke
 those credentials as part of this migration. The old agent sessions in `home`
 must be closed once work moves to the VM.
 

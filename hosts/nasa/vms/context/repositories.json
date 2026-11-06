@@ -11,7 +11,7 @@
       "read_access": "public-https",
       "write_access": "github-bot",
       "default_delivery": "pull-request",
-      "deployment_approval": "owner-merge",
+      "deployment_approval": "owner-review-after-policy-activation-see-docs",
       "instructions": ["AGENTS.md", "docs/deployments.md", "docs/agent-vm.md"]
     }
   },
