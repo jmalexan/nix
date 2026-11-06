@@ -200,6 +200,15 @@ refreshes as the long-term distribution plan.
 
 ## NASA provisioning and activation
 
+For NASA, the APNs key is encrypted on the owner's Mac for the existing recipients
+in `secrets.nix`, then deployed with agenix as `notifications-apns`. The private key
+never needs to pass through robots or a GitHub signing secret. The host provisions
+the matching broker/Approve publisher credentials locally through
+`notification-publisher-credentials.service`, before either dependent service starts.
+Provisioning preserves existing credentials, recovers incomplete setup, and refuses
+to replace mismatched credentials or scope. These generated files join the encrypted
+Restic backup; the encrypted APNs key is retained in Git.
+
 The Nix module and private route are available but **disabled** until credentials
 and identifiers exist. No host access is needed to review/build this change.
 
