@@ -23,6 +23,7 @@
     ./gitlab-runner.nix
     ./updates-dashboard.nix
     ./approvals.nix
+    ./notifications.nix
 
     # Media acquisition and serving
     ./mullvad.nix

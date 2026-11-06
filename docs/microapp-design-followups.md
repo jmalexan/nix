@@ -40,7 +40,10 @@ References:
 - [Apple actionable notifications](https://developer.apple.com/documentation/usernotifications/declaring-your-actionable-notification-types)
 - [Require device unlock for an action](https://developer.apple.com/documentation/usernotifications/unnotificationactionoptions/authenticationrequired)
 
-Notification actions are a recorded proposal, not implemented or deployed.
+The reusable implementation is now in [the notification bridge](../apps/notifications/README.md):
+a generic iPhone receiver, service-defined actions, and service web interfaces.
+The Approve adapter opens the existing authenticated review page. Native direct
+approval remains deferred; Apple setup, activation, and physical testing are required.
 
 ## Deployed design revision
 

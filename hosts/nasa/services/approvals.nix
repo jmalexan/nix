@@ -17,6 +17,21 @@ in
   options.services.approvals = {
     enable = lib.mkEnableOption "the approval micro app";
     sshGate.enable = lib.mkEnableOption "the reviewed NASA connection gate";
+    notifications = {
+      enable = lib.mkEnableOption "generic native notification delivery alongside Web Push";
+      origin = lib.mkOption {
+        type = lib.types.str;
+        default = "https://notifications.${vars.nasa.domain}";
+      };
+      recipient = lib.mkOption {
+        type = lib.types.str;
+        default = "owner";
+      };
+      tokenFile = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/lib/microapp-secrets/approvals/notifications";
+      };
+    };
     vapidPublicKey = lib.mkOption {
       type = lib.types.str;
       default = "";
@@ -79,6 +94,7 @@ in
         MICROAPP_WORKER_FILE = "%d/worker";
         MICROAPP_ENROLLMENT_FILE = "%d/enrollment";
         MICROAPP_VAPID_PUBLIC = cfg.vapidPublicKey;
+        MICROAPP_NOTIFICATION_BRIDGE = if cfg.notifications.enable then "1" else "0";
       }
       // lib.optionalAttrs cfg.sshGate.enable {
         MICROAPP_GATE_FILE = "%d/gate";
@@ -113,6 +129,40 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnBootSec = "1min";
+        OnUnitInactiveSec = "10s";
+      };
+    };
+    systemd.services.microapp-approvals-bridge-notify = lib.mkIf cfg.notifications.enable {
+      description = "Publish approval links to the generic notification bridge";
+      after = [ "microapp-approvals.service" ];
+      requires = [ "microapp-approvals.service" ];
+      environment = {
+        PYTHONPATH = "${../../../apps/microapps/backend}";
+        MICROAPP_DATABASE = "/var/lib/microapp-approvals/state.sqlite";
+        MICROAPP_ORIGIN = "https://approve.${vars.nasa.domain}";
+        NOTIFICATIONS_ORIGIN = cfg.notifications.origin;
+        NOTIFICATIONS_RECIPIENT = cfg.notifications.recipient;
+        NOTIFICATIONS_TOKEN_FILE = "%d/notifications";
+      };
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${platform.python}/bin/python -m microapps.bridge_notify";
+        DynamicUser = true;
+        User = "microapp-approvals";
+        StateDirectory = "microapp-approvals";
+        StateDirectoryMode = "0700";
+        LoadCredential = [ "notifications:${cfg.notifications.tokenFile}" ];
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        UMask = "0077";
+      };
+    };
+    systemd.timers.microapp-approvals-bridge-notify = lib.mkIf cfg.notifications.enable {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "30s";
         OnUnitInactiveSec = "10s";
       };
     };
