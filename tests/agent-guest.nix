@@ -47,12 +47,14 @@ let
             "nix-daemon.service"
             "sshd.service"
             "tailscaled-set.service"
+            "dev-zram0.swap"
           ];
           after = [
             "agent-github-identity.service"
             "nix-daemon.service"
             "sshd.service"
             "tailscaled-set.service"
+            "dev-zram0.swap"
           ];
           serviceConfig = {
             Type = "oneshot";
@@ -63,6 +65,7 @@ let
             pkgs.coreutils
             pkgs.diffutils
             pkgs.openssh
+            pkgs.kmod
           ];
           script = ''
             set -x
@@ -71,6 +74,24 @@ let
             test -s /etc/robot/systems.md
             test -s /etc/robot/repositories.json
             test -d /home/robot/dev
+            # Check negotiation with the real QEMU device. Virtio exposes
+            # negotiated feature bits least-significant first; bit 5 is
+            # VIRTIO_BALLOON_F_REPORTING (free-page reporting).
+            modprobe virtio_balloon
+            balloon_reporting=false
+            for _attempt in $(seq 1 50); do
+              for device in /sys/bus/virtio/drivers/virtio_balloon/virtio*; do
+                if test -r "$device/features" && test "$(cut -c 6 "$device/features")" = 1; then
+                  balloon_reporting=true
+                fi
+              done
+              if "$balloon_reporting"; then break; fi
+              sleep 0.1
+            done
+            "$balloon_reporting"
+            # Check the real device on both boots, not just the Nix option.
+            test "$(cat /sys/block/zram0/disksize)" -gt 0
+            swapon --show=NAME --noheadings | grep -Fx /dev/zram0
             test ! -e /run/credentials/@system/agent-tailscale
             systemctl is-active --quiet tailscaled.service
             test "$(systemctl show tailscaled-set.service -p Result --value)" = success

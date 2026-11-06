@@ -7,8 +7,17 @@ separate clones and Git branches to move changes between environments.
 
 ## Boundaries
 
-- 2 vCPUs, 4 GiB RAM, a 64 GiB sparse persistent root disk in
+- 2 vCPUs, an 8 GiB guest RAM ceiling, a 64 GiB sparse persistent root disk in
   `/var/lib/microvms/robots/root.img`, and its own writable Nix store.
+- The virtio balloon device enables free-page reporting: the guest returns
+  unused pages to NASA automatically and can use them again on demand. The guest
+  always sees 8 GiB; there is no host-side controller adjusting its visible RAM.
+  This is not a reservation or a guarantee that NASA can satisfy peak demand.
+  Freed pages can be reclaimed; guest page caches and other in-use pages still
+  consume host RAM. NASA has 32 GiB shared with its other workloads.
+- Compressed swap (zram, logical capacity 50% of guest RAM capped at 2 GiB)
+  buffers transient memory spikes from concurrent agents/builds within guest RAM.
+  It does not provide more physical RAM or guarantee sustained workloads fit.
 - `robot` account, no sudo, no trusted Nix daemon access. Shared development
   packages and Home Manager styling; a bot Git author identity.
 - No host directory, host Nix daemon, Docker socket, journal directory, private
