@@ -4,6 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+    microvm.url = "github:microvm-nix/microvm.nix";
+    microvm.inputs.nixpkgs.follows = "nixpkgs";
     agenix.url = "github:ryantm/agenix";
     agenix.inputs.nixpkgs.follows = "nixpkgs";
     disko.url = "github:nix-community/disko";
@@ -32,6 +34,7 @@
       self,
       nixpkgs,
       nixpkgs-unstable,
+      microvm,
       agenix,
       disko,
       nix-darwin,
@@ -109,6 +112,14 @@
           pkgs = stablePkgs system;
         in
         {
+          microapps = pkgs.mkShell {
+            packages = [
+              (import ./apps/microapps { inherit pkgs; }).python
+              pkgs.nodejs
+              pkgs.ruff
+              pkgs.nixfmt
+            ];
+          };
           default = pkgs.mkShell {
             packages = [
               agenix.packages.${system}.default
@@ -122,12 +133,30 @@
 
       formatter = forAllSystems (system: (stablePkgs system).nixfmt);
 
+      packages = forAllSystems (
+        system:
+        let
+          platform = import ./apps/microapps { pkgs = stablePkgs system; };
+        in
+        {
+          github-bot = import ./tools/github-bot.nix { pkgs = stablePkgs system; };
+          approvals = platform.server;
+          approvals-web = platform.frontend;
+          nasa-approved-access = platform.access;
+        }
+      );
+
+      nixosModules.microapps = import ./modules/microapps.nix;
+      nixosModules.approval-ssh-gate = import ./modules/approval-ssh-gate.nix;
+
       checks = forAllSystems (
         system:
         let
           pkgs = stablePkgs system;
         in
         {
+          microapps = (import ./apps/microapps { inherit pkgs; }).tests;
+          microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
           lint =
             pkgs.runCommand "nix-config-lint"
               {
@@ -136,7 +165,7 @@
                   pkgs.findutils
                   pkgs.nixfmt
                   pkgs.nodejs
-                  pkgs.python3
+                  (pkgs.python3.withPackages (ps: [ ps.cryptography ]))
                   pkgs.ruff
                 ];
               }
@@ -150,9 +179,25 @@
                 ruff format --check hosts/nasa/services/updates-dashboard/*.py
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
                   hosts/nasa/services/updates-dashboard/test_dashboard.py
+                ruff check --select E4,E7,E9,F,I tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py
+                ruff format --check tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_deployment_plan.py tools/test_github_bot.py
+                ruff check --select E4,E7,E9,F,I tests/agent_network.py
+                ruff format --check tests/agent_network.py
                 node --check hosts/nasa/services/updates-dashboard/app.js
+                ruff check --select E4,E7,E9,F,I apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
+                ruff format --check apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_nasa_access.py
                 touch "$out"
               '';
+        }
+        // nixpkgs.lib.optionalAttrs (system == linuxSystem) {
+          approval-ssh-gate = import ./apps/microapps/tests/gate-vm.nix { inherit pkgs; };
+          agent-network = import ./tests/agent-network.nix { inherit pkgs; };
+          agent-guest = import ./tests/agent-guest.nix {
+            inherit pkgs nixpkgs microvm;
+            specialArgs = nixosSpecialArgs;
+          };
         }
       );
 
@@ -168,6 +213,7 @@
         system = linuxSystem;
         specialArgs = nixosSpecialArgs;
         modules = commonModules ++ [
+          microvm.nixosModules.host
           ./hosts/nasa/default.nix
           ./modules/ssh-deploy.nix
           ./modules/trust-private-ca.nix

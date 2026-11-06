@@ -1,3 +1,5 @@
+import { buttonClass } from "./components.js";
+
 const content = document.querySelector("#content");
 const nixScanDialog = document.querySelector("#nix-scan-confirm");
 const confirmNixScan = document.querySelector("#confirm-nix-scan");
@@ -45,16 +47,10 @@ function element(tag, options = {}, ...children) {
 }
 
 function chip(status, label) {
-  const names = {
-    update: "Update available",
-    current: "Current",
-    error: "Check failed",
-    ok: "Healthy",
-    partial: "Partial",
-    failed: "Failed",
-    missing: "Not scanned",
-  };
-  return element("span", { className: `chip ${status}`, text: label || names[status] || status });
+  const node = element("app-status", { className: "chip" });
+  node.setAttribute("state", status);
+  if (label) node.setAttribute("label", label);
+  return node;
 }
 
 function formatDate(value) {
@@ -94,7 +90,7 @@ function externalLink(label, href, className = "") {
 
 function actionButton(label, handler, options = {}) {
   const button = element("button", {
-    className: options.className || "action-button",
+    className: `${buttonClass()} ${options.className || ""}`,
     text: label,
     title: options.title,
     disabled: options.disabled,
@@ -105,7 +101,9 @@ function actionButton(label, handler, options = {}) {
 }
 
 function jobRunning(target) {
-  return ["queued", "active", "activating", "reloading"].includes(actions().jobs?.[target]);
+  return ["queued", "active", "activating", "reloading"].includes(
+    actions().jobs?.[target],
+  );
 }
 
 async function requestAction(payload, pendingKey) {
@@ -123,7 +121,8 @@ async function requestAction(payload, pendingKey) {
       body: JSON.stringify(payload),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || `Action API returned ${response.status}`);
+    if (!response.ok)
+      throw new Error(result.error || `Action API returned ${response.status}`);
   } catch (error) {
     actionErrors.set(pendingKey, error.message);
     pendingActions.delete(pendingKey);
@@ -141,10 +140,7 @@ function scanButton(target, confirm = false) {
       if (confirm) {
         nixScanDialog.showModal();
       } else {
-        requestAction(
-          { action: "scan", target },
-          pendingKey,
-        );
+        requestAction({ action: "scan", target }, pendingKey);
       }
     },
     { disabled: running, title: error },
@@ -169,25 +165,28 @@ function mergedContainers() {
     }
   }
   const weight = (service) => {
-    if (service.release?.status === "update" || service.digest?.status === "update") return 0;
-    if (service.release?.status === "error" || service.digest?.status === "error") return 1;
+    if (
+      service.release?.status === "update" ||
+      service.digest?.status === "update"
+    )
+      return 0;
+    if (
+      service.release?.status === "error" ||
+      service.digest?.status === "error"
+    )
+      return 1;
     return 2;
   };
   return [...services.values()].sort(
-    (left, right) => weight(left) - weight(right) || left.name.localeCompare(right.name),
+    (left, right) =>
+      weight(left) - weight(right) || left.name.localeCompare(right.name),
   );
 }
 
-function sectionHeader(title, caption, extra = null, metadata = null) {
+function sectionHeader(title, extra = null, metadata = null) {
   const heading = element("div", {}, element("h2", { text: title }));
-  if (caption) heading.append(element("p", { className: "section-caption", text: caption }));
   if (metadata) heading.append(metadata);
-  return element(
-    "div",
-    { className: "section-header" },
-    heading,
-    extra,
-  );
+  return element("div", { className: "section-header" }, heading, extra);
 }
 
 function scanTime(label, report, target = null) {
@@ -200,17 +199,16 @@ function scanTime(label, report, target = null) {
     ),
   ];
   if (target) content.push(scanButton(target));
-  return element(
-    "span",
-    { className: "scan-time" },
-    content,
-  );
+  return element("span", { className: "scan-time" }, content);
 }
 
-function emptyState(title, description, command = null) {
-  const children = [element("strong", { text: title }), element("span", { text: description })];
+function emptyState(title, description = "", command = null) {
+  const children = [
+    element("strong", { text: title }),
+    element("span", { text: description }),
+  ];
   if (command) children.push(element("code", { text: command }));
-  return element("section", { className: "empty-state" }, children);
+  return element("app-empty", { className: "empty-state" }, children);
 }
 
 function metric(label, value, kind) {
@@ -227,7 +225,12 @@ function scanCard(report, title) {
     return element(
       "article",
       { className: "scan-card" },
-      element("div", { className: "scan-card-top" }, element("h3", { text: title }), chip("missing")),
+      element(
+        "div",
+        { className: "scan-card-top" },
+        element("h3", { text: title }),
+        chip("missing"),
+      ),
       element("p", { text: "No completed scan" }),
     );
   }
@@ -237,25 +240,36 @@ function scanCard(report, title) {
   return element(
     "article",
     { className: "scan-card" },
-    element("div", { className: "scan-card-top" }, element("h3", { text: title }), chip(report.status)),
+    element(
+      "div",
+      { className: "scan-card-top" },
+      element("h3", { text: title }),
+      chip(report.status),
+    ),
     element("p", { text: formatDate(report.checkedAt) }),
-    element("p", { text: `${countLabel(updates, "update")}, ${countLabel(errors, "error")}` }),
+    element("p", {
+      text: `${countLabel(updates, "update")}, ${countLabel(errors, "error")}`,
+    }),
   );
 }
 
 function renderSummary() {
   const containers = mergedContainers();
   const changes = containers.reduce(
-    (count, service) => count
-      + Number(service.release?.status === "update")
-      + Number(service.digest?.status === "update"),
+    (count, service) =>
+      count +
+      Number(service.release?.status === "update") +
+      Number(service.digest?.status === "update"),
     0,
   );
   const errors = containers.filter(
-    (service) => service.release?.status === "error" || service.digest?.status === "error",
+    (service) =>
+      service.release?.status === "error" || service.digest?.status === "error",
   );
   const current = containers.filter(
-    (service) => service.release?.status === "current" && service.digest?.status === "current",
+    (service) =>
+      service.release?.status === "current" &&
+      service.digest?.status === "current",
   );
   return element(
     "section",
@@ -268,9 +282,13 @@ function renderSummary() {
 
 function filterButtons() {
   const group = element("div", { className: "filters" });
-  for (const [value, label] of [["all", "All"], ["updates", "Updates"], ["attention", "Attention"]]) {
+  for (const [value, label] of [
+    ["all", "All"],
+    ["updates", "Updates"],
+    ["attention", "Attention"],
+  ]) {
     const button = element("button", {
-      className: `filter-button${containerFilter === value ? " active" : ""}`,
+      className: `${buttonClass("quiet")} filter-button${containerFilter === value ? " active" : ""}`,
       text: label,
     });
     button.type = "button";
@@ -286,9 +304,15 @@ function filterButtons() {
 
 function statusCell(item, digest = false) {
   const cell = element("td", { dataLabel: digest ? "Digest" : "Release" });
-  if (!item) return cell.append(chip("missing")), cell;
-  cell.append(chip(item.status, digest && item.status === "update" ? "Digest changed" : null));
-  if (item.error) cell.append(element("div", { className: "error-text", text: item.error }));
+  if (!item) return (cell.append(chip("missing")), cell);
+  cell.append(
+    chip(
+      item.status,
+      digest && item.status === "update" ? "Digest changed" : null,
+    ),
+  );
+  if (item.error)
+    cell.append(element("div", { className: "error-text", text: item.error }));
   return cell;
 }
 
@@ -308,24 +332,38 @@ function containerResultCovers(result, service = null) {
     if (candidate.release?.status === "update") {
       return update.tag === candidate.release.availableTag;
     }
-    return update.tag === candidate.currentTag
-      && update.digest === candidate.digest?.availableDigest;
+    return (
+      update.tag === candidate.currentTag &&
+      update.digest === candidate.digest?.availableDigest
+    );
   });
 }
 
 function pullRequestControl(kind, target, labels = {}, service = null) {
   const ownResult = actions().pullRequests?.[resultKey(kind, target)];
-  const ownIsRelevant = kind !== "container" || containerResultCovers(ownResult, service);
-  const ownIsActive = ownIsRelevant
-    && ["queued", "running", "complete", "open", "merged"].includes(ownResult?.status);
-  const combinedResult = kind === "container" && target !== "all"
-    ? actions().pullRequests?.[resultKey("container", "all")]
-    : null;
-  const combinedIsActive = containerResultCovers(combinedResult, service)
-    && ["queued", "running", "complete", "open", "merged"].includes(combinedResult?.status)
-    || pendingActions.has("pr:container:all");
+  const ownIsRelevant =
+    kind !== "container" || containerResultCovers(ownResult, service);
+  const ownIsActive =
+    ownIsRelevant &&
+    ["queued", "running", "complete", "open", "merged"].includes(
+      ownResult?.status,
+    );
+  const combinedResult =
+    kind === "container" && target !== "all"
+      ? actions().pullRequests?.[resultKey("container", "all")]
+      : null;
+  const combinedIsActive =
+    (containerResultCovers(combinedResult, service) &&
+      ["queued", "running", "complete", "open", "merged"].includes(
+        combinedResult?.status,
+      )) ||
+    pendingActions.has("pr:container:all");
   const usesCombined = !ownIsActive && combinedIsActive;
-  const result = usesCombined ? combinedResult : ownIsRelevant ? ownResult : null;
+  const result = usesCombined
+    ? combinedResult
+    : ownIsRelevant
+      ? ownResult
+      : null;
   const pendingKey = `pr:${kind}:${target}`;
   if (["complete", "open"].includes(result?.status) && result.url) {
     return externalLink(
@@ -335,23 +373,30 @@ function pullRequestControl(kind, target, labels = {}, service = null) {
     );
   }
   if (result?.status === "merged" && result.url) {
-    return externalLink(labels.viewMerged || "View merged PR", result.url, "action-link");
+    return externalLink(
+      labels.viewMerged || "View merged PR",
+      result.url,
+      "action-link",
+    );
   }
-  const running = ["queued", "running"].includes(result?.status)
-    || pendingActions.has(pendingKey)
-    || usesCombined;
+  const running =
+    ["queued", "running"].includes(result?.status) ||
+    pendingActions.has(pendingKey) ||
+    usesCombined;
   const configured = actions().prConfigured !== false;
   const requestError = actionErrors.get(pendingKey);
   let label = labels.create || "Create PR";
-  if (running) label = usesCombined ? "Included in combined PR…" : labels.creating || "Creating…";
-  else if (result?.status === "closed") label = labels.createNew || "Create new PR";
-  else if (result?.status === "failed" || requestError) label = labels.retry || "Retry PR";
+  if (running)
+    label = usesCombined
+      ? "Included in combined PR…"
+      : labels.creating || "Creating…";
+  else if (result?.status === "closed")
+    label = labels.createNew || "Create new PR";
+  else if (result?.status === "failed" || requestError)
+    label = labels.retry || "Retry PR";
   return actionButton(
     label,
-    () => requestAction(
-      { action: "create-pr", kind, target },
-      pendingKey,
-    ),
+    () => requestAction({ action: "create-pr", kind, target }, pendingKey),
     {
       disabled: running || !configured || labels.disabled,
       title: labels.disabled
@@ -364,16 +409,21 @@ function pullRequestControl(kind, target, labels = {}, service = null) {
 }
 
 function containerHasUpdate(service) {
-  return service.release?.status === "update" || service.digest?.status === "update";
+  return (
+    service.release?.status === "update" || service.digest?.status === "update"
+  );
 }
 
 function containerControls(containers) {
   const controls = [filterButtons()];
   if (containers.some(containerHasUpdate)) {
-    const individualPrActive = Object.entries(actions().pullRequests || {}).some(
-      ([key, result]) => key.startsWith("container--")
-        && key !== resultKey("container", "all")
-        && ["queued", "running", "complete", "open"].includes(result.status),
+    const individualPrActive = Object.entries(
+      actions().pullRequests || {},
+    ).some(
+      ([key, result]) =>
+        key.startsWith("container--") &&
+        key !== resultKey("container", "all") &&
+        ["queued", "running", "complete", "open"].includes(result.status),
     );
     controls.push(
       pullRequestControl("container", "all", {
@@ -384,22 +434,31 @@ function containerControls(containers) {
         view: "View combined PR",
         viewMerged: "View merged PR",
         disabled: individualPrActive,
-        disabledTitle: "Close or merge existing container PRs before creating a combined PR.",
+        disabledTitle:
+          "Close or merge existing container PRs before creating a combined PR.",
       }),
     );
   }
-  return element("div", { className: "section-actions container-actions" }, controls);
+  return element(
+    "div",
+    { className: "section-actions container-actions" },
+    controls,
+  );
 }
 
 function containerPrTarget(service) {
   const group = service.release?.updateGroup || service.digest?.updateGroup;
   if (!group) return service.name;
-  return mergedContainers()
-    .filter((candidate) => (
-      candidate.release?.updateGroup || candidate.digest?.updateGroup
-    ) === group)
-    .map((candidate) => candidate.name)
-    .sort()[0] || service.name;
+  return (
+    mergedContainers()
+      .filter(
+        (candidate) =>
+          (candidate.release?.updateGroup || candidate.digest?.updateGroup) ===
+          group,
+      )
+      .map((candidate) => candidate.name)
+      .sort()[0] || service.name
+  );
 }
 
 function availableVersionCell(service, available) {
@@ -407,10 +466,17 @@ function availableVersionCell(service, available) {
   cell.append(element("span", { text: available || "—" }));
   if (service.release?.status === "update" && service.release.releaseNotesUrl) {
     cell.append(
-      externalLink("Release notes", service.release.releaseNotesUrl, "release-link"),
+      externalLink(
+        "Release notes",
+        service.release.releaseNotesUrl,
+        "release-link",
+      ),
     );
   }
-  if (service.release?.status === "update" && service.release.externalReleaseNotesUrl) {
+  if (
+    service.release?.status === "update" &&
+    service.release.externalReleaseNotesUrl
+  ) {
     cell.append(
       externalLink(
         "Release post",
@@ -429,7 +495,9 @@ function renderContainers() {
     containers = containers.filter(containerHasUpdate);
   } else if (containerFilter === "attention") {
     containers = containers.filter(
-      (service) => service.release?.status === "error" || service.digest?.status === "error",
+      (service) =>
+        service.release?.status === "error" ||
+        service.digest?.status === "error",
     );
   }
 
@@ -437,19 +505,31 @@ function renderContainers() {
   body.append(
     sectionHeader(
       "Containers",
-      "Current tags and pinned digests compared with registries.",
       containerControls(allContainers),
       element(
         "div",
         { className: "scan-times" },
-        scanTime("Versions", reports().releases),
-        scanTime("Digests", reports().digests),
+        ...(reports().releases?.checkedAt &&
+        reports().releases.checkedAt === reports().digests?.checkedAt
+          ? [scanTime("Last scan", reports().releases)]
+          : [
+              scanTime("Versions", reports().releases),
+              scanTime("Digests", reports().digests),
+            ]),
         scanButton("containers"),
       ),
     ),
   );
   if (!containers.length) {
-    body.append(emptyState("No matching services", "Try a different filter or run the container scan."));
+    body.append(
+      emptyState(
+        containerFilter === "updates"
+          ? "No updates"
+          : containerFilter === "attention"
+            ? "No errors"
+            : "No services",
+      ),
+    );
     return body;
   }
 
@@ -462,7 +542,14 @@ function renderContainers() {
       element(
         "tr",
         {},
-        ...["Service", "Installed", "Available", "Release", "Digest", "Action"].map((label) => element("th", { text: label })),
+        ...[
+          "Service",
+          "Installed",
+          "Available",
+          "Release",
+          "Digest",
+          "Action",
+        ].map((label) => element("th", { text: label })),
       ),
     ),
   );
@@ -473,23 +560,43 @@ function renderContainers() {
       element(
         "tr",
         {},
-        element("td", { dataLabel: "Service" }, element("div", { className: "service-name", text: serviceName(service.name) }), element("div", { className: "repository", text: service.repository })),
-        element("td", { className: "version", dataLabel: "Installed", text: service.currentTag || "—" }),
+        element(
+          "td",
+          { dataLabel: "Service" },
+          element("div", {
+            className: "service-name",
+            text: serviceName(service.name),
+          }),
+          element("div", { className: "repository", text: service.repository }),
+        ),
+        element("td", {
+          className: "version",
+          dataLabel: "Installed",
+          text: service.currentTag || "—",
+        }),
         availableVersionCell(service, available),
         statusCell(service.release),
         statusCell(service.digest, true),
         element(
           "td",
           { dataLabel: "Action" },
-          service.release?.status === "update" || service.digest?.status === "update"
-            ? pullRequestControl("container", containerPrTarget(service), {}, service)
+          service.release?.status === "update" ||
+            service.digest?.status === "update"
+            ? pullRequestControl(
+                "container",
+                containerPrTarget(service),
+                {},
+                service,
+              )
             : element("span", { className: "muted", text: "—" }),
         ),
       ),
     );
   }
   table.append(tableBody);
-  body.append(element("section", { className: "panel table-scroll" }, table));
+  body.append(
+    element("section", { className: "ui-panel panel table-scroll" }, table),
+  );
   return body;
 }
 
@@ -499,22 +606,18 @@ function renderNix() {
   body.append(
     sectionHeader(
       "Nix package forecast",
-      "Package versions after a temporary flake update.",
       element(
         "div",
         { className: "section-actions" },
         scanButton("nix", true),
-        report?.inputsChanged === true ? pullRequestControl("nix", "nix") : null,
+        report?.inputsChanged === true
+          ? pullRequestControl("nix", "nix")
+          : null,
       ),
     ),
   );
   if (!report) {
-    body.append(
-      emptyState(
-        "No forecast yet",
-        "The nightly scan evaluates and builds both hosts.",
-      ),
-    );
+    body.append(emptyState("No forecast yet"));
     return body;
   }
   body.append(scanCard(report, "Latest Nix scan"));
@@ -523,8 +626,13 @@ function renderNix() {
     body.append(
       element(
         "section",
-        { className: "panel nix-host" },
-        element("header", {}, element("h3", { text: host.name }), chip(host.status)),
+        { className: "ui-panel panel nix-host" },
+        element(
+          "header",
+          {},
+          element("h3", { text: host.name }),
+          chip(host.status),
+        ),
         element("pre", { text: host.changes || "No closure changes." }),
       ),
     );
@@ -538,7 +646,6 @@ function renderActions() {
   body.append(
     sectionHeader(
       "GitHub Actions",
-      "Version channels used by repository workflows.",
       null,
       element(
         "div",
@@ -548,12 +655,12 @@ function renderActions() {
     ),
   );
   if (!report) {
-    body.append(emptyState("No Action scan yet", "Run the scan to check workflow dependencies."));
+    body.append(emptyState("Not scanned yet"));
     return body;
   }
   if (report.error) body.append(emptyState("Action scan failed", report.error));
   if (!report.items?.length) {
-    body.append(emptyState("No workflow actions found", "No external versioned actions were detected."));
+    body.append(emptyState("No workflow actions"));
     return body;
   }
 
@@ -566,27 +673,51 @@ function renderActions() {
       element(
         "tr",
         {},
-        ...["Workflow action", "Installed", "Available", "Status", "Action"].map(
-          (label) => element("th", { text: label }),
-        ),
+        ...[
+          "Workflow action",
+          "Installed",
+          "Available",
+          "Status",
+          "Action",
+        ].map((label) => element("th", { text: label })),
       ),
     ),
   );
   const tableBody = element("tbody");
   for (const item of report.items) {
-    const available = element("td", { className: "version", dataLabel: "Available" });
+    const available = element("td", {
+      className: "version",
+      dataLabel: "Available",
+    });
     available.append(element("span", { text: item.availableRef || "—" }));
     if (item.status === "update" && item.releaseNotesUrl) {
-      available.append(externalLink("Release notes", item.releaseNotesUrl, "release-link"));
+      available.append(
+        externalLink("Release notes", item.releaseNotesUrl, "release-link"),
+      );
     }
     tableBody.append(
       element(
         "tr",
         {},
-        element("td", { dataLabel: "Workflow action" }, element("div", { className: "service-name", text: item.name })),
-        element("td", { className: "version", dataLabel: "Installed", text: item.currentRef || "—" }),
+        element(
+          "td",
+          { dataLabel: "Workflow action" },
+          element("div", { className: "service-name", text: item.name }),
+        ),
+        element("td", {
+          className: "version",
+          dataLabel: "Installed",
+          text: item.currentRef || "—",
+        }),
         available,
-        element("td", { dataLabel: "Status" }, chip(item.status), item.error ? element("div", { className: "error-text", text: item.error }) : null),
+        element(
+          "td",
+          { dataLabel: "Status" },
+          chip(item.status),
+          item.error
+            ? element("div", { className: "error-text", text: item.error })
+            : null,
+        ),
         element(
           "td",
           { dataLabel: "Action" },
@@ -598,7 +729,9 @@ function renderActions() {
     );
   }
   table.append(tableBody);
-  body.append(element("section", { className: "panel table-scroll" }, table));
+  body.append(
+    element("section", { className: "ui-panel panel table-scroll" }, table),
+  );
   return body;
 }
 
@@ -613,18 +746,27 @@ function renderHistory() {
         "span",
         { className: "history-summary-copy" },
         element("span", { className: "history-title", text: "Scan history" }),
-        element("span", { className: "section-caption", text: "The last 100 scans." }),
       ),
     ),
   );
   if (!dashboard.history?.length) {
-    body.append(emptyState("No history yet", "Completed scans will appear here."));
+    body.append(emptyState("No scans yet"));
     return body;
   }
   const table = element("table");
   table.setAttribute("aria-label", "Scan history");
   table.append(
-    element("thead", {}, element("tr", {}, ...["When", "Scan", "Result", "Updates", "Errors"].map((label) => element("th", { text: label })))),
+    element(
+      "thead",
+      {},
+      element(
+        "tr",
+        {},
+        ...["When", "Scan", "Result", "Updates", "Errors"].map((label) =>
+          element("th", { text: label }),
+        ),
+      ),
+    ),
   );
   const tableBody = element("tbody");
   for (const item of dashboard.history) {
@@ -632,7 +774,10 @@ function renderHistory() {
       element(
         "tr",
         {},
-        element("td", { className: "timestamp", text: formatDate(item.checkedAt) }),
+        element("td", {
+          className: "timestamp",
+          text: formatDate(item.checkedAt),
+        }),
         element("td", { className: "service-name", text: item.title }),
         element("td", {}, chip(item.status)),
         element("td", { text: String(item.counts?.update || 0) }),
@@ -641,13 +786,16 @@ function renderHistory() {
     );
   }
   table.append(tableBody);
-  body.append(element("section", { className: "panel table-scroll" }, table));
+  body.append(
+    element("section", { className: "ui-panel panel table-scroll" }, table),
+  );
   return body;
 }
 
 function render() {
   if (!dashboard) return;
-  const historyOpen = content.querySelector(".history-disclosure")?.open || false;
+  const historyOpen =
+    content.querySelector(".history-disclosure")?.open || false;
   const page = element(
     "div",
     { className: "page-stack" },
@@ -667,16 +815,24 @@ async function load() {
   loadInProgress = true;
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
-    if (!response.ok) throw new Error(`Dashboard API returned ${response.status}`);
+    if (!response.ok)
+      throw new Error(`Dashboard API returned ${response.status}`);
     const latest = await response.json();
     const hadPendingAction = pendingActions.size > 0;
     pendingActions.clear();
-    if (!dashboard || hadPendingAction || JSON.stringify(latest) !== JSON.stringify(dashboard)) {
+    if (
+      !dashboard ||
+      hadPendingAction ||
+      JSON.stringify(latest) !== JSON.stringify(dashboard)
+    ) {
       dashboard = latest;
       render();
     }
   } catch (error) {
-    if (!dashboard) content.replaceChildren(emptyState("Could not load reports", error.message));
+    if (!dashboard)
+      content.replaceChildren(
+        emptyState("Could not load reports", error.message),
+      );
   } finally {
     loadInProgress = false;
   }
@@ -688,8 +844,7 @@ window.setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) load();
 });
-confirmNixScan.addEventListener("click", () => requestAction(
-  { action: "scan", target: "nix" },
-  "scan:nix",
-));
+confirmNixScan.addEventListener("click", () =>
+  requestAction({ action: "scan", target: "nix" }, "scan:nix"),
+);
 load();

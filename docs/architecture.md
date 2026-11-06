@@ -23,3 +23,15 @@ is the single owner of public virtual hosts and TLS defaults.
 
 The `home` NixOS container is a host-level topology concern. Its module lives in
 `hosts/nasa/containers/` and is imported explicitly by the NAS composition root.
+
+The [internal tools platform](internal-tools.md) provides independent
+micro apps using reusable styling, application components, and Nix deployment
+conventions. It uses FastAPI backends and mobile web clients with push
+notifications, iPhone acceptance checks, and an adaptive layout for future
+iPhone Duo compatibility. Physical Duo testing is deferred. It includes an
+adoption path for System updates and an independently enforced approval service.
+The foundation and approval service are deployed on NASA, with physical iPhone
+notifications and a live phone-approved SSH connection verified. The
+[connection gate](approval-ssh-gate.md) enforces one-use approvals and a bounded
+lifetime for its dedicated account. Restrictions on other administrative access
+paths remain a separate follow-up.
