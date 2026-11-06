@@ -120,6 +120,16 @@
               pkgs.nixfmt
             ];
           };
+          notifications = pkgs.mkShell {
+            packages = [
+              (import ./apps/notifications { inherit pkgs; }).python
+              pkgs.ruff
+              pkgs.nixfmt
+              pkgs.nodejs
+              pkgs.librsvg
+              pkgs.actionlint
+            ];
+          };
           default = pkgs.mkShell {
             packages = [
               agenix.packages.${system}.default
@@ -143,11 +153,14 @@
           approvals = platform.server;
           approvals-web = platform.frontend;
           nasa-approved-access = platform.access;
+          notifications = (import ./apps/notifications { pkgs = stablePkgs system; }).server;
+          notifications-admin = (import ./apps/notifications { pkgs = stablePkgs system; }).admin;
         }
       );
 
       nixosModules.microapps = import ./modules/microapps.nix;
       nixosModules.approval-ssh-gate = import ./modules/approval-ssh-gate.nix;
+      nixosModules.notification-bridge = import ./modules/notification-bridge.nix;
 
       checks = forAllSystems (
         system:
@@ -157,6 +170,7 @@
         {
           microapps = (import ./apps/microapps { inherit pkgs; }).tests;
           microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
+          notifications = (import ./apps/notifications { inherit pkgs; }).tests;
           lint =
             pkgs.runCommand "nix-config-lint"
               {
@@ -188,6 +202,9 @@
                 ruff check --select E4,E7,E9,F,I apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 ruff format --check apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_nasa_access.py
+                ruff check --select E4,E7,E9,F,I apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py
+                ruff format --check apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py
+                node --check apps/notifications/web/settings.js
                 touch "$out"
               '';
         }

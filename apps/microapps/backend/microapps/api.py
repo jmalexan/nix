@@ -39,6 +39,7 @@ class Settings:
     static: str | None = None
     vapid_public: str = ""
     gate_token: str = ""
+    notification_bridge: bool = False
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -326,6 +327,11 @@ def create_app(settings: Settings):
                 "INSERT INTO outbox(request_id,subscription_id) SELECT ?,id FROM subscriptions",
                 (rid,),
             )
+            if settings.notification_bridge:
+                db.execute(
+                    "INSERT INTO notification_bridge_outbox(request_id) VALUES(?)",
+                    (rid,),
+                )
             return request_view(
                 db, db.execute("SELECT * FROM requests WHERE id=?", (rid,)).fetchone()
             )
@@ -512,5 +518,6 @@ def from_environment():
             gate_token=secret("MICROAPP_GATE_FILE")
             if os.environ.get("MICROAPP_GATE_FILE")
             else "",
+            notification_bridge=os.environ.get("MICROAPP_NOTIFICATION_BRIDGE") == "1",
         )
     )

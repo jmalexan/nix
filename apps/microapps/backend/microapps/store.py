@@ -39,6 +39,9 @@ class Store:
                     done INTEGER NOT NULL DEFAULT 0, UNIQUE(request_id, subscription_id));
                 CREATE TABLE IF NOT EXISTS connections (
                     request_id TEXT PRIMARY KEY, scope TEXT NOT NULL, deadline REAL);
+                CREATE TABLE IF NOT EXISTS notification_bridge_outbox (
+                    request_id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
+                    next_attempt REAL NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0);
                 PRAGMA user_version = 2;
             """)
         os.chmod(path, 0o600)

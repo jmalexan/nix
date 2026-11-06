@@ -1,0 +1,98 @@
+name: Notification iOS
+
+on:
+  pull_request:
+    paths:
+      - apps/notifications/ios/**
+      - .github/workflows/notification-ios.yml
+  push:
+    branches: [main]
+    paths:
+      - apps/notifications/ios/**
+      - .github/workflows/notification-ios.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Generate Xcode project
+        working-directory: apps/notifications/ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -version
+      - name: Compile app and notification extension
+        working-directory: apps/notifications/ios
+        run: |
+          xcodebuild -project NotificationBridge.xcodeproj -scheme NotificationBridge \
+            -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Test notification protocol
+        working-directory: apps/notifications/ios
+        run: |
+          swiftc Shared/Protocol.swift Tests/ProtocolTests.swift -o "$RUNNER_TEMP/protocol-tests"
+          "$RUNNER_TEMP/protocol-tests"
+
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 30
+    environment: app-store
+    concurrency:
+      group: notification-testflight
+      cancel-in-progress: false
+    env:
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      BRIDGE_BUNDLE_ID: ${{ vars.BRIDGE_BUNDLE_ID || 'com.jmalexan.NotificationBridge' }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare signing and upload credentials
+        env:
+          DISTRIBUTION_P12_BASE64: ${{ secrets.DISTRIBUTION_P12_BASE64 }}
+          DISTRIBUTION_P12_PASSWORD: ${{ secrets.DISTRIBUTION_P12_PASSWORD }}
+          APP_PROFILE_BASE64: ${{ secrets.APP_PROFILE_BASE64 }}
+          EXTENSION_PROFILE_BASE64: ${{ secrets.EXTENSION_PROFILE_BASE64 }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+        run: python3 apps/notifications/ios/signing.py
+      - name: Generate Xcode project
+        working-directory: apps/notifications/ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Archive and export
+        working-directory: apps/notifications/ios
+        run: |
+          xcodebuild -project NotificationBridge.xcodeproj -scheme NotificationBridge \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/NotificationBridge.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" BRIDGE_BUNDLE_ID="$BRIDGE_BUNDLE_ID" \
+            BRIDGE_PROFILE_NAME="$BRIDGE_PROFILE_NAME" SERVICE_PROFILE_NAME="$SERVICE_PROFILE_NAME" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
+            CODE_SIGN_IDENTITY='Apple Distribution' \
+            OTHER_CODE_SIGN_FLAGS="--keychain $BRIDGE_KEYCHAIN" archive
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/NotificationBridge.xcarchive" \
+            -exportPath "$RUNNER_TEMP/bridge-export" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Upload to TestFlight
+        run: |
+          xcrun altool --upload-app --type ios \
+            --file "$RUNNER_TEMP/bridge-export/NotificationBridge.ipa" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          echo 'Uploaded for Apple processing. Assign the processed build to your TestFlight group.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'TestFlight builds expire 90 days after upload; keep web/service changes independent of native releases.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          if [[ -n "${BRIDGE_KEYCHAIN:-}" ]]; then security delete-keychain "$BRIDGE_KEYCHAIN"; fi
+          python3 apps/notifications/ios/signing.py --cleanup
