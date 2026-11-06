@@ -54,11 +54,9 @@
     serviceConfig.LoadCredential = [
       "agent-github:${config.age.secrets.agent-github.path}"
       "agent-requester:/var/lib/microapp-secrets/approvals/requester"
-      "agent-tailscale:${config.age.secrets.agent-tailscale.path}"
     ];
   };
   age.secrets.agent-github.file = ../../../secrets/agent-github.age;
-  age.secrets.agent-tailscale.file = ../../../secrets/agent-tailscale.age;
   systemd.services."microvm@robots".serviceConfig.UMask = "0077";
   environment.systemPackages = [
     (pkgs.writeShellApplication {

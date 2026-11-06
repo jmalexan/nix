@@ -14,7 +14,11 @@ button and no routine SSH agent forwarding.
    target hosts, validation, and expected interruption. The review request is
    the owner's GitHub notification; notification delivery follows their settings.
 4. Wait for the required `nix` check. Its summary lists the host deployment plan.
-5. The owner merges. GitHub Actions deploys the exact merged revision using the
+5. The owner merges. If GitHub shows **Cannot update this protected ref**, select
+   **Merge without waiting for requirements to be met** in the merge panel.
+   This uses the administrator's PR-only exception to the owner-update rule;
+   the separate required-check and PR rules still apply. GitHub Actions deploys
+   the exact merged revision using the
    existing production identity. The bot cannot merge into main or push to it.
 6. Monitor the Actions run. Its deployment jobs verify activation and report the
    result in GitHub's production deployment history.
@@ -104,10 +108,13 @@ The `main` ruleset (`20579942`) and owner-merge ruleset (`26669022`) are active.
 The production environment now allows only the `main` branch (policy `65695987`);
 its four existing deployment secrets were preserved. GitHub App `5637230`,
 installation `179132993`, is configured and restricted to `jmalexan/nix`. Bot
-authentication, branch push, and PR creation were verified. The workflow changes
-are in [PR #57](https://github.com/jmalexan/nix/pull/57), awaiting owner merge;
-the original framework check passed. The PR now also includes the separate
-`robots` VM; updated checks must pass before the owner merges.
+authentication, branch push, and PR creation were verified.
+[PR #57](https://github.com/jmalexan/nix/pull/57) merged on 2026-11-06 as
+`b07032a45e680bba92e1b7de08f6e92a8e701b2a`.
+[Production run 42166728888](https://github.com/jmalexan/nix/actions/runs/42166728888)
+passed its checks and deployed NASA successfully. HTPC was not selected. The
+`robots` VM booted, enrolled as `tag:agent`, and passed readiness, authenticated
+Rex login, scoped bot, and preloaded-context checks.
 
 The local SSH key matches owner GitHub key ID `148267959`. It and the owner gh
 login remain in personal `home`, and must not be copied to the agent VM. Sessions

@@ -60,25 +60,28 @@ References: [Codex global instructions](https://learn.chatgpt.com/docs/agent-con
 
 ## Credentials and release
 
-The supplied one-use tagged Tailscale auth key and the repository-scoped GitHub
-App signing key are age-encrypted to the existing NASA/owner recipients. The VM
-never receives any of those decryption keys. NASA decrypts the two files with
-agenix; systemd loads them into the QEMU service's private credential directory;
+The repository-scoped GitHub App signing key is age-encrypted to the existing
+NASA/owner recipients. The VM never receives any of those decryption keys.
+NASA decrypts the file with agenix; systemd loads it into the QEMU service's
+private credential directory;
 QEMU fw_cfg passes them to the guest service manager. Only the scoped bot key and
 approval requester token are installed for `robot`, in mode-0600 files. The
 requester can ask for access; it cannot approve requests. No worker, gate,
 enrollment, deployment, or owner credentials are passed into the guest.
 
 The guest Tailscale daemon owns its persistent node state; `robot` is not its
-operator. The one-use key is not needed for ordinary reconnects or restarts.
-Recreating the VM disk requires a fresh tagged enrollment key. Key expiry before
-first deployment also requires replacing the encrypted enrollment file. After
-successful enrollment, remove the spent bootstrap key in a follow-up release;
-keep the persistent node state and retire the unused enrollment configuration.
+operator. Enrollment succeeded in PR #57. This cleanup removes the spent one-use
+key, its encrypted file, and its host/guest credential wiring. Ordinary reconnects
+and restarts reuse the identity in `/var/lib/tailscale`; readiness waits for a
+running identity tagged `tag:agent` before starting Rex Serve. It never attempts
+automatic enrollment. Recreating the disk requires authorized administrator
+recovery with a fresh one-use `tag:agent` key, delivered only to the root daemon.
+Do not enroll under the owner's identity or give `robot` Tailscale operator rights.
 
-The deployment framework and this VM are included in PR #57. The owner's merge
-approves the combined release. It targets NASA; it starts a new VM and
-reloads relevant firewall/nginx/gate configuration. It does not restart `home`.
+The deployment framework and VM went live through owner-merged PR #57. Its
+[production run](https://github.com/jmalexan/nix/actions/runs/42166728888) succeeded.
+The enrollment cleanup targets NASA and restarts `robots`, preserving its disk
+and Tailscale identity. It does not restart `home`.
 Future guest configuration changes restart the VM, so save agent work before
 merging a guest update. Removing the VM declaration does not erase its disk.
 
@@ -99,6 +102,12 @@ merging a guest update. Removing the VM declaration does not erase its disk.
 4. Establish the agent's AI tool authorization separately. Any credential given
    to a process running as `robot` is readable by that account; use only the
    intended tool/account scope, never a general personal credential bundle.
+   Codex supports `codex login --device-auth`; authorize its one-time code in
+   your browser. For Claude subscriptions use `claude auth login --claudeai`,
+   open its URL, and paste the returned code directly into that terminal.
+   Check `codex login status` and `claude auth status`; do not print auth files.
+   These fresh CLI logins stay on the VM disk across releases. They do not move
+   this conversation or install the personal environment's plugins/configuration.
 5. Verify an approved read-only NASA request using `nasa-approved-access --reason
    'Verify the new agent VM' -- hostname`. It still requires explicit phone
    approval, has no sudo, and expires after 15 minutes. Ordinary NAS SSH remains
@@ -112,6 +121,22 @@ change protections. Your personal credentials remain in `home`. Do not revoke
 those credentials as part of this migration. The old agent sessions in `home`
 must be closed once work moves to the VM.
 
+The public Nix repository is cloned at `/home/robot/dev/nix`. Authenticated Rex
+access is `https://robot@robots.tailf18bf1.ts.net:7297`; ordinary SSH uses
+`ssh robot@robots`. The guest pins NASA's public SSH host key in
+`/etc/ssh/ssh_known_hosts` so the approval client keeps strict host verification.
+During setup the same public key was added to `robot`'s user known-hosts file
+to test the gate before releasing the declarative configuration.
+
+Setup verification on 2026-11-06: Codex device login completed, and the live
+phone-approved connection returned `nasa` with exit status 0. The caller was
+`robot` on `robots`; ordinary host SSH/Rex remained unreachable. Claude Code is
+installed, but its sign-in is deferred at the owner's request. The private-repo
+broker and app design follow-ups remain deferred too.
+
+Login references: [Codex authentication](https://learn.chatgpt.com/docs/auth?surface=cli),
+[Claude Code authentication](https://code.claude.com/docs/en/authentication).
+
 ## Tests and recovery
 
 `nix build .#checks.x86_64-linux.agent-network` boots a disposable NixOS test
@@ -124,7 +149,8 @@ stop and atomically reloads without flushing unrelated rules.
 under QEMU software emulation, with fake credentials and no network, twice. It
 checks credential delivery/permissions, non-sudo identity, ordinary unprivileged
 Nix-store writes, persistent data, and stable SSH host keys. Production enrollment,
-Rex connectivity, and hardware KVM still need post-deployment verification.
+authenticated Rex connectivity, and guest readiness were verified after PR #57
+deployed. Repeat readiness and identity checks after deploying enrollment cleanup.
 
 Use CI for routine guest updates. For recovery, use the authorized NASA access
 workflow; the agent guest is not an administrator backdoor. A host administrator

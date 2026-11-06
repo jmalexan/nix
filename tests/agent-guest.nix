@@ -27,7 +27,6 @@ let
           credentialFiles = lib.mkForce {
             agent-requester = pkgs.writeText "fake-requester" "test-only-requester";
             agent-github = pkgs.writeText "fake-github-key" "test-only-github-key";
-            agent-tailscale = pkgs.writeText "fake-tailscale-key" "test-only-tailscale-key";
           };
         };
         services.journald.extraConfig = "ForwardToConsole=yes";
@@ -36,7 +35,7 @@ let
           "systemd.show_status=yes"
         ];
         # No real enrollment or external network is involved in a boot test.
-        systemd.services.tailscaled-autoconnect.enable = false;
+        systemd.services.agent-tailscale-ready.enable = false;
         services.tailscale.enable = lib.mkForce false;
         systemd.services.agent-ready.enable = false;
         services.rex.loginServer.enable = lib.mkForce false;
@@ -55,7 +54,6 @@ let
           ];
           serviceConfig = {
             Type = "oneshot";
-            ImportCredential = "agent-tailscale";
           };
           path = [
             pkgs.nix
@@ -71,7 +69,8 @@ let
             test -s /etc/robot/systems.md
             test -s /etc/robot/repositories.json
             test -d /home/robot/dev
-            test "$(cat "$CREDENTIALS_DIRECTORY/agent-tailscale")" = test-only-tailscale-key
+            test ! -e /run/credentials/@system/agent-tailscale
+            ssh-keygen -F 10.0.1.10 -f /etc/ssh/ssh_known_hosts | grep -F 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8xM12gVZXzdvRDHwXwP9kIxj5fecxG5gU39rSTxUXr'
             test "$(cat /home/robot/.local/share/nasa-github-app/private-key.pem)" = test-only-github-key
             test "$(stat -c '%a:%U' /home/robot/.local/share/nasa-github-app/private-key.pem)" = 600:robot
             test "$(id -nG robot)" = users

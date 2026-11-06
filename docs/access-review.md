@@ -6,10 +6,15 @@ create `robots` with `tag:agent`, and move automation there. **Do not retag `hom
 or remove its personal credentials using the superseded proposal below.**
 
 GitHub PR/check requirements, owner-only merges, and the production main-branch
-restriction are active. The scoped bot is configured; release workflow and
-VM rollout are combined in PR #57, awaiting the owner's merge. The owner reported applying the replacement
-[Tailscale policy](tailscale-agent-policy.json), including its tests. Physical
-VM/network isolation is prepared in this branch, not yet deployed.
+restriction are active. The scoped bot, release workflow, and isolated `robots`
+VM were deployed through owner-merged PR #57 on 2026-11-06. The owner reported
+applying the replacement [Tailscale policy](tailscale-agent-policy.json), including
+its tests. Live probes from `robots` confirmed NASA's app API is reachable and
+ordinary NASA SSH/Rex, the personal `home` SSH endpoint, and the Mac SSH endpoint
+are unreachable. The automated network test covers spoofing, IPv6, and private
+forwarding. This setup conversation still runs in personal `home` until moved.
+
+## Historical audit (superseded)
 
 Reviewed on 2026-11-06 after deploying the phone-approved connection gate.
 This is a proposed rollout, not a claim that the restrictions below are active.

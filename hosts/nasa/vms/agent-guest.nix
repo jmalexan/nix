@@ -50,7 +50,6 @@ in
     ];
     writableStoreOverlay = "/nix/.rw-store";
     credentialFiles = {
-      agent-tailscale = "/run/credentials/microvm@robots.service/agent-tailscale";
       agent-github = "/run/credentials/microvm@robots.service/agent-github";
       agent-requester = "/run/credentials/microvm@robots.service/agent-requester";
     };
@@ -74,23 +73,51 @@ in
   time.timeZone = vars.timeZone;
   services.timesyncd.enable = true;
   services.tailscale = {
-    authKeyFile = "/run/credentials/tailscaled-autoconnect.service/agent-tailscale";
-    extraUpFlags = [
+    extraSetFlags = [
       "--advertise-tags=tag:agent"
       "--accept-routes=false"
       "--accept-dns=false"
       "--ssh=false"
     ];
-    extraSetFlags = [
-      "--accept-routes=false"
-      "--accept-dns=false"
-      "--ssh=false"
-    ];
   };
-  systemd.services.tailscaled-autoconnect.serviceConfig.ImportCredential = "agent-tailscale";
+  # Enrollment is complete. Reuse root-owned persistent node state, and fail
+  # readiness rather than silently enrolling a replacement under another identity.
+  systemd.services.agent-tailscale-ready = {
+    requires = [
+      "tailscaled.service"
+      "tailscaled-set.service"
+    ];
+    after = [
+      "tailscaled.service"
+      "tailscaled-set.service"
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      TimeoutStartSec = 150;
+    };
+    script = ''
+      set -o pipefail
+      for _attempt in $(seq 1 60); do
+        if ${lib.getExe config.services.tailscale.package} status --json |
+          ${pkgs.jq}/bin/jq -e '.BackendState == "Running" and ((.Self.Tags // []) | index("tag:agent") != null)' >/dev/null; then
+          exit 0
+        fi
+        sleep 2
+      done
+      echo 'robots has no running tag:agent identity; restore its node state or enroll with a fresh tagged key through authorized recovery' >&2
+      exit 1
+    '';
+  };
   systemd.services.rex-tailscale-serve = lib.mkIf config.services.rex.loginServer.enable {
-    requires = [ "tailscaled-autoconnect.service" ];
-    after = [ "tailscaled-autoconnect.service" ];
+    requires = [ "agent-tailscale-ready.service" ];
+    after = [ "agent-tailscale-ready.service" ];
+  };
+  # Public key already trusted by the owner's setup environment. The approval
+  # client uses HostKeyAlias=10.0.1.10 with strict verification on gate port 2222.
+  programs.ssh.knownHosts.nasa = {
+    hostNames = [ "10.0.1.10" ];
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8xM12gVZXzdvRDHwXwP9kIxj5fecxG5gU39rSTxUXr";
   };
   services.openssh = {
     enable = true;
@@ -177,14 +204,14 @@ in
     requires = [
       "agent-github-identity.service"
       "sshd.service"
-      "tailscaled-autoconnect.service"
+      "agent-tailscale-ready.service"
       "rex-login-server.service"
       "rex-tailscale-serve.service"
     ];
     after = [
       "agent-github-identity.service"
       "sshd.service"
-      "tailscaled-autoconnect.service"
+      "agent-tailscale-ready.service"
       "rex-login-server.service"
       "rex-tailscale-serve.service"
     ];
