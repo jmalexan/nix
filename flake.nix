@@ -202,8 +202,9 @@
                 ruff check --select E4,E7,E9,F,I apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 ruff format --check apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_nasa_access.py
-                ruff check --select E4,E7,E9,F,I apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py
-                ruff format --check apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py
+                ruff check --select E4,E7,E9,F,I apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py apps/notifications/ios/Tests
+                ruff format --check apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py apps/notifications/ios/Tests
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s apps/notifications/ios/Tests -p 'test_*.py'
                 node --check apps/notifications/web/settings.js
                 touch "$out"
               '';

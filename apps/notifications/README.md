@@ -179,6 +179,9 @@ does not create Apple account resources or distribute a build automatically.
 7. Once merged and approved for release, manually run **Notification iOS** on main.
    It imports signing assets into a temporary keychain, archives both targets,
    exports and uploads the IPA, and removes signing material even on failure.
+   Before archiving, it validates the imported private-key identity against both
+   profiles and Apple's certificate chain. The public WWDR G3 intermediate is
+   bundled with the workflow; original runner keychains remain searchable.
    Assign the processed build to the internal TestFlight group in App Store Connect.
 
 TestFlight builds expire 90 days after upload. Native changes need a new build;
