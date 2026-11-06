@@ -136,6 +136,7 @@
           platform = import ./apps/microapps { pkgs = stablePkgs system; };
         in
         {
+          github-bot = import ./tools/github-bot.nix { pkgs = stablePkgs system; };
           approvals = platform.server;
           approvals-web = platform.frontend;
           nasa-approved-access = platform.access;
@@ -161,7 +162,7 @@
                   pkgs.findutils
                   pkgs.nixfmt
                   pkgs.nodejs
-                  pkgs.python3
+                  (pkgs.python3.withPackages (ps: [ ps.cryptography ]))
                   pkgs.ruff
                 ];
               }
@@ -175,6 +176,9 @@
                 ruff format --check hosts/nasa/services/updates-dashboard/*.py
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
                   hosts/nasa/services/updates-dashboard/test_dashboard.py
+                ruff check --select E4,E7,E9,F,I tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py
+                ruff format --check tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_deployment_plan.py tools/test_github_bot.py
                 node --check hosts/nasa/services/updates-dashboard/app.js
                 ruff check --select E4,E7,E9,F,I apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 ruff format --check apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py

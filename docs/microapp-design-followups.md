@@ -62,3 +62,17 @@ frontend assets match the tested build. Live Chromium checks also verified the
 dark header, phone layout, and scripts for each app without submitting actions.
 Installed-iPhone status-bar behavior still needs a physical-device check. Native
 notification actions remain deferred.
+
+## Next design pass (deferred until PR deployments are ready)
+
+- Add horizontal padding inside highlighted mobile request rows; the selection
+  background currently touches the text at both edges.
+- Show requests needing action by default. Put old requests behind an expandable
+  history section; keep active connection state discoverable.
+- Replace the Notifications menu entry with a main-screen setup helper that is
+  visible only when notification setup is incomplete.
+- Improve grouping and hierarchy on System updates, especially on mobile. Make
+  each section's filters, scan controls, status, and results read as one group.
+
+The owner prefers GitHub PRs as release notifications and an explicit deployment
+button, with concise summaries rather than an expectation of detailed code review.

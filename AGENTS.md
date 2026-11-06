@@ -40,3 +40,23 @@ host-key checking, or expose host/container control sockets as an access shortcu
 If a permitted legacy maintenance task has no forwarded agent available, finish
 independent work and request the missing connection. See `docs/nasa-access.md`
 for setup and examples.
+
+# Routine deployments
+
+Use the GitHub PR release workflow in `docs/deployments.md`. Prepare a branch,
+run checks, and open a concise PR through `nix run .#github-bot -- gh ...`.
+Use the same wrapper's `git` subcommand for pushes. Never fall back to the owner's
+GitHub credential or a forwarded SSH identity when bot authentication fails.
+
+The owner's merge is deployment approval. Do not merge, enable auto-merge, push
+to main, dispatch a production deployment, or change repository protections on
+an ordinary implementation request. Obtain explicit authorization for that
+specific release/action. PR descriptions should state behavior changes, target
+hosts, test results, and any expected interruption; do not assume detailed code
+review. Request the owner as reviewer for the release notification, but no
+separate formal review approval is required before their merge.
+
+SSH forwarding is reserved for explicitly authorized recovery or work that CI
+cannot perform. New bot credentials and owner-only protections are provisioned
+as part of the deployment-framework setup; normal bot operations cannot alter
+those protections.

@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      host:
+        description: Host to retry or reconcile (main only)
+        type: choice
+        options: [nasa, htpc, all]
+        default: nasa
+        required: true
 
 permissions:
   contents: read
@@ -12,8 +19,13 @@ permissions:
 jobs:
   nix:
     runs-on: ubuntu-latest
+    outputs:
+      hosts: ${{ steps.plan.outputs.hosts }}
+      has_changes: ${{ steps.plan.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: cachix/install-nix-action@v31
       - name: Evaluate every host
         run: nix flake check --no-build --all-systems
@@ -21,13 +33,25 @@ jobs:
         run: |
           nix eval --raw .#nixosConfigurations.nasa.config.system.build.toplevel.drvPath
           nix eval --raw .#nixosConfigurations.htpc.config.system.build.toplevel.drvPath
+      - name: Plan host deployments
+        id: plan
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          HEAD_REVISION: ${{ github.sha }}
+          FORCE_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.host || '' }}
+        run: |
+          args=(--base "$BASE_REVISION" --head "$HEAD_REVISION")
+          if [[ -n "$FORCE_HOST" ]]; then args+=(--force "$FORCE_HOST"); fi
+          python3 tools/deployment-plan.py "${args[@]}"
+      - name: Test deployment selection
+        run: python3 -m unittest discover -s tools -p test_deployment_plan.py
       - name: Run Linux repository checks
         run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.approval-ssh-gate
 
   deploy:
     name: Deploy ${{ matrix.host }}
     needs: nix
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.nix.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -36,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [nasa, htpc]
+        host: ${{ fromJSON(needs.nix.outputs.hosts) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -69,7 +93,7 @@ jobs:
           # use. Probe more than once so a momentary connection failure is not
           # mistaken for sleep.
           for attempt in {1..3}; do
-            if ssh -o BatchMode=yes -o ConnectTimeout=5 deploy@htpc true; then
+            if ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 deploy@htpc true; then
               echo "was_asleep=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -77,10 +101,10 @@ jobs:
           done
 
           echo "was_asleep=true" >> "$GITHUB_OUTPUT"
-          ssh -o BatchMode=yes -o ConnectTimeout=15 deploy@nasa wake-htpc
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 deploy@nasa wake-htpc
 
           for attempt in {1..30}; do
-            if ssh -o BatchMode=yes -o ConnectTimeout=5 deploy@htpc true; then
+            if ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 deploy@htpc true; then
               exit 0
             fi
             echo "Waiting for htpc to wake ($attempt/30)..."
@@ -103,13 +127,24 @@ jobs:
             build_limits=""
           fi
 
-          ssh -o BatchMode=yes -o ConnectTimeout=15 "deploy@$DEPLOY_HOST" \
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "deploy@$DEPLOY_HOST" \
             "sudo nixos-rebuild switch $build_limits --refresh --flake 'github:jmalexan/nix/$DEPLOY_REVISION#$DEPLOY_HOST'"
 
+      - name: Verify activation
+        env:
+          DEPLOY_HOST: ${{ matrix.host }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "deploy@$DEPLOY_HOST" \
+            'readlink -f /run/current-system; systemctl is-active sshd.service'
+          if [[ "$DEPLOY_HOST" == "nasa" ]]; then
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 deploy@nasa \
+              'systemctl is-active microapp-approvals.service updates-dashboard.service'
+          fi
+
       - name: Return deployment-woken HTPC to sleep
-        if: matrix.host == 'htpc' && steps.wake_htpc.outputs.was_asleep == 'true'
+        if: always() && matrix.host == 'htpc' && steps.wake_htpc.outputs.was_asleep == 'true'
         env:
           RESUSPEND_UNIT: github-deploy-resuspend-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          ssh -o BatchMode=yes -o ConnectTimeout=15 deploy@htpc \
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 deploy@htpc \
             "sudo systemd-run --unit='$RESUSPEND_UNIT' --on-active=15s --collect /run/current-system/sw/bin/systemctl suspend"
