@@ -3,9 +3,10 @@
 ## Environment
 
 - Login: `robot` on `robots`, via Rex or ordinary SSH (`ssh robot@robots`).
-- Development: `/home/robot/dev`; 2 vCPUs, 4 GiB RAM, persistent 64 GiB disk.
-- Memory: compressed swap buffers brief concurrent-agent/build spikes inside
-  the existing RAM allocation; sustained workloads still need to fit.
+- Development: `/home/robot/dev`; 2 vCPUs, 8 GiB guest RAM ceiling, persistent 64 GiB disk.
+- Memory: free-page reporting returns unused guest pages to NASA automatically;
+  the guest always sees 8 GiB, but host RAM is shared and not reserved. Compressed
+  swap (up to 2 GiB logical capacity) buffers brief concurrent-agent/build spikes.
 - Tools: Git, Nix/flakes, fish, direnv, tmux, Codex, Claude Code, bubblewrap,
   `github-bot`, and `nasa-approved-access`. Use a project's Nix development shell
   or `nix shell` for additional tools. The account has no sudo.
