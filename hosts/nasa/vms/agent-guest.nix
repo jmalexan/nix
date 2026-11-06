@@ -74,7 +74,6 @@ in
   services.timesyncd.enable = true;
   services.tailscale = {
     extraSetFlags = [
-      "--advertise-tags=tag:agent"
       "--accept-routes=false"
       "--accept-dns=false"
       "--ssh=false"
