@@ -77,6 +77,24 @@ li + li {
   font-size: 0.95rem;
   font-weight: 600;
 }
+.request > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notification-setup {
+  margin-bottom: 20px;
+}
+.notification-enable {
+  justify-content: flex-start;
+}
+.notification-help {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 0;
+  font-size: 0.88rem;
+}
 .request time {
   display: block;
   margin-top: 6px;
@@ -192,13 +210,16 @@ dd {
     align-items: start;
   }
   .request {
-    padding-inline: 0;
+    padding-inline: 16px;
   }
   .request.selected {
     box-shadow: none;
   }
   .reason {
     margin: 24px 0;
+  }
+  .notification-enable {
+    width: 100%;
   }
 }
 @media (prefers-reduced-motion: reduce) {

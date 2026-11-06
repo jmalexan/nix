@@ -189,7 +189,7 @@ function sectionHeader(title, extra = null, metadata = null) {
   return element("div", { className: "section-header" }, heading, extra);
 }
 
-function scanTime(label, report, target = null) {
+function scanTime(label, report) {
   const content = [
     element(
       "span",
@@ -198,7 +198,6 @@ function scanTime(label, report, target = null) {
       ` ${formatDate(report?.checkedAt)}`,
     ),
   ];
-  if (target) content.push(scanButton(target));
   return element("span", { className: "scan-time" }, content);
 }
 
@@ -220,37 +219,29 @@ function metric(label, value, kind) {
   );
 }
 
-function scanCard(report, title) {
-  if (!report) {
-    return element(
-      "article",
-      { className: "scan-card" },
-      element(
-        "div",
-        { className: "scan-card-top" },
-        element("h3", { text: title }),
-        chip("missing"),
-      ),
-      element("p", { text: "No completed scan" }),
-    );
-  }
+function scanSummary(report) {
   const counts = report.counts || {};
-  const updates = counts.update || 0;
-  const errors = counts.error || 0;
   return element(
-    "article",
-    { className: "scan-card" },
+    "div",
+    { className: "scan-summary" },
     element(
       "div",
-      { className: "scan-card-top" },
-      element("h3", { text: title }),
+      { className: "scan-result" },
       chip(report.status),
+      element("span", {
+        text: `${countLabel(counts.update || 0, "update")}, ${countLabel(counts.error || 0, "error")}`,
+      }),
     ),
-    element("p", { text: formatDate(report.checkedAt) }),
-    element("p", {
-      text: `${countLabel(updates, "update")}, ${countLabel(errors, "error")}`,
-    }),
+    report.inputsChanged === true ? pullRequestControl("nix", "nix") : null,
   );
+}
+
+function updateSection(label) {
+  const section = element("section", {
+    className: "update-section ui-panel stack",
+  });
+  section.setAttribute("aria-label", label);
+  return section;
 }
 
 function renderSummary() {
@@ -501,11 +492,11 @@ function renderContainers() {
     );
   }
 
-  const body = element("div", { className: "stack" });
+  const body = updateSection("Containers");
   body.append(
     sectionHeader(
       "Containers",
-      containerControls(allContainers),
+      scanButton("containers"),
       element(
         "div",
         { className: "scan-times" },
@@ -516,10 +507,10 @@ function renderContainers() {
               scanTime("Versions", reports().releases),
               scanTime("Digests", reports().digests),
             ]),
-        scanButton("containers"),
       ),
     ),
   );
+  body.append(renderSummary(), containerControls(allContainers));
   if (!containers.length) {
     body.append(
       emptyState(
@@ -594,25 +585,21 @@ function renderContainers() {
     );
   }
   table.append(tableBody);
-  body.append(
-    element("section", { className: "ui-panel panel table-scroll" }, table),
-  );
+  body.append(element("section", { className: "table-scroll" }, table));
   return body;
 }
 
 function renderNix() {
   const report = reports().nix;
-  const body = element("div", { className: "stack" });
+  const body = updateSection("Nix package forecast");
   body.append(
     sectionHeader(
       "Nix package forecast",
+      scanButton("nix", true),
       element(
         "div",
-        { className: "section-actions" },
-        scanButton("nix", true),
-        report?.inputsChanged === true
-          ? pullRequestControl("nix", "nix")
-          : null,
+        { className: "scan-times" },
+        scanTime("Last scan", report),
       ),
     ),
   );
@@ -620,13 +607,13 @@ function renderNix() {
     body.append(emptyState("No forecast yet"));
     return body;
   }
-  body.append(scanCard(report, "Latest Nix scan"));
+  body.append(scanSummary(report));
   if (report.error) body.append(emptyState("Forecast failed", report.error));
   for (const host of report.hosts || []) {
     body.append(
       element(
         "section",
-        { className: "ui-panel panel nix-host" },
+        { className: "nix-host" },
         element(
           "header",
           {},
@@ -642,15 +629,15 @@ function renderNix() {
 
 function renderActions() {
   const report = reports().actions;
-  const body = element("div", { className: "stack" });
+  const body = updateSection("GitHub Actions");
   body.append(
     sectionHeader(
       "GitHub Actions",
-      null,
+      scanButton("actions"),
       element(
         "div",
         { className: "scan-times" },
-        scanTime("Last scan", report, "actions"),
+        scanTime("Last scan", report),
       ),
     ),
   );
@@ -729,24 +716,22 @@ function renderActions() {
     );
   }
   table.append(tableBody);
-  body.append(
-    element("section", { className: "ui-panel panel table-scroll" }, table),
-  );
+  body.append(element("section", { className: "table-scroll" }, table));
   return body;
 }
 
 function renderHistory() {
   const body = element(
     "details",
-    { className: "history-disclosure" },
+    { className: "history-disclosure ui-disclosure" },
     element(
       "summary",
-      { className: "history-summary" },
-      element(
-        "span",
-        { className: "history-summary-copy" },
-        element("span", { className: "history-title", text: "Scan history" }),
-      ),
+      { className: "ui-disclosure-summary" },
+      element("span", { text: "Scan history" }),
+      element("span", {
+        className: "ui-count",
+        text: String(dashboard.history?.length || 0),
+      }),
     ),
   );
   if (!dashboard.history?.length) {
@@ -786,9 +771,7 @@ function renderHistory() {
     );
   }
   table.append(tableBody);
-  body.append(
-    element("section", { className: "ui-panel panel table-scroll" }, table),
-  );
+  body.append(element("section", { className: "table-scroll" }, table));
   return body;
 }
 
@@ -799,7 +782,6 @@ function render() {
   const page = element(
     "div",
     { className: "page-stack" },
-    renderSummary(),
     renderContainers(),
     renderNix(),
     renderActions(),
