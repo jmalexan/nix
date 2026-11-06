@@ -41,6 +41,8 @@ jobs:
         run: |
           swiftc Shared/Protocol.swift Tests/ProtocolTests.swift -o "$RUNNER_TEMP/protocol-tests"
           "$RUNNER_TEMP/protocol-tests"
+      - name: Test signing validation
+        run: python3 -m unittest discover -s apps/notifications/ios/Tests -p 'test_*.py'
 
   testflight:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
@@ -80,7 +82,7 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" BRIDGE_BUNDLE_ID="$BRIDGE_BUNDLE_ID" \
             BRIDGE_PROFILE_NAME="$BRIDGE_PROFILE_NAME" SERVICE_PROFILE_NAME="$SERVICE_PROFILE_NAME" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
-            CODE_SIGN_IDENTITY='Apple Distribution' \
+            CODE_SIGN_IDENTITY="$BRIDGE_SIGNING_IDENTITY" \
             OTHER_CODE_SIGN_FLAGS="--keychain $BRIDGE_KEYCHAIN" archive
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/NotificationBridge.xcarchive" \
             -exportPath "$RUNNER_TEMP/bridge-export" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
