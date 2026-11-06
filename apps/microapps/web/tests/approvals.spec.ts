@@ -24,9 +24,7 @@ test("passkey enrollment, remembered login, mobile resize, and one execution", a
   await page.getByRole("button", { name: "Create passkey" }).click();
   await expect(page.getByRole("status")).toContainText("Passkey created");
   await page.getByRole("button", { name: "Sign in with passkey" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Requests", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   const response = await request.post("/api/requests", {
     headers: { Authorization: "Bearer " + "r".repeat(32) },
     data: {
@@ -78,9 +76,7 @@ test("passkey enrollment, remembered login, mobile resize, and one execution", a
     ).status(),
   ).toBe(409);
   await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Requests", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   const { publicKey } = generateKeyPairSync("ed25519");
   const jwk = publicKey.export({ format: "jwk" });
   const keyBytes = Buffer.from(jwk.x!, "base64url");
@@ -105,10 +101,30 @@ test("passkey enrollment, remembered login, mobile resize, and one execution", a
   await expect(
     page.getByRole("heading", { name: "NASA connection" }),
   ).toBeVisible();
+  await expect(page.getByText("1 connection · 15 min")).toBeVisible();
   await expect(
-    page.getByText(/One connection to NASA for up to 15 minutes/),
+    page.getByText("nasa-automation", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("nasa-automation — no sudo")).toBeVisible();
+  await expect(page.getByText("Read-only · No sudo")).toBeVisible();
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(page.locator("app-toolbar")).toHaveCSS(
+      "background-color",
+      colorScheme === "dark" ? "rgb(16, 30, 48)" : "rgb(245, 247, 250)",
+    );
+    const approve = page.getByRole("button", { name: "Approve", exact: true });
+    expect((await approve.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.screenshot({ path: `/tmp/approvals-phone-${colorScheme}.png` });
+  }
+  await page.getByRole("button", { name: "Requests", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /NASA connection/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /NASA connection/ }).click();
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.screenshot({ path: "/tmp/approvals-desktop-dark.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -122,13 +138,14 @@ test("passkey enrollment, remembered login, mobile resize, and one execution", a
     headers: { Authorization: "Bearer " + "g".repeat(32) },
   });
   expect(claimed.status()).toBe(200);
-  await expect(page.getByText("Connection ends by")).toBeVisible({
+  await expect(page.getByText(/Ends by/)).toBeVisible({
     timeout: 10000,
   });
   await page.screenshot({
     path: "/tmp/microapps-connection.png",
     fullPage: true,
   });
+  await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
     page.getByRole("button", { name: "Sign in with passkey" }),

@@ -1,0 +1,84 @@
+:host(app-toolbar) {
+  display: block;
+  flex-shrink: 0;
+  background: var(--app-background);
+  color: var(--app-text);
+}
+.toolbar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: var(--app-width);
+  min-height: 76px;
+  margin: auto;
+  padding: calc(12px + env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px)) 12px
+    max(20px, env(safe-area-inset-left, 0px));
+}
+.toolbar h1 {
+  margin: 0;
+  font: 650 1.5rem/1.2 var(--app-font);
+  letter-spacing: -0.035em;
+}
+.toolbar .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:host(app-status) {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font: 550 0.78rem/1.4 var(--app-font);
+  color: var(--status-color, var(--app-muted));
+}
+.status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+:host(app-icon) {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+svg {
+  width: 100%;
+  height: 100%;
+}
+:host(app-empty) {
+  display: block;
+  padding: 32px 20px;
+  color: var(--app-muted);
+  font: 0.9rem/1.5 var(--app-font);
+  text-align: center;
+}
+
+.status.accent {
+  color: var(--app-accent);
+}
+.status.success {
+  color: var(--app-success);
+}
+.status.warning {
+  color: var(--app-warning);
+}
+.status.danger {
+  color: var(--app-danger);
+}
+.status.muted {
+  color: var(--app-muted);
+}

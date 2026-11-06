@@ -5,7 +5,10 @@ sessions, a request-only API, atomic single-use decisions, a harmless verificati
 worker, and a Web Push outbox. An optional, separately deployed
 [connection gate](../../docs/approval-ssh-gate.md) adds phone-approved SSH to a
 dedicated account without sudo. It is enabled and verified on NASA.
-The approval UI is the first consumer; System updates adopts shared theme tokens.
+Approvals and System updates share theme tokens, headers, buttons, status
+indicators, and empty states. Keep copy brief: omit subtitles and explanations
+when the interface already communicates the purpose. See the
+[design follow-ups](../../docs/microapp-design-followups.md).
 
 ## Development
 
@@ -74,7 +77,8 @@ Browser tests run separately with Chromium. Keep package-lock.json and
 - `backend/microapps/store.py`: transactional approval/auth/outbox storage.
 - `backend/microapps/api.py`: the approval app and initial passkey integration.
 - `backend/microapps/notify.py`: reusable serialized outbox delivery pattern.
-- `web/src/shared/tokens.css`: common presentation tokens, also used by updates.
+- `web/src/shared/`: tokens, framework-neutral Web Components, native control
+  styles, and thin React wrappers. System updates packages the same JS and CSS.
 - `modules/microapps.nix`: per-app identity, credentials, state, and sandboxing.
 
 New apps get separate service declarations, origins, and databases. Start with
@@ -123,7 +127,7 @@ For push, provision a VAPID private PEM key at
 `/var/lib/microapp-secrets/approvals/vapid.pem`, with the same file protections.
 Set `services.approvals.vapidPublicKey` to the corresponding URL-safe base64
 uncompressed P-256 public key. This enables the serialized notification timer.
-The browser's **Enable notifications** action registers its own subscription.
+The browser's **Settings → Notifications** action registers its own subscription.
 On iPhone, first install the app on the Home Screen. The NAS requires outbound
 HTTPS to the push provider. Opening a request still needs LAN or Tailscale access.
 

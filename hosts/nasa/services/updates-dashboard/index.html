@@ -1,32 +1,47 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#f5f7fa"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#101e30"
+    />
+    <meta name="color-scheme" content="light dark" />
     <title>System updates</title>
-    <link rel="stylesheet" href="/styles.css">
-    <script src="/app.js" defer></script>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
   </head>
   <body>
-    <header class="site-header">
-      <div>
-        <h1>System updates</h1>
-        <p class="subtitle">nasa</p>
-      </div>
-    </header>
+    <app-toolbar heading="System updates"></app-toolbar>
 
     <main id="content" aria-live="polite">
-      <section class="empty-state"><p>Loading update reports…</p></section>
+      <app-empty>Loading…</app-empty>
     </main>
 
-    <dialog id="nix-scan-confirm">
+    <dialog class="ui-panel" id="nix-scan-confirm">
       <form method="dialog">
         <h2>Run the Nix scan?</h2>
         <p>This builds both host closures and may take a while.</p>
         <div class="dialog-actions">
-          <button value="cancel" type="submit">Cancel</button>
-          <button id="confirm-nix-scan" value="confirm" type="submit">Run scan</button>
+          <button class="ui-button" value="cancel" type="submit">Cancel</button>
+          <button
+            class="ui-button ui-button--primary"
+            id="confirm-nix-scan"
+            value="confirm"
+            type="submit"
+          >
+            Run scan
+          </button>
         </div>
       </form>
     </dialog>

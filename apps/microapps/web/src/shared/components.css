@@ -1,0 +1,101 @@
+/* Shared native controls and surfaces. Keep app-specific layout in each app. */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid var(--app-line);
+  border-radius: 10px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: 550 0.88rem/1.2 var(--app-font);
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ui-button:hover {
+  background: color-mix(in srgb, var(--app-accent) 8%, var(--app-surface));
+}
+.ui-button--primary {
+  background: var(--app-accent);
+  border-color: transparent;
+  color: var(--app-on-accent);
+}
+.ui-button--primary:hover {
+  background: color-mix(in srgb, var(--app-accent) 90%, var(--app-text));
+}
+.ui-button--quiet,
+.ui-button--icon {
+  background: transparent;
+  border-color: transparent;
+}
+.ui-button--icon {
+  width: 44px;
+  padding: 10px;
+}
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+:is(.ui-button, .ui-input, .ui-menu summary):focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+.ui-panel {
+  border: 1px solid var(--app-line);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+.ui-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+  border: 1px solid var(--app-line);
+  border-radius: 10px;
+  background: var(--app-background);
+  color: var(--app-text);
+  font: inherit;
+}
+.ui-message {
+  padding: 12px 16px;
+  border-left: 3px solid var(--app-accent);
+  font-size: 0.88rem;
+  color: var(--app-text);
+  background: var(--app-surface);
+}
+.ui-message[role="alert"] {
+  border-color: var(--app-danger);
+}
+.ui-menu {
+  position: relative;
+}
+.ui-menu summary {
+  list-style: none;
+}
+.ui-menu summary::-webkit-details-marker {
+  display: none;
+}
+.ui-menu[open] summary {
+  background: var(--app-surface);
+}
+.ui-menu-items {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 200px;
+  padding: 6px;
+  box-shadow: 0 12px 30px #0002;
+}
+.ui-menu-items .ui-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-button {
+    transition: none;
+  }
+}

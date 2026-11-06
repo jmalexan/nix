@@ -244,6 +244,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/": "index.html",
             "/index.html": "index.html",
             "/app.js": "app.js",
+            "/components.js": "components.js",
+            "/component-shadow.css": "component-shadow.css",
             "/styles.css": "styles.css",
         }
         if path.startswith("/pipeline/reports/"):
