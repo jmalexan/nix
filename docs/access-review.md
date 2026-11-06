@@ -1,9 +1,15 @@
 # Remaining NASA access paths
 
-GitHub deployment work has resumed in [PR releases](deployments.md). PR/check
-requirements, owner-only merges, and the production main-branch restriction are
-now active. The bot credential cutover is pending. The observations below record
-the earlier audit; the broader LAN, Tailscale, and Rex restrictions remain deferred.
+The audit and original proposal below are historical. The current design is
+[separate personal and agent environments](agent-vm.md): keep `home` personal,
+create `robots` with `tag:agent`, and move automation there. **Do not retag `home`
+or remove its personal credentials using the superseded proposal below.**
+
+GitHub PR/check requirements, owner-only merges, and the production main-branch
+restriction are active. The scoped bot is configured; release workflow and
+VM rollout are combined in PR #57, awaiting the owner's merge. The owner reported applying the replacement
+[Tailscale policy](tailscale-agent-policy.json), including its tests. Physical
+VM/network isolation is prepared in this branch, not yet deployed.
 
 Reviewed on 2026-11-06 after deploying the phone-approved connection gate.
 This is a proposed rollout, not a claim that the restrictions below are active.

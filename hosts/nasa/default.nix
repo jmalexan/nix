@@ -14,6 +14,7 @@ in
     ./hardware-configuration.nix
     ./permissions.nix
     ./containers/home.nix
+    ./vms/agent.nix
     ./services
   ];
 

@@ -46,7 +46,7 @@ jobs:
       - name: Test deployment selection
         run: python3 -m unittest discover -s tools -p test_deployment_plan.py
       - name: Run Linux repository checks
-        run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.approval-ssh-gate
+        run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.approval-ssh-gate .#checks.x86_64-linux.agent-network .#checks.x86_64-linux.agent-guest
 
   deploy:
     name: Deploy ${{ matrix.host }}
@@ -138,7 +138,7 @@ jobs:
             'readlink -f /run/current-system; systemctl is-active sshd.service'
           if [[ "$DEPLOY_HOST" == "nasa" ]]; then
             ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 deploy@nasa \
-              'systemctl is-active microapp-approvals.service updates-dashboard.service'
+              'set -e; for unit in microapp-approvals.service updates-dashboard.service agent-boundary.service microvm@robots.service; do systemctl is-active "$unit"; done; sudo robots-health'
           fi
 
       - name: Return deployment-woken HTPC to sleep

@@ -1,0 +1,17 @@
+{
+  "tagOwners": {
+    "tag:ci": [],
+    "tag:agent": ["autogroup:admin"]
+  },
+  "grants": [
+    {"src": ["autogroup:member", "tag:ci"], "dst": ["*"], "ip": ["*"]}
+  ],
+  "ssh": [
+    {"action": "check", "src": ["autogroup:member"], "dst": ["autogroup:self"], "users": ["autogroup:nonroot", "root"]}
+  ],
+  "tests": [
+    {"src": "me@jmalexan.com", "accept": ["tag:agent:22", "tag:agent:7297", "100.115.119.21:22", "100.77.194.62:7297"]},
+    {"src": "tag:ci", "accept": ["100.115.119.21:22", "100.116.173.35:22"]},
+    {"src": "tag:agent", "deny": ["100.115.119.21:22", "100.115.119.21:7297", "100.77.194.62:22", "100.77.194.62:7297", "100.70.106.119:22", "100.116.173.35:22", "10.0.1.10:22", "10.0.1.11:22", "[fd7a:115c:a1e0::cd3a:7715]:22"]}
+  ]
+}

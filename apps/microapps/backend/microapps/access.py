@@ -110,7 +110,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reason", required=True)
     parser.add_argument(
-        "--credential", type=Path, default=Path(".local/approvals/requester")
+        "--credential",
+        type=Path,
+        default=Path(
+            os.environ.get("NASA_APPROVAL_REQUESTER_FILE", ".local/approvals/requester")
+        ),
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER)

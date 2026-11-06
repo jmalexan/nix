@@ -22,6 +22,8 @@ let
   ];
 in
 {
+  "secrets/agent-tailscale.age".publicKeys = allKeys;
+  "secrets/agent-github.age".publicKeys = allKeys;
   "secrets/cloudflare-token.age".publicKeys = allKeys;
   # Legacy ACME environment file. It is not deployed anymore, but remains in
   # the managed inventory until its contents are compared with cloudflare-token

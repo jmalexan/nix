@@ -71,9 +71,10 @@ The helper validates the installation and permissions before storing the key in
 `~/.local/share/nasa-github-app/private-key.pem` (0600, parent 0700). It refuses to
 replace an existing identity. This is a GitHub App signing key, not a NAS SSH key.
 Remove the transferred temporary copy after configuration. Never put the key in
-the repository, an issue, a PR, or chat. After validating the bot, remove the old
-owner gh login from the container and verify no owner credential remains as an
-alternate Git authentication path. The owner's personal device login is separate.
+the repository, an issue, a PR, or chat. The existing `home` environment remains
+personal and keeps its owner credentials. Agent execution moves to the separate
+[agent VM](agent-vm.md), which receives only the scoped bot identity. Do not delete
+or revoke personal credentials as part of that migration.
 
 ## Repository protections
 
@@ -101,14 +102,18 @@ References: [GitHub rulesets](https://docs.github.com/en/repositories/configurin
 
 The `main` ruleset (`20579942`) and owner-merge ruleset (`26669022`) are active.
 The production environment now allows only the `main` branch (policy `65695987`);
-its four existing deployment secrets were preserved. Bot App registration and
-credential cutover are still pending. The workflow changes are on the
-`pr-deployments` branch and are not active on main yet.
+its four existing deployment secrets were preserved. GitHub App `5637230`,
+installation `179132993`, is configured and restricted to `jmalexan/nix`. Bot
+authentication, branch push, and PR creation were verified. The workflow changes
+are in [PR #57](https://github.com/jmalexan/nix/pull/57), awaiting owner merge;
+the original framework check passed. The PR now also includes the separate
+`robots` VM; updated checks must pass before the owner merges.
 
-The local SSH key also matches owner GitHub key ID `148267959`. Along with the
-owner gh login, it must be retired from this container before claiming that local
-automation has only the bot's restricted identity. It does not match the tracked
-NAS authorized keys; no SSH connection was attempted during this audit.
+The local SSH key matches owner GitHub key ID `148267959`. It and the owner gh
+login remain in personal `home`, and must not be copied to the agent VM. Sessions
+still running in `home` remain in the personal trust boundary until moved. The
+key does not match tracked NAS authorized keys; no SSH connection was attempted
+during this audit.
 
 Validation of the prepared framework passed: all-system flake evaluation, packaged
 lint/backend/frontend/SSH-gate checks, workflow syntax, and nine deployment-plan

@@ -158,7 +158,10 @@ def main():
                     "-m",
                     "microapps.access",
                     "--credential",
-                    str(ROOT / ".local/approvals/requester"),
+                    os.environ.get(
+                        "NASA_APPROVAL_REQUESTER_FILE",
+                        str(ROOT / ".local/approvals/requester"),
+                    ),
                     "--reason",
                     args.reason,
                     "--",
