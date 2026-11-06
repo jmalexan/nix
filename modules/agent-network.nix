@@ -97,6 +97,8 @@ in
         # Deliberately keep rules installed on stop/failure. Reload is atomic.
       };
     };
+    # DHCP on this point-to-point link must not replace its fixed address.
+    networking.dhcpcd.denyInterfaces = [ cfg.interface ];
     networking.nat = {
       enable = true;
       externalInterface = cfg.uplink;

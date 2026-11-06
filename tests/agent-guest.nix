@@ -61,10 +61,16 @@ let
             pkgs.nix
             pkgs.util-linux
             pkgs.coreutils
+            pkgs.diffutils
             pkgs.openssh
           ];
           script = ''
             set -x
+            cmp /home/robot/.codex/AGENTS.md /etc/robot/AGENTS.md
+            cmp /home/robot/.claude/CLAUDE.md /etc/robot/AGENTS.md
+            test -s /etc/robot/systems.md
+            test -s /etc/robot/repositories.json
+            test -d /home/robot/dev
             test "$(cat "$CREDENTIALS_DIRECTORY/agent-tailscale")" = test-only-tailscale-key
             test "$(cat /home/robot/.local/share/nasa-github-app/private-key.pem)" = test-only-github-key
             test "$(stat -c '%a:%U' /home/robot/.local/share/nasa-github-app/private-key.pem)" = 600:robot

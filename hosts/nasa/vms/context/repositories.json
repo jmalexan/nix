@@ -1,0 +1,21 @@
+{
+  "workspace": "/home/robot/dev",
+  "defaults": {
+    "delivery": "follow-user-request",
+    "create_pull_request_automatically": false,
+    "authenticated_access": "not-provisioned"
+  },
+  "repositories": {
+    "github.com/jmalexan/nix": {
+      "clone_url": "https://github.com/jmalexan/nix.git",
+      "read_access": "public-https",
+      "write_access": "github-bot",
+      "default_delivery": "pull-request",
+      "deployment_approval": "owner-merge",
+      "instructions": ["AGENTS.md", "docs/deployments.md", "docs/agent-vm.md"]
+    }
+  },
+  "planned_access_methods": {
+    "private-collaborator-repository": "trusted-git-broker-not-yet-implemented"
+  }
+}

@@ -88,6 +88,10 @@ in
     ];
   };
   systemd.services.tailscaled-autoconnect.serviceConfig.ImportCredential = "agent-tailscale";
+  systemd.services.rex-tailscale-serve = lib.mkIf config.services.rex.loginServer.enable {
+    requires = [ "tailscaled-autoconnect.service" ];
+    after = [ "tailscaled-autoconnect.service" ];
+  };
   services.openssh = {
     enable = true;
     openFirewall = false;
@@ -116,13 +120,27 @@ in
   environment.systemPackages = [
     (import ../../../tools/github-bot.nix { inherit pkgs; })
     (import ../../../apps/microapps { inherit pkgs; }).access
+    (pkgs.writeShellScriptBin "robot-guide" ''
+      exec ${pkgs.coreutils}/bin/cat /etc/robot/systems.md
+    '')
   ];
   environment.variables.NASA_APPROVAL_REQUESTER_FILE = "/home/robot/.local/share/nasa-access/requester";
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
     extraSpecialArgs.vars = agentVars;
-    users.robot = import ../../../home/linux.nix;
+    users.robot = {
+      imports = [ ../../../home/linux.nix ];
+      home.file.".codex/AGENTS.md".source = ./context/AGENTS.md;
+      home.file.".claude/CLAUDE.md".source = ./context/AGENTS.md;
+      home.file."dev/README.md".text =
+        "# Workspace\n\nRun `robot-guide` for tools, systems, and repository access.\n";
+    };
+  };
+  environment.etc = {
+    "robot/AGENTS.md".source = ./context/AGENTS.md;
+    "robot/systems.md".source = ./context/systems.md;
+    "robot/repositories.json".source = ./context/repositories.json;
   };
   systemd.services.agent-github-identity = {
     description = "Install the repository-scoped GitHub App identity";
@@ -134,6 +152,10 @@ in
     after = [ "systemd-user-sessions.service" ];
     serviceConfig = {
       Type = "oneshot";
+      # Write only as the recipient user: user-controlled home paths must
+      # never become a privileged file-write path on subsequent boots.
+      User = "robot";
+      Group = "users";
       ImportCredential = [
         "agent-github"
         "agent-requester"
@@ -142,12 +164,11 @@ in
       UMask = "0077";
     };
     script = ''
-      install -d -m 0700 -o robot -g users /home/robot/.local/share/nasa-access
-      install -m 0600 -o robot -g users "$CREDENTIALS_DIRECTORY/agent-requester" /home/robot/.local/share/nasa-access/requester
-      install -d -m 0700 -o robot -g users /home/robot/.local/share/nasa-github-app
-      install -m 0600 -o robot -g users "$CREDENTIALS_DIRECTORY/agent-github" /home/robot/.local/share/nasa-github-app/private-key.pem
+      install -d -m 0700 /home/robot/.local/share/nasa-access
+      install -m 0600 "$CREDENTIALS_DIRECTORY/agent-requester" /home/robot/.local/share/nasa-access/requester
+      install -d -m 0700 /home/robot/.local/share/nasa-github-app
+      install -m 0600 "$CREDENTIALS_DIRECTORY/agent-github" /home/robot/.local/share/nasa-github-app/private-key.pem
       printf '%s\n' '{"app_id":"5637230"}' > /home/robot/.local/share/nasa-github-app/config.json
-      chown robot:users /home/robot/.local/share/nasa-github-app/config.json
     '';
   };
   systemd.services.agent-ready = {

@@ -36,6 +36,28 @@ must receive only deliberately scoped app tokens. Do not treat access to an
 unauthenticated app as read-only. Code brought back to the personal environment
 also needs normal trust/review before it runs with personal credentials.
 
+## Preloaded context
+
+`robot-guide` explains available tools, systems, access paths, and limitations.
+The source files are in `hosts/nasa/vms/context/`, deployed under `/etc/robot/`.
+Home Manager installs the shared instructions as `~/.codex/AGENTS.md` and
+`~/.claude/CLAUDE.md`, so new CLI sessions load them automatically. No personal
+configuration or credentials are copied. `/home/robot/dev` is the project workspace.
+
+The repository catalog distinguishes access from delivery: `jmalexan/nix` uses
+the scoped bot and owner-merged PR releases; ordinary projects follow the user's
+request, including branch-only work. Public cloning works now. Other private
+repos or push targets need deliberately provisioned access. A trusted Git broker
+for private repos owned by another person is planned, not implemented here; it
+would retain the user's credential outside the VM and perform allowlisted Git
+operations itself. Do not fall back to forwarding the owner's agent or handing
+the VM a broad token. GitHub currently does not support fine-grained PATs for
+outside/repository collaborators.
+
+References: [Codex global instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md),
+[Claude Code memory](https://code.claude.com/docs/en/memory),
+[GitHub token limitations](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#fine-grained-personal-access-tokens-limitations).
+
 ## Credentials and release
 
 The supplied one-use tagged Tailscale auth key and the repository-scoped GitHub

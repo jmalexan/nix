@@ -8,7 +8,6 @@ pkgs.testers.runNixOSTest {
     virtualisation.cores = 2;
     virtualisation.qemu.package = lib.mkForce pkgs.qemu;
     networking.dhcpcd.denyInterfaces = [
-      "agenttap0"
       "uplink0"
     ];
     services.agentNetwork = {
