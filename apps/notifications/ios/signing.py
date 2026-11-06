@@ -9,25 +9,148 @@ import re
 import secrets
 import shlex
 import shutil
+import ssl
 import subprocess
 import sys
 from pathlib import Path
 
 
-def signing_identity(profiles, identities, valid_identities):
-    """Select a usable private-key identity authorized by every target profile."""
-    authorized = [
-        {
-            hashlib.sha1(certificate).hexdigest().upper()
-            for certificate in profile["DeveloperCertificates"]
-        }
-        for profile in profiles
+class SigningError(RuntimeError):
+    pass
+
+
+def security(stage, *arguments, binary=False, allow_codes=(0,)):
+    """Report the failed stage without logging argv, passwords, or keychain dumps."""
+    print("Signing: " + stage, flush=True)
+    try:
+        result = subprocess.run(
+            ["security", *arguments], capture_output=True, timeout=30
+        )
+    except subprocess.TimeoutExpired:
+        raise SigningError(
+            stage + " timed out waiting for macOS keychain services."
+        ) from None
+    except OSError:
+        raise SigningError(
+            stage + " could not start macOS keychain services."
+        ) from None
+    if result.returncode not in allow_codes:
+        reason = ""
+        error = result.stderr.decode(errors="replace").lower()
+        for marker, explanation in [
+            ("mac verification failed", "The P12 password could not be verified."),
+            ("unknown format", "The imported file format was not recognized."),
+            ("already exists", "The keychain already contains this item."),
+            (
+                "user interaction is not allowed",
+                "The keychain requires interactive authorization.",
+            ),
+            (
+                "specified item could not be found",
+                "No usable signing key was imported. Re-export the distribution certificate together with its private key."
+                if stage == "Authorize signing tools"
+                else "The requested keychain item was not found.",
+            ),
+        ]:
+            if marker in error:
+                reason = " " + explanation
+                break
+        raise SigningError(f"{stage} failed (exit {result.returncode}).{reason}")
+    return result.stdout if binary else result.stdout.decode(errors="replace")
+
+
+def ensure_certificate(keychain, certificate, label):
+    existing = security(
+        "Inspect certificates for " + label,
+        "find-certificate",
+        "-a",
+        "-p",
+        str(keychain),
+        allow_codes=(0, 44),
+    )
+    installed = [
+        ssl.PEM_cert_to_DER_cert(pem)
+        for pem in re.findall(
+            r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+            existing,
+            re.DOTALL,
+        )
     ]
+    if certificate.read_bytes() in installed:
+        print("Signing: " + label + " is already installed", flush=True)
+        return
+    security("Import " + label, "import", str(certificate), "-k", str(keychain))
+
+
+def ensure_intermediate(keychain):
+    ensure_certificate(
+        keychain,
+        Path(__file__).parent / "certificates/AppleWWDRCAG3.cer",
+        "Apple WWDR G3",
+    )
+
+
+def configure_keychain(keychain, certificate, p12_password, keychain_password):
+    existing = security("Read keychain search list", "list-keychains", "-d", "user")
+    security(
+        "Set keychain timeout", "set-keychain-settings", "-lut", "21600", str(keychain)
+    )
+    security(
+        "Unlock signing keychain",
+        "unlock-keychain",
+        "-p",
+        keychain_password,
+        str(keychain),
+    )
+    security(
+        "Import signing identity",
+        "import",
+        str(certificate),
+        "-P",
+        p12_password,
+        "-f",
+        "pkcs12",
+        "-k",
+        str(keychain),
+        "-T",
+        "/usr/bin/codesign",
+    )
+    security(
+        "Authorize signing tools",
+        "set-key-partition-list",
+        "-S",
+        "apple-tool:,apple:,codesign:",
+        "-k",
+        keychain_password,
+        str(keychain),
+    )
+    ensure_intermediate(keychain)
+    security(
+        "Extend keychain search list",
+        "list-keychains",
+        "-d",
+        "user",
+        "-s",
+        *keychain_search_list(keychain, existing),
+    )
+
+
+def common_certificates(profiles):
+    authorized = [set(profile["DeveloperCertificates"]) for profile in profiles]
     common = set.intersection(*authorized)
     if not common:
         raise ValueError(
             "The app and extension profiles authorize different distribution certificates"
         )
+    return common
+
+
+def signing_identity(profiles, identities, valid_identities):
+    """Select a usable private-key identity authorized by every target profile."""
+    common = {
+        hashlib.sha1(certificate).hexdigest().upper()
+        for certificate in common_certificates(profiles)
+    }
 
     def fingerprints(output):
         return set(
@@ -96,7 +219,7 @@ def main():
         raw = root / (variable + ".mobileprovision")
         record(raw, decode(secret))
         profile = plistlib.loads(
-            subprocess.check_output(["security", "cms", "-D", "-i", str(raw)])
+            security("Read " + variable, "cms", "-D", "-i", str(raw), binary=True)
         )
         if (
             profile["TeamIdentifier"] != [team]
@@ -123,69 +246,36 @@ def main():
     certificate = root / "distribution.p12"
     record(certificate, decode("DISTRIBUTION_P12_BASE64"))
     keychain = root / "signing.keychain-db"
-    existing_keychains = subprocess.check_output(
-        ["security", "list-keychains", "-d", "user"], text=True
-    )
     password = secrets.token_urlsafe(32)
-    subprocess.run(
-        ["security", "create-keychain", "-p", password, str(keychain)], check=True
+    security(
+        "Create signing keychain", "create-keychain", "-p", password, str(keychain)
     )
     with open(os.environ["GITHUB_ENV"], "a") as output:
         output.write("BRIDGE_KEYCHAIN=" + str(keychain) + "\n")
         for name, value in names.items():
             output.write(name + "=" + value + "\n")
-    for command in [
-        ["security", "set-keychain-settings", "-lut", "21600", str(keychain)],
-        ["security", "unlock-keychain", "-p", password, str(keychain)],
-        [
-            "security",
-            "import",
-            str(certificate),
-            "-P",
-            os.environ["DISTRIBUTION_P12_PASSWORD"],
-            "-f",
-            "pkcs12",
-            "-k",
-            str(keychain),
-            "-T",
-            "/usr/bin/codesign",
-        ],
-        [
-            "security",
-            "set-key-partition-list",
-            "-S",
-            "apple-tool:,apple:,codesign:",
-            "-k",
-            password,
-            str(keychain),
-        ],
-        [
-            "security",
-            "import",
-            str(Path(__file__).parent / "certificates/AppleWWDRCAG3.cer"),
-            "-k",
-            str(keychain),
-        ],
-        [
-            "security",
-            "list-keychains",
-            "-d",
-            "user",
-            "-s",
-            *keychain_search_list(keychain, existing_keychains),
-        ],
-    ]:
-        subprocess.run(
-            command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+    configure_keychain(
+        keychain,
+        certificate,
+        os.environ["DISTRIBUTION_P12_PASSWORD"],
+        password,
+    )
     identity = signing_identity(
         profile_data,
-        subprocess.check_output(
-            ["security", "find-identity", "-p", "codesigning", str(keychain)], text=True
+        security(
+            "Find imported private-key identities",
+            "find-identity",
+            "-p",
+            "codesigning",
+            str(keychain),
         ),
-        subprocess.check_output(
-            ["security", "find-identity", "-v", "-p", "codesigning", str(keychain)],
-            text=True,
+        security(
+            "Validate signing trust",
+            "find-identity",
+            "-v",
+            "-p",
+            "codesigning",
+            str(keychain),
         ),
     )
     with open(os.environ["GITHUB_ENV"], "a") as output:
@@ -217,8 +307,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except subprocess.CalledProcessError:
-        # CalledProcessError includes argv, which can contain signing passwords.
-        raise SystemExit(
-            "Apple signing setup failed; check the configured signing assets."
-        ) from None
+    except (SigningError, ValueError) as error:
+        raise SystemExit(str(error)) from None

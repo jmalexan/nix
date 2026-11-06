@@ -3,6 +3,8 @@ import hashlib
 import importlib.util
 import os
 import plistlib
+import ssl
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -84,6 +86,60 @@ class SigningTests(unittest.TestCase):
             "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
         )
 
+    def test_existing_intermediate_is_not_imported_twice(self):
+        certificate = script.parent / "certificates/AppleWWDRCAG3.cer"
+        pem = ssl.DER_cert_to_PEM_cert(certificate.read_bytes())
+        with patch.object(signing, "security", return_value=pem) as command:
+            signing.ensure_intermediate("test.keychain")
+        self.assertEqual(command.call_count, 1)
+        self.assertEqual(command.call_args.args[1], "find-certificate")
+
+    def test_new_intermediate_is_imported_when_missing(self):
+        with patch.object(signing, "security", return_value="") as command:
+            signing.ensure_intermediate("test.keychain")
+        self.assertEqual(command.call_count, 2)
+        self.assertEqual(command.call_args.args[1], "import")
+
+    def test_failed_command_reports_stage_without_password_or_raw_stderr(self):
+        result = subprocess.CompletedProcess(
+            [],
+            1,
+            b"",
+            b"MAC verification failed password=never-log-this private-key=never-log-key",
+        )
+        with (
+            patch.object(signing.subprocess, "run", return_value=result),
+            patch("builtins.print") as printed,
+        ):
+            with self.assertRaises(signing.SigningError) as error:
+                signing.security(
+                    "Import signing identity",
+                    "import",
+                    "file.p12",
+                    "-P",
+                    "never-log-this",
+                )
+        report = str(error.exception) + str(printed.call_args_list)
+        self.assertIn("Import signing identity failed (exit 1)", report)
+        self.assertIn("P12 password could not be verified", report)
+        self.assertNotIn("never-log-this", report)
+        self.assertNotIn("never-log-key", report)
+
+    def test_timeout_does_not_print_secret_arguments(self):
+        failure = subprocess.TimeoutExpired(
+            ["security", "import", "-P", "never-log-this"], 30
+        )
+        with (
+            patch.object(signing.subprocess, "run", side_effect=failure),
+            patch("builtins.print"),
+        ):
+            with self.assertRaises(signing.SigningError) as error:
+                signing.security(
+                    "Import signing identity", "import", "-P", "never-log-this"
+                )
+        self.assertIn("timed out", str(error.exception))
+        self.assertNotIn("never-log-this", str(error.exception))
+
     def test_setup_preserves_keychains_and_exports_validated_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -105,8 +161,8 @@ class SigningTests(unittest.TestCase):
                 ).decode(),
             }
 
-            def output(command, **kwargs):
-                if command[1] == "cms":
+            def output(stage, *command, **kwargs):
+                if command[0] == "cms":
                     app = "BRIDGE_PROFILE_NAME" in command[-1]
                     return plistlib.dumps(
                         {
@@ -120,29 +176,28 @@ class SigningTests(unittest.TestCase):
                             "DeveloperCertificates": [self.certificate],
                         }
                     )
-                if command[1] == "list-keychains":
+                if command[0] == "list-keychains":
                     return '"/runner/login.keychain-db"\n"/Library/Keychains/System.keychain"'
-                if command[1] == "find-identity":
+                if command[0] == "find-identity":
                     return self.identity
-                self.fail("Unexpected security command")
+                return ""
 
             with (
                 patch.dict(os.environ, environment),
                 patch("sys.argv", ["signing.py"]),
-                patch.object(signing.subprocess, "check_output", side_effect=output),
-                patch.object(signing.subprocess, "run") as run,
+                patch.object(signing, "security", side_effect=output) as run,
                 patch("builtins.print") as printed,
             ):
                 signing.main()
-            commands = [call.args[0] for call in run.call_args_list]
-            searches = [c for c in commands if c[1] == "list-keychains"]
+            commands = [list(call.args[1:]) for call in run.call_args_list]
+            searches = [c for c in commands if c[0] == "list-keychains" and "-s" in c]
             self.assertEqual(
                 searches[0][-2:],
                 ["/runner/login.keychain-db", "/Library/Keychains/System.keychain"],
             )
             self.assertTrue(
                 any(
-                    c[1] == "import" and c[2].endswith("AppleWWDRCAG3.cer")
+                    c[0] == "import" and c[1].endswith("AppleWWDRCAG3.cer")
                     for c in commands
                 )
             )
