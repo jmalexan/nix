@@ -109,3 +109,9 @@ The local SSH key also matches owner GitHub key ID `148267959`. Along with the
 owner gh login, it must be retired from this container before claiming that local
 automation has only the bot's restricted identity. It does not match the tracked
 NAS authorized keys; no SSH connection was attempted during this audit.
+
+Validation of the prepared framework passed: all-system flake evaluation, packaged
+lint/backend/frontend/SSH-gate checks, workflow syntax, and nine deployment-plan
+and bot-authentication tests. Comparing this branch with GitHub main selects
+only NASA. The existing local App UI and connection-gate commits are included in
+the release branch so a later GitHub deployment preserves what is already live.

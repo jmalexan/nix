@@ -1,5 +1,10 @@
 # Remaining NASA access paths
 
+GitHub deployment work has resumed in [PR releases](deployments.md). PR/check
+requirements, owner-only merges, and the production main-branch restriction are
+now active. The bot credential cutover is pending. The observations below record
+the earlier audit; the broader LAN, Tailscale, and Rex restrictions remain deferred.
+
 Reviewed on 2026-11-06 after deploying the phone-approved connection gate.
 This is a proposed rollout, not a claim that the restrictions below are active.
 The gate implementation was committed locally as `d9b7a58`; it has not been
