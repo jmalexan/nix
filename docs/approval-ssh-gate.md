@@ -74,6 +74,9 @@ development container.
 
 ## Alternate-access review
 
+The [follow-up access review](access-review.md) records live Tailscale/GitHub
+findings and a proposed rollout; those additional restrictions are not yet active.
+
 The following repository findings remain relevant even after this gate is
 enabled. They were inspected locally; no new NASA connection was opened for this
 review.
