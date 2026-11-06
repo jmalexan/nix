@@ -47,7 +47,9 @@ def security(stage, *arguments, binary=False, allow_codes=(0,)):
             ),
             (
                 "specified item could not be found",
-                "The requested keychain item was not found.",
+                "No usable signing key was imported. Re-export the distribution certificate together with its private key."
+                if stage == "Authorize signing tools"
+                else "The requested keychain item was not found.",
             ),
         ]:
             if marker in error:
@@ -88,9 +90,7 @@ def ensure_intermediate(keychain):
     )
 
 
-def configure_keychain(
-    keychain, certificate, p12_password, keychain_password, certificates=()
-):
+def configure_keychain(keychain, certificate, p12_password, keychain_password):
     existing = security("Read keychain search list", "list-keychains", "-d", "user")
     security(
         "Set keychain timeout", "set-keychain-settings", "-lut", "21600", str(keychain)
@@ -125,12 +125,6 @@ def configure_keychain(
         str(keychain),
     )
     ensure_intermediate(keychain)
-    # A private-key-only export can be completed with the public certificate
-    # authorized by both profiles. macOS must still find a matching private key.
-    for der in certificates:
-        leaf = Path(keychain).parent / (hashlib.sha256(der).hexdigest() + ".cer")
-        leaf.write_bytes(der)
-        ensure_certificate(keychain, leaf, "distribution certificate from profiles")
     security(
         "Extend keychain search list",
         "list-keychains",
@@ -265,7 +259,6 @@ def main():
         certificate,
         os.environ["DISTRIBUTION_P12_PASSWORD"],
         password,
-        common_certificates(profile_data),
     )
     identity = signing_identity(
         profile_data,

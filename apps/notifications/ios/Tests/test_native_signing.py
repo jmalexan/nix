@@ -62,6 +62,7 @@ extendedKeyUsage=codeSigning
                 str(certificate),
             )
             der = ssl.PEM_cert_to_DER_cert(certificate.read_text())
+            fingerprint = hashlib.sha1(der).hexdigest().upper()
             intermediate = root / "wwdr.pem"
             intermediate.write_text(
                 ssl.DER_cert_to_PEM_cert(
@@ -77,11 +78,11 @@ extendedKeyUsage=codeSigning
             source.write_text("int main(void) { return 0; }\n")
             binary = root / "test-binary"
             self.run_tool("/usr/bin/clang", str(source), "-o", str(binary))
-            for bundle_layout in ("leaf", "leaf-and-intermediate", "private-key-only"):
-                with self.subTest(bundle_layout=bundle_layout):
+            for layout in ("leaf", "leaf-and-intermediate", "private-key-only"):
+                with self.subTest(layout=layout):
                     keychain = root / (uuid.uuid4().hex + ".keychain-db")
                     p12 = root / "fixture.p12"
-                    # Public CI fixture passwords protect only generated, disposable test keys.
+                    # These public fixture passwords protect only generated test keys.
                     self.run_tool(
                         "/usr/bin/openssl",
                         "pkcs12",
@@ -100,10 +101,10 @@ extendedKeyUsage=codeSigning
                         "PBE-SHA1-3DES",
                         *(
                             ["-certfile", str(intermediate)]
-                            if bundle_layout == "leaf-and-intermediate"
+                            if layout == "leaf-and-intermediate"
                             else []
                         ),
-                        *(["-nocerts"] if bundle_layout == "private-key-only" else []),
+                        *(["-nocerts"] if layout == "private-key-only" else []),
                     )
                     signing.security(
                         "Create CI keychain",
@@ -112,52 +113,52 @@ extendedKeyUsage=codeSigning
                         "ci-keychain",
                         str(keychain),
                     )
-                    trusted = False
                     try:
+                        if layout == "private-key-only":
+                            with self.assertRaisesRegex(
+                                signing.SigningError,
+                                "No usable signing key was imported",
+                            ):
+                                signing.configure_keychain(
+                                    keychain, p12, "ci-fixture", "ci-keychain"
+                                )
+                            continue
                         signing.configure_keychain(
-                            keychain, p12, "ci-fixture", "ci-keychain", [der]
+                            keychain, p12, "ci-fixture", "ci-keychain"
                         )
-                        # Trust only this generated certificate for code signing on the
-                        # disposable runner, never in the production signing path.
-                        self.run_tool(
-                            "/usr/bin/sudo",
-                            "-n",
-                            "/usr/bin/security",
-                            "add-trusted-cert",
-                            "-d",
-                            "-r",
-                            "trustRoot",
-                            "-p",
-                            "codeSign",
-                            "-k",
-                            "/Library/Keychains/System.keychain",
-                            str(certificate),
-                        )
-                        trusted = True
                         signing.ensure_intermediate(keychain)
-                        identity = signing.signing_identity(
-                            [{"DeveloperCertificates": [der]}] * 2,
-                            signing.security(
-                                "Find CI identity",
-                                "find-identity",
-                                "-p",
-                                "codesigning",
-                                str(keychain),
-                            ),
-                            signing.security(
-                                "Validate CI identity",
-                                "find-identity",
-                                "-v",
-                                "-p",
-                                "codesigning",
-                                str(keychain),
-                            ),
+                        identities = signing.security(
+                            "Find CI identity",
+                            "find-identity",
+                            "-p",
+                            "codesigning",
+                            str(keychain),
                         )
+                        self.assertIn(fingerprint, identities.upper())
+                        # A self-signed fixture must fail production trust validation.
+                        valid = signing.security(
+                            "Validate CI trust",
+                            "find-identity",
+                            "-v",
+                            "-p",
+                            "codesigning",
+                            str(keychain),
+                        )
+                        with self.assertRaisesRegex(
+                            ValueError, "not trusted or has expired"
+                        ):
+                            signing.signing_identity(
+                                [{"DeveloperCertificates": [der]}] * 2,
+                                identities,
+                                valid,
+                            )
+                        # Explicit signing proves key access and cryptographic validity;
+                        # it does not claim this fixture is trusted by Apple or iOS.
                         self.run_tool(
                             "/usr/bin/codesign",
                             "--force",
                             "--sign",
-                            identity,
+                            fingerprint,
                             "--keychain",
                             str(keychain),
                             "--timestamp=none",
@@ -167,24 +168,6 @@ extendedKeyUsage=codeSigning
                             "/usr/bin/codesign", "--verify", "--strict", str(binary)
                         )
                     finally:
-                        if trusted:
-                            self.run_tool(
-                                "/usr/bin/sudo",
-                                "-n",
-                                "/usr/bin/security",
-                                "remove-trusted-cert",
-                                "-d",
-                                str(certificate),
-                            )
-                            self.run_tool(
-                                "/usr/bin/sudo",
-                                "-n",
-                                "/usr/bin/security",
-                                "delete-certificate",
-                                "-Z",
-                                hashlib.sha1(der).hexdigest().upper(),
-                                "/Library/Keychains/System.keychain",
-                            )
                         signing.security(
                             "Restore CI search list",
                             "list-keychains",

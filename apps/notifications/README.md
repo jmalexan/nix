@@ -148,9 +148,9 @@ GitHub's `macos-15` image with Xcode 26.3. They do not prove physical iPhone beh
 
 On ephemeral GitHub macOS runners, the signing tests also generate a disposable
 identity and exercise real keychain imports, fingerprint selection, binary signing,
-and signature verification, with and without WWDR already in the P12, plus a
-private-key-only P12 completed with the public certificate from the profiles. Only the
-generated CI certificate is temporarily trusted for code signing, then removed.
+and signature verification, with and without WWDR already in the P12. A private-key-only
+P12 is rejected with a re-export instruction. The generated self-signed identity
+must fail production trust validation. The test does not change certificate trust settings.
 This test skips on Linux and on personal Macs; PR checks never use Apple credentials.
 
 ## One-time Apple and GitHub setup
