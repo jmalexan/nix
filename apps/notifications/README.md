@@ -146,6 +146,13 @@ notification development shell. Project/plist/entitlements files are generated b
 XcodeGen and excluded from Git. The unsigned CI build and protocol tests run on
 GitHub's `macos-15` image with Xcode 26.3. They do not prove physical iPhone behavior.
 
+On ephemeral GitHub macOS runners, the signing tests also generate a disposable
+identity and exercise real keychain imports, fingerprint selection, binary signing,
+and signature verification, with and without WWDR already in the P12, plus a
+private-key-only P12 completed with the public certificate from the profiles. Only the
+generated CI certificate is temporarily trusted for code signing, then removed.
+This test skips on Linux and on personal Macs; PR checks never use Apple credentials.
+
 ## One-time Apple and GitHub setup
 
 Use the owner's existing Individual Apple Developer membership. This implementation
@@ -182,6 +189,8 @@ does not create Apple account resources or distribute a build automatically.
    Before archiving, it validates the imported private-key identity against both
    profiles and Apple's certificate chain. The public WWDR G3 intermediate is
    bundled with the workflow; original runner keychains remain searchable.
+   An intermediate already present in the P12 is retained. Each keychain command
+   reports its stage on failure without printing its arguments or raw keychain output.
    Assign the processed build to the internal TestFlight group in App Store Connect.
 
 TestFlight builds expire 90 days after upload. Native changes need a new build;
