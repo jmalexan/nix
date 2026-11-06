@@ -14,11 +14,9 @@ button and no routine SSH agent forwarding.
    target hosts, validation, and expected interruption. The review request is
    the owner's GitHub notification; notification delivery follows their settings.
 4. Wait for the required `nix` check. Its summary lists the host deployment plan.
-5. The owner merges. If GitHub shows **Cannot update this protected ref**, select
-   **Merge without waiting for requirements to be met** in the merge panel.
-   This uses the administrator's PR-only exception to the owner-update rule;
-   the separate required-check and PR rules still apply. GitHub Actions deploys
-   the exact merged revision using the
+5. The owner merges normally once checks pass. The administrator's exception
+   applies automatically to the owner-update rule; the separate required-check
+   and PR rules still apply. GitHub Actions deploys the exact merged revision using the
    existing production identity. The bot cannot merge into main or push to it.
 6. Monitor the Actions run. Its deployment jobs verify activation and report the
    result in GitHub's production deployment history.
@@ -88,8 +86,12 @@ Two independent rulesets apply to main:
   review threads; prohibit deletion and force pushes. No bypass actors. No formal
   approving-review count is required.
 - `Owner merges releases`: restrict updates, with only repository administrators
-  allowed to bypass **through a PR**. The bot is not an administrator or bypass
-  actor. This rule is separate so the owner's merge still obeys the checks above.
+  set to **Always allow** in this ruleset's bypass list. The bot is not an
+  administrator or bypass actor. The separate `main` ruleset still requires a PR
+  and passing checks for everyone, so this does not permit direct owner pushes.
+  The former **For pull requests only** mode required the owner to check a bypass
+  box on each merge and displayed **Cannot update this protected ref**. The owner
+  changed only this bypass mode on 2026-11-06 to remove that extra interaction.
 
 The reviewed API payloads are in `.github/rulesets/`. The production environment
 allows only the `main` branch. Its existing SSH and Tailscale secrets remain in
