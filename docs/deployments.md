@@ -29,6 +29,35 @@ commits, not a hand-maintained list of filename prefixes. NASA-only changes do
 not wake HTPC. Shared changes can deploy both. Docs-only changes deploy neither.
 The selected host's whole NixOS configuration is activated, including its apps.
 
+### Validation reuse
+
+PR validation records its actual tested merge commit and source tree in a small
+`validated-tree-ATTEMPT` artifact, retained for 14 days. On main, the Check and
+Notification iOS workflows can reuse a successful run of the corresponding PR
+workflow. The lookup requires a merged, same-repository PR associated with the
+current main commit, the same PR-head source tree (including workflow and helper
+code), and the same tested merge tree. It verifies the recorded merge commit and
+its PR-head parent through GitHub's API. A new commit ID after merging is fine;
+changed source files are not. This assumes validation depends on source content,
+not the commit ID or timestamp; revisit reuse if checks start using Git metadata.
+
+Missing/expired artifacts, unavailable APIs, forks, changed trees, and runs outside
+the latest 50 successful PR runs all fall back to full validation. Runs from before
+this feature have no artifact and cannot be reused. The Actions summary links the
+reused run or states that full validation is running. PR jobs always validate;
+only superseded PR validation jobs are canceled. Main and manual runs are never
+canceled by this optimization.
+Select `full_validation` on a manual workflow dispatch to force fresh checks.
+
+Main always evaluates its own deployment plan against the push's previous commit;
+PR artifacts supply no host selection, build outputs, or executable code. The
+planner also constructs the new host derivations, replacing the old duplicate
+construction step. The required `nix` job, production branch restrictions, exact
+main deployment revision, and per-host activation serialization remain in place.
+Manual TestFlight runs may reuse simulator validation but always create and upload
+a fresh signed device archive. No persistent Nix cache or protection changes are
+part of this optimization.
+
 If a deployment fails, resolve or retry it before merging the next release.
 Host selection describes changes between commits, not proof of the host's live
 state. An owner can retry/reconcile `nasa`, `htpc`, or `all` through **Actions →
