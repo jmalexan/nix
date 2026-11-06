@@ -5,10 +5,11 @@ The audit and original proposal below are historical. The current design is
 create `robots` with `tag:agent`, and move automation there. **Do not retag `home`
 or remove its personal credentials using the superseded proposal below.**
 
-GitHub PR/check requirements, the original owner-only merge gate, and the production
-main-branch restriction are active. The requested replacement is documented in
-[deployments.md](deployments.md): require owner approval for bot PRs while exempting
-the owner's personal work. Its one-time settings transition is not yet complete.
+GitHub requires owner approval and passing checks for bot PRs, while exempting
+the owner's personal work. The production main-branch restriction remains active.
+The obsolete owner-only update rule is disabled, so it no longer blocks
+auto-merge. The policy transition was verified on 2026-11-06; see
+[deployments.md](deployments.md) for the settings and verification details.
 The scoped bot, release workflow, and isolated `robots`
 VM were deployed through owner-merged PR #57 on 2026-11-06. The owner reported
 applying the replacement [Tailscale policy](tailscale-agent-policy.json), including

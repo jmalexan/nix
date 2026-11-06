@@ -84,14 +84,14 @@ or revoke personal credentials as part of that migration.
 
 ## Repository protections
 
-The desired policy is recorded in `.github/rulesets/`:
+The active policy is recorded in `.github/rulesets/`:
 
 - `main`: require a PR, one approval from the code owner, approval after the last
   push, dismissal of stale approvals, the up-to-date `nix` check from GitHub
   Actions, and resolved review threads. Prohibit deletion and force pushes for
   non-exempt actors. `Repository admin` has **Always allow** bypass.
 - `.github/CODEOWNERS`: `* @jmalexan` covers every file, including CODEOWNERS itself.
-- `Owner merges releases`: disabled after the replacement is active. Its
+- `Owner merges releases`: disabled. Its
   `Restrict updates` rule blocked auto-merge because it required a bypass even
   when reviews and checks passed. Changing its bypass mode did not fix that.
 
@@ -103,28 +103,24 @@ or manually merge their own PR without self-approval. GitHub does not support
 approving your own PR, and auto-merge should not be expected to invoke a bypass
 for an owner-authored PR; use a manual merge for that case.
 
-## One-time policy transition
+## Policy activation and recovery
 
-The JSON files describe the requested policy; committing them does not configure
-GitHub. Activate in this order so bot changes always require a human decision:
+The transition completed on 2026-11-06. PR #58 installed CODEOWNERS on main;
+GitHub reports no syntax or owner errors. The owner saved the replacement main
+rule at 06:16:35 UTC and disabled the old update-only rule at 06:17:19 UTC.
+Read-only API checks confirmed one approval, code-owner review, stale-review
+dismissal, last-push approval, conversation resolution, and the up-to-date `nix`
+check bound to GitHub Actions (integration `15368`). Effective rules contain no
+`update` restriction, and the bot reports `current_user_can_bypass: never`.
+The owner confirmed the **Repository admin → Always allow** exception; the bot's
+read-only ruleset response omits bypass actors. Repository auto-merge is enabled.
 
-1. Merge PR #58, which installs `.github/CODEOWNERS` on main, using the existing
-   owner bypass checkbox once checks pass. The old update-only gate stays active
-   during this bootstrap release.
-2. In [main settings](https://github.com/jmalexan/nix/settings/rules/20579942),
-   add **Repository admin → Always allow** to the bypass list. Under required
-   pull requests, require **1 approval**, **code-owner review**, **dismiss stale
-   approvals**, and **approval of the most recent reviewable push**. Keep the
-   required `nix` check, up-to-date branches, and resolved review threads. Save.
-3. Verify CODEOWNERS is recognized on main and the new rules are active, then
-   set [Owner merges releases](https://github.com/jmalexan/nix/settings/rules/26669022)
-   to **Disabled**. Do not disable it before the replacement is in place.
-4. Verify a subsequent bot PR requires the owner's review and passing checks,
-   has no update restriction, and can auto-merge after those requirements pass.
-
-The bot has no Administration permission, so the owner applies steps 2–3 from
-their trusted GitHub session. Agent use of the owner's bypass credentials is not
-authorized. Normal agent operations continue through `github-bot`.
+The JSON files are recovery payloads; committing them does not configure GitHub.
+When recreating protections, install CODEOWNERS and the replacement review/check
+requirements before retiring any prior gate. The bot has no Administration
+permission. The owner applies settings from their trusted GitHub session; agent
+use of the owner's bypass credentials is not authorized. Normal agent operations
+continue through `github-bot`.
 
 The reviewed API payloads are in `.github/rulesets/`. The production environment
 allows only the `main` branch. Its existing SSH and Tailscale secrets remain in
@@ -139,9 +135,9 @@ References: [GitHub rulesets](https://docs.github.com/en/repositories/configurin
 
 ## Setup status
 
-The original `main` (`20579942`) and owner-merge (`26669022`) rulesets are active
-as of preparation. The replacement owner-exempt approval policy above is pending
-the one-time transition; do not treat it as live based on this document alone.
+The `main` ruleset (`20579942`) is active with the owner-exempt approval policy.
+The obsolete owner-merge ruleset (`26669022`) is disabled. Recheck live settings
+when diagnosing a merge problem; do not infer their state from committed JSON.
 The production environment now allows only the `main` branch (policy `65695987`);
 its four existing deployment secrets were preserved. GitHub App `5637230`,
 installation `179132993`, is configured and restricted to `jmalexan/nix`. Bot
