@@ -1,4 +1,9 @@
-{ config, vars, ... }:
+{
+  config,
+  lib,
+  vars,
+  ...
+}:
 let
   internalHost = name: "${name}.${vars.nasa.domain}";
   ssl = {
@@ -54,6 +59,19 @@ in
     '';
 
     virtualHosts = {
+      "${internalHost "approve"}" = lib.mkIf config.services.approvals.enable (
+        ssl
+        // {
+          extraConfig = ''
+            allow ${vars.nasa.lanSubnet};
+            allow 100.64.0.0/10;
+            allow 127.0.0.1;
+            deny all;
+            client_max_body_size 32k;
+          '';
+          locations."/".proxyPass = "http://127.0.0.1:8092";
+        }
+      );
       # The router maps public TCP 443 to this dedicated listener. Keeping it
       # off nginx's normal 443 listener prevents any private vhost from being
       # selected by a public request, regardless of its Host/SNI value.

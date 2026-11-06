@@ -109,6 +109,14 @@
           pkgs = stablePkgs system;
         in
         {
+          microapps = pkgs.mkShell {
+            packages = [
+              (import ./apps/microapps { inherit pkgs; }).python
+              pkgs.nodejs
+              pkgs.ruff
+              pkgs.nixfmt
+            ];
+          };
           default = pkgs.mkShell {
             packages = [
               agenix.packages.${system}.default
@@ -122,12 +130,29 @@
 
       formatter = forAllSystems (system: (stablePkgs system).nixfmt);
 
+      packages = forAllSystems (
+        system:
+        let
+          platform = import ./apps/microapps { pkgs = stablePkgs system; };
+        in
+        {
+          approvals = platform.server;
+          approvals-web = platform.frontend;
+          nasa-approved-access = platform.access;
+        }
+      );
+
+      nixosModules.microapps = import ./modules/microapps.nix;
+      nixosModules.approval-ssh-gate = import ./modules/approval-ssh-gate.nix;
+
       checks = forAllSystems (
         system:
         let
           pkgs = stablePkgs system;
         in
         {
+          microapps = (import ./apps/microapps { inherit pkgs; }).tests;
+          microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
           lint =
             pkgs.runCommand "nix-config-lint"
               {
@@ -151,8 +176,14 @@
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
                   hosts/nasa/services/updates-dashboard/test_dashboard.py
                 node --check hosts/nasa/services/updates-dashboard/app.js
+                ruff check --select E4,E7,E9,F,I apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
+                ruff format --check apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_nasa_access.py
                 touch "$out"
               '';
+        }
+        // nixpkgs.lib.optionalAttrs (system == linuxSystem) {
+          approval-ssh-gate = import ./apps/microapps/tests/gate-vm.nix { inherit pkgs; };
         }
       );
 

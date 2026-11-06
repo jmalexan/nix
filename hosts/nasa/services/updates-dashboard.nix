@@ -158,7 +158,7 @@ let
     mkdir -p "$out"
     cp ${./updates-dashboard/index.html} "$out/index.html"
     cp ${./updates-dashboard/app.js} "$out/app.js"
-    cp ${./updates-dashboard/styles.css} "$out/styles.css"
+    cat ${../../../apps/microapps/web/src/shared/tokens.css} ${./updates-dashboard/styles.css} > "$out/styles.css"
   '';
 
   recordCommand =

@@ -22,7 +22,7 @@ jobs:
           nix eval --raw .#nixosConfigurations.nasa.config.system.build.toplevel.drvPath
           nix eval --raw .#nixosConfigurations.htpc.config.system.build.toplevel.drvPath
       - name: Run Linux repository checks
-        run: nix build .#checks.x86_64-linux.lint
+        run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.approval-ssh-gate
 
   deploy:
     name: Deploy ${{ matrix.host }}
