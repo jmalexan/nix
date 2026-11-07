@@ -16,7 +16,7 @@ in
     origin = lib.mkOption { type = lib.types.str; };
     port = lib.mkOption {
       type = lib.types.port;
-      default = 8093;
+      default = 8094;
     };
     servicesFile = lib.mkOption {
       type = lib.types.str;

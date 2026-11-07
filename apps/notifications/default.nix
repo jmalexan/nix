@@ -23,7 +23,7 @@ let
     text = ''
       export PYTHONPATH=${./backend}
       export NOTIFICATIONS_STATIC=${frontend}
-      exec uvicorn notifications.api:from_environment --factory --host 127.0.0.1 --port "''${PORT:-8093}" --no-access-log
+      exec uvicorn notifications.api:from_environment --factory --host 127.0.0.1 --port "''${PORT:-8094}" --no-access-log
     '';
   };
   worker = pkgs.writeShellApplication {
