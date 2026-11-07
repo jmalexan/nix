@@ -208,6 +208,65 @@ class DeploymentCacheTests(unittest.TestCase):
                 "configs.htpc.config.system.build.toplevel.drvPath", command[-1]
             )
 
+    def test_validation_cannot_be_skipped_by_cached_head_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cache, verified = Path(temp) / "cache.json", Path(temp) / "verified.json"
+            cache.write_text(json.dumps(record(BASE_TREE)))
+            verified.write_text(json.dumps(record(HEAD_TREE)))
+            with (
+                patch.object(plan, "evaluation_context", return_value=CONTEXT),
+                patch.object(plan, "source_tree", side_effect=[HEAD_TREE, BASE_TREE]),
+                patch.object(
+                    plan, "derivations", return_value=paths(nasa="c")
+                ) as evaluate,
+            ):
+                self.assertEqual(
+                    plan.plan(
+                        Path(temp),
+                        BASE,
+                        HEAD,
+                        cache=cache,
+                        verified_head=verified,
+                        validate=True,
+                    ),
+                    ["nasa"],
+                )
+                evaluate.assert_called_once()
+                self.assertEqual(evaluate.call_args.args[1], HEAD)
+                self.assertEqual(evaluate.call_args.kwargs, {"validate": True})
+
+    def test_identical_trees_are_validated_once(self):
+        with (
+            patch.object(plan, "evaluation_context", return_value=CONTEXT),
+            patch.object(plan, "source_tree", return_value=HEAD_TREE),
+            patch.object(plan, "derivations", return_value=paths()) as evaluate,
+        ):
+            self.assertEqual(plan.plan(Path.cwd(), BASE, HEAD, validate=True), [])
+            evaluate.assert_called_once()
+
+    def test_flake_validation_failure_cannot_publish_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "head"
+            source.mkdir()
+            with (
+                patch.object(plan.subprocess, "run") as run,
+                patch.object(plan.subprocess, "check_output") as evaluate,
+            ):
+                run.return_value.stdout = b"archive"
+                run.side_effect = [
+                    run.return_value,
+                    run.return_value,
+                    RuntimeError("invalid flake"),
+                ]
+                with self.assertRaisesRegex(RuntimeError, "invalid flake"):
+                    plan.derivations(Path("/repo"), HEAD, source, validate=True)
+                evaluate.assert_not_called()
+            wrapper = (Path(temp) / "validation" / "flake.nix").read_text()
+            self.assertIn(
+                'builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]', wrapper
+            )
+            self.assertIn(f"path:{source}", wrapper)
+
 
 if __name__ == "__main__":
     unittest.main()

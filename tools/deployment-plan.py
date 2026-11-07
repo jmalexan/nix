@@ -24,7 +24,7 @@ def revision(value):
     return value
 
 
-def derivations(repo, commit, directory):
+def derivations(repo, commit, directory, validate=False):
     # An archive excludes uncommitted files and credentials. path: also avoids
     # Git metadata making an otherwise identical configuration look different.
     archive = subprocess.run(
@@ -33,11 +33,40 @@ def derivations(repo, commit, directory):
     subprocess.run(
         ["tar", "-x", "-C", str(directory)], input=archive.stdout, check=True
     )
+    if validate:
+        # flake check does not use Nix's evaluation cache. Leave host validation
+        # to the drvPath evaluation below instead of evaluating each host twice.
+        # The wrapper forwards all other outputs, preserving their original self.
+        wrapper = directory.parent / "validation"
+        wrapper.mkdir()
+        (wrapper / "flake.nix").write_text(
+            "{ inputs.repo.url = "
+            + json.dumps(f"path:{directory}")
+            + "; outputs = { repo, ... }: "
+            'builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]; }\n'
+        )
+        subprocess.run(
+            [
+                "nix",
+                "flake",
+                "check",
+                "--no-build",
+                "--all-systems",
+                "--no-write-lock-file",
+                f"path:{wrapper}",
+            ],
+            check=True,
+        )
     # Evaluate both hosts in one process so they can share imported Nix modules.
     expression = (
-        "configs: { "
+        "configs: assert builtins.attrNames configs == "
+        + "[ "
+        + " ".join(json.dumps(host) for host in sorted(HOSTS))
+        + " ]"
+        + "; { "
         + " ".join(
-            f"{host} = configs.{host}.config.system.build.toplevel.drvPath;"
+            f"{host} = assert configs.{host}.config.system.build.toplevel.type "
+            f'== "derivation"; configs.{host}.config.system.build.toplevel.drvPath;'
             for host in HOSTS
         )
         + " }"
@@ -104,17 +133,26 @@ def read_record(path):
     return None
 
 
-def plan(repo, base, head, force=None, cache=None, verified_head=None, fresh=False):
+def plan(
+    repo,
+    base,
+    head,
+    force=None,
+    cache=None,
+    verified_head=None,
+    fresh=False,
+    validate=False,
+):
     context = evaluation_context()
     records = [] if fresh else [read_record(cache), read_record(verified_head)]
     resolved = {}
     with tempfile.TemporaryDirectory(prefix="deployment-plan-") as temp:
 
-        def resolve(commit, label):
+        def resolve(commit, label, validate=False):
             tree = source_tree(repo, commit)
-            if tree in resolved:
+            if tree in resolved and not validate:
                 return resolved[tree]
-            for record in records:
+            for record in [] if validate else records:
                 if valid_record(record, tree, context):
                     print(
                         f"{label}: reused derivations for tree {tree}", file=sys.stderr
@@ -127,7 +165,11 @@ def plan(repo, base, head, force=None, cache=None, verified_head=None, fresh=Fal
             record = {
                 "tree": tree,
                 "context": context,
-                "derivations": derivations(repo, commit, directory),
+                "derivations": (
+                    derivations(repo, commit, directory, validate=True)
+                    if validate
+                    else derivations(repo, commit, directory)
+                ),
             }
             if not valid_record(record, tree, context):
                 raise ValueError("Nix returned invalid host derivations")
@@ -138,13 +180,17 @@ def plan(repo, base, head, force=None, cache=None, verified_head=None, fresh=Fal
             resolved[tree] = record
             return record
 
+        # Validate before consulting metadata, even when the new tree is cached.
+        # Resolving head first also avoids duplicate work for identical trees.
+        after = resolve(head, "head", validate=True) if validate else None
         # A forced reconciliation only needs the new configurations validated.
         before = (
             resolve(base, "base")["derivations"]
             if base != "0" * 40 and not force
             else {}
         )
-        after = resolve(head, "head")
+        if after is None:
+            after = resolve(head, "head")
     hosts = select_hosts(before, after["derivations"], force)
     if cache:
         Path(cache).parent.mkdir(parents=True, exist_ok=True)
@@ -174,6 +220,11 @@ def main():
         "--verified-head", help="Derivations from verified PR validation"
     )
     parser.add_argument("--cache-keys", action="store_true")
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate all flake outputs while evaluating the head hosts once",
+    )
     args = parser.parse_args()
     repo = Path.cwd()
     if args.cache_keys:
@@ -198,6 +249,7 @@ def main():
         args.cache,
         args.verified_head,
         fresh=os.environ.get("CI_FORCE_VALIDATION") == "true",
+        validate=args.validate,
     )
     result = json.dumps(hosts)
     print(result)
