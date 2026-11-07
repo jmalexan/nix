@@ -405,7 +405,9 @@ in
       description = "Refresh container versions and digests in System updates";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
+      # CI queues a fresh scan after activation and health checks. Pulling this
+      # oneshot into multi-user.target makes switches wait for registry polling.
+      # The daily timer and on-demand path triggers remain independent.
       environment.HOME = reportState;
       serviceConfig = {
         Type = "oneshot";
