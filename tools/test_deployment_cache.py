@@ -1,5 +1,8 @@
 import importlib.util
 import json
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -266,6 +269,92 @@ class DeploymentCacheTests(unittest.TestCase):
                 'builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]', wrapper
             )
             self.assertIn(f"path:{source}", wrapper)
+
+
+@unittest.skipUnless(shutil.which("nix"), "requires the Nix CLI")
+class DeploymentValidationTests(unittest.TestCase):
+    def validate_fixture(self, hosts, checks='mk "check"'):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / "flake.nix").write_text(
+                "{ outputs = { self }: let mk = name: builtins.derivation { "
+                'inherit name; system = "x86_64-linux"; builder = "/bin/sh"; }; '
+                "in { nixosConfigurations = { " + hosts + " }; "
+                "checks.x86_64-linux.example = " + checks + "; }; }"
+            )
+            subprocess.run(["git", "init", "-q", temp], check=True)
+            subprocess.run(["git", "-C", temp, "add", "."], check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    temp,
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-qm",
+                    "fixture",
+                ],
+                check=True,
+            )
+            head = subprocess.check_output(
+                ["git", "-C", temp, "rev-parse", "HEAD"], text=True
+            ).strip()
+            cache = repo / "result.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(plan.__file__).resolve()),
+                    "--base",
+                    "0" * 40,
+                    "--head",
+                    head,
+                    "--validate",
+                    "--cache",
+                    str(cache),
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+            )
+            return result, cache.exists()
+
+    def test_real_flake_validates_both_hosts(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc";'
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), ["nasa", "htpc"])
+        self.assertTrue(recorded)
+
+    def test_invalid_non_host_output_fails_without_record(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc";',
+            checks="1",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
+    def test_unexpected_host_cannot_escape_validation(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc"; extra = {};'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
+    def test_drv_path_without_derivation_type_is_rejected(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = { type = "invalid"; '
+            f'drvPath = "{paths()["nasa"]}"; }}; '
+            'htpc.config.system.build.toplevel = mk "htpc";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
 
 
 if __name__ == "__main__":

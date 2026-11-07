@@ -38,6 +38,15 @@ in
     # the guest sees 8 GiB throughout, while host residency follows page use.
     mem = 8192;
     balloon = true;
+    # Repack the isolated store quickly when the guest closure changes. LZ4 HC
+    # spent ~53s on the installed closure versus ~14s for LZ4 (two workers),
+    # for an ~8.5% image-size saving. Honor the builder's configured core limit.
+    storeDiskErofsFlags = [
+      "-zlz4"
+      "--workers=$NIX_BUILD_CORES"
+      "-Eztailpacking"
+      "-Efragments"
+    ];
     # The only host share is journal data, enforced read-only by QEMU.
     shares = [
       {
