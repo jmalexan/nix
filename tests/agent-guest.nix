@@ -13,7 +13,24 @@ let
     modules = [
       microvm.nixosModules.microvm
       ../hosts/nasa/vms/agent-guest.nix
-      ({ lib, ... }: {
+      ({ config, lib, ... }: {
+        imports = [ ../modules/git-broker.nix ];
+        services.gitBroker = {
+          enable = true;
+          repositories.project = {
+            github = "owner/project";
+            write_prefixes = [ "robot/" ];
+          };
+          clientTokenFile = toString (
+            pkgs.writeText "test-broker-client" (lib.concatStrings (lib.replicate 64 "c"))
+          );
+          upstreamTokenFile = toString (
+            pkgs.writeText "test-broker-upstream" (lib.concatStrings (lib.replicate 64 "u"))
+          );
+          approvalTokenFile = toString (
+            pkgs.writeText "test-broker-approval" (lib.concatStrings (lib.replicate 64 "a"))
+          );
+        };
         microvm = {
           cpu = "max";
           mem = lib.mkForce 1024;
@@ -53,6 +70,7 @@ let
             "dev-zram0.swap"
           ];
           after = [
+            "git-broker.service"
             "agent-github-identity.service"
             "nix-daemon.service"
             "sshd.service"
@@ -69,9 +87,15 @@ let
             pkgs.diffutils
             pkgs.openssh
             pkgs.kmod
+            pkgs.curl
           ];
           script = ''
             set -x
+            systemctl is-active --quiet git-broker.service || {
+              journalctl -u git-broker.service -n 50 --no-pager -o cat
+              exit 1
+            }
+            curl --fail --silent --retry 30 --retry-connrefused --retry-delay 1 --max-time 2 http://127.0.0.1:${toString config.services.gitBroker.port}/health | grep -F '"status":"ok"'
             cmp /home/robot/.codex/AGENTS.md /etc/robot/AGENTS.md
             cmp /home/robot/.claude/CLAUDE.md /etc/robot/AGENTS.md
             test -s /etc/robot/systems.md
