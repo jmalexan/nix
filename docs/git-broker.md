@@ -1,9 +1,9 @@
 # Git broker
 
-The broker implementation is prepared but **not activated**. No collaborator
-repository, upstream credential, or robot client token is provisioned yet.
-Choose the first repository and whether it permits writes before activation.
-The existing `github-bot` identity remains scoped to `jmalexan/nix`.
+The broker implementation is prepared but **not activated**. The first repository
+policy is selected and stored as encrypted JSON. Activation is waiting for a
+dedicated upstream credential and a reviewed release. The existing `github-bot`
+identity remains scoped to `jmalexan/nix`.
 
 ## Boundary
 
@@ -84,10 +84,14 @@ SSH identity, or a personal token already stored in another environment.
 Encrypt the upstream token and any private allowlist on the owner's trusted
 machine for the existing agenix recipients, as with the APNs key. Transfer only
 the ciphertext to robots. Never send plaintext credentials through chat, logs,
-source, Git remote URLs, or command-line arguments. Provision a separately random
-broker client token on NASA; pass only that token into robots via the existing
-VM credential mechanism. Rotation/revocation of this broker token must not
-expose or rotate the upstream account credential.
+source, Git remote URLs, or command-line arguments. NASA provisions a separately
+random broker client token through `git-broker-client-credential.service` and
+preserves it across deployments. Only that token passes into robots via the
+existing VM credential mechanism, installed as robot-owned mode 0600 at
+`~/.local/share/git-broker/token`. The upstream token is never a VM credential.
+The generated broker token joins the encrypted Restic backup. Restart the broker
+and VM after intentionally rotating the client token; restart the broker after
+rotating the upstream token. Do not reuse the same credential for both roles.
 
 An example allowlist (not a live repository authorization):
 
@@ -104,9 +108,12 @@ The disabled Nix module supports `services.gitBroker` with:
 NASA's optional route is `https://git-broker.nasa.jmalexan.com`, restricted to
 robots, LAN, Tailscale, and loopback. It uses the existing private TLS setup and
 adds no broad host/network access. Client TLS verification is mandatory.
-Activation requires a reviewed release adding the actual allowlist, encrypted
-credentials, robot credential delivery/client installation, and service health
-verification. It is deliberately a separate step from this implementation.
+The encrypted repository policy, local client-token provisioning, conditional VM
+credential delivery/client installation, and catalog discovery are prepared.
+Activation still requires the encrypted upstream token, its agenix declaration,
+the enable flag, and deployment health verification. The VM integration is tested
+with fake credentials across two boots. No live collaborator access is exercised
+by repository checks.
 
 ## Checks
 

@@ -42,10 +42,13 @@ repo's `AGENTS.md` and `docs/deployments.md` when preparing its release PR.
 
 For another public repo, `git clone https://github.com/OWNER/REPO.git` needs no
 credential. Pushing requires separately provisioned access. Delivery can be a
-branch only; do not automatically create PRs. For another person's private repo,
-the proposed broker would use the user's existing collaborator access from a
-trusted system, allowing selected Git operations without returning credentials
-to robots. That broker and a general coding App are not deployed yet.
+branch only; do not automatically create PRs. If the broker is configured (see
+repositories.json), `git-broker repositories` lists its allowed collaborator
+repos. Use `git-broker clone/fetch/push`; ordinary Git handles local branches,
+commits, and merges. The upstream GitHub credential stays on NASA. Only configured
+branch namespaces can be pushed; no tags, deletions, history rewrites, arbitrary
+GitHub API access, or automatic PRs. Capabilities do not authorize work outside
+the user's task. See docs/git-broker.md in the Nix repo.
 
 ## NASA and applications
 
@@ -75,8 +78,8 @@ The full recovery/migration guide is `docs/agent-vm.md` in the Nix repo.
 
 ## Current scope and follow-ups
 
-The private collaborator-repo Git broker is a future service, not an available
-command. AI tool authentication must be configured intentionally for this
+Private collaborator-repo access is available only when the broker is configured
+in repositories.json. AI tool authentication must be configured intentionally for this
 workspace; no personal login directory is preloaded. App tokens are added only
 for the particular app/task that needs them.
 

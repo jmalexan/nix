@@ -2,15 +2,38 @@
   config,
   lib,
   vars,
+  pkgs,
   ...
 }:
 let
   cfg = config.services.gitBroker;
+  platform = import ../../../apps/git-broker { inherit pkgs; };
 in
 {
   imports = [ ../../../modules/git-broker.nix ];
-  # Intentionally disabled until a repository and host-only credential are selected.
+  # Intentionally disabled until the host-only upstream credential is provisioned.
   config = lib.mkIf cfg.enable {
+    services.gitBroker = {
+      repositoriesFile = config.age.secrets.git-broker-repositories.path;
+      clientTokenFile = "/var/lib/microapp-secrets/git-broker/client";
+      upstreamTokenFile = "/run/agenix/git-broker-upstream";
+    };
+    age.secrets.git-broker-repositories.file = ../../../secrets/git-broker-repositories.age;
+    services.restic.backups.backblaze.paths = [ cfg.clientTokenFile ];
+    systemd.services.git-broker-client-credential = {
+      description = "Provision the local Git broker client credential";
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        UMask = "0077";
+      };
+      environment.PYTHONPATH = "${../../../apps/git-broker}";
+      script = "${platform.python}/bin/python -m git_broker.admin --path ${lib.escapeShellArg cfg.clientTokenFile}";
+    };
+    systemd.services.git-broker = {
+      requires = [ "git-broker-client-credential.service" ];
+      after = [ "git-broker-client-credential.service" ];
+    };
     services.nginx.virtualHosts."git-broker.${vars.nasa.domain}" = {
       forceSSL = true;
       sslCertificate = "/var/lib/nginx/certs/server.crt";

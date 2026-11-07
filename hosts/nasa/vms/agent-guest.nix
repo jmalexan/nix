@@ -7,6 +7,7 @@
   home-manager-stable,
   rex,
   vars,
+  gitBrokerEnabled ? false,
   ...
 }:
 let
@@ -56,6 +57,9 @@ in
     credentialFiles = {
       agent-github = "/run/credentials/microvm@robots.service/agent-github";
       agent-requester = "/run/credentials/microvm@robots.service/agent-requester";
+    }
+    // lib.optionalAttrs gitBrokerEnabled {
+      agent-git-broker = "/run/credentials/microvm@robots.service/agent-git-broker";
     };
   };
   # QEMU fw_cfg credentials arrive in PID 1, never in the Nix store.
@@ -176,7 +180,8 @@ in
     (pkgs.writeShellScriptBin "robot-guide" ''
       exec ${pkgs.coreutils}/bin/cat /etc/robot/systems.md
     '')
-  ];
+  ]
+  ++ lib.optional gitBrokerEnabled (import ../../../apps/git-broker { inherit pkgs; }).client;
   environment.variables.NASA_APPROVAL_REQUESTER_FILE = "/home/robot/.local/share/nasa-access/requester";
   home-manager = {
     useGlobalPkgs = true;
@@ -193,7 +198,29 @@ in
   environment.etc = {
     "robot/AGENTS.md".source = ./context/AGENTS.md;
     "robot/systems.md".source = ./context/systems.md;
-    "robot/repositories.json".source = ./context/repositories.json;
+    "robot/repositories.json".source =
+      if gitBrokerEnabled then
+        pkgs.writeText "robot-repositories.json" (
+          builtins.toJSON (
+            (builtins.fromJSON (builtins.readFile ./context/repositories.json))
+            // {
+              planned_access_methods = { };
+              access_methods.git-broker = {
+                discovery = "git-broker repositories";
+                endpoint = "https://git-broker.${vars.nasa.domain}";
+                operations = [
+                  "clone"
+                  "fetch"
+                  "push"
+                ];
+                write_policy = "Explicit repository allowlist and branch namespaces; follow the user's task authorization";
+                default_delivery = "follow-user-request";
+              };
+            }
+          )
+        )
+      else
+        ./context/repositories.json;
   };
   systemd.services.agent-github-identity = {
     description = "Install the repository-scoped GitHub App identity";
@@ -212,7 +239,8 @@ in
       ImportCredential = [
         "agent-github"
         "agent-requester"
-      ];
+      ]
+      ++ lib.optional gitBrokerEnabled "agent-git-broker";
       RemainAfterExit = true;
       UMask = "0077";
     };
@@ -222,6 +250,10 @@ in
       install -d -m 0700 /home/robot/.local/share/nasa-github-app
       install -m 0600 "$CREDENTIALS_DIRECTORY/agent-github" /home/robot/.local/share/nasa-github-app/private-key.pem
       printf '%s\n' '{"app_id":"5637230"}' > /home/robot/.local/share/nasa-github-app/config.json
+    ''
+    + lib.optionalString gitBrokerEnabled ''
+      install -d -m 0700 /home/robot/.local/share/git-broker
+      install -m 0600 "$CREDENTIALS_DIRECTORY/agent-git-broker" /home/robot/.local/share/git-broker/token
     '';
   };
   systemd.services.agent-ready = {

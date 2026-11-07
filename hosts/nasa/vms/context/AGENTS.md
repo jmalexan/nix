@@ -36,10 +36,12 @@ production, or change protections without authorization for that specific action
 The owner's administrator exemption is not an agent permission. No routine
 maintenance SSH tunnel is needed for releases.
 
-Public repos can be cloned over HTTPS. Only `jmalexan/nix` currently has write
-credentials here. Private collaborator-repo access through a trusted Git broker
-is planned, not installed. Do not fall back to personal GitHub/SSH credentials,
-forward an SSH agent, or assume another repo is authorized because its URL is known.
+Public repos can be cloned over HTTPS. Use `github-bot` for `jmalexan/nix`.
+When configured, `git-broker repositories` lists explicitly allowed collaborator
+repos and write namespaces; use `git-broker clone/fetch/push` for those repos.
+Broker access is a capability, not permission for unrelated work or pushes.
+Do not fall back to personal GitHub/SSH credentials, forward an SSH agent, or
+assume another repo is authorized because its URL is known.
 
 Use app APIs for app operations. Host operations require the phone-approved
 `nasa-approved-access` flow: explain the need and supply a concrete reason. Its
