@@ -1,8 +1,9 @@
 # Git broker
 
-The broker implementation is prepared but **not activated**. The first repository
-policy is selected and stored as encrypted JSON. Activation is waiting for a
-dedicated upstream credential and a reviewed release. The existing `github-bot`
+NASA is configured to activate the broker on the next approved release. The
+repository policy and upstream credential are encrypted with agenix. The upstream
+credential is retained on NASA; robots receives only the separately generated
+broker credential. The existing `github-bot`
 identity remains scoped to `jmalexan/nix`.
 
 ## Boundary
@@ -99,7 +100,7 @@ An example allowlist (not a live repository authorization):
 {"project":{"github":"OWNER/REPOSITORY","write_prefixes":["robot/"]}}
 ```
 
-The disabled Nix module supports `services.gitBroker` with:
+The Nix module supports `services.gitBroker` with:
 
 - `enable`, `port`, and `maxBundleBytes`;
 - exactly one of `repositories` (public config) or `repositoriesFile` (private JSON);
@@ -108,12 +109,13 @@ The disabled Nix module supports `services.gitBroker` with:
 NASA's optional route is `https://git-broker.nasa.jmalexan.com`, restricted to
 robots, LAN, Tailscale, and loopback. It uses the existing private TLS setup and
 adds no broad host/network access. Client TLS verification is mandatory.
-The encrypted repository policy, local client-token provisioning, conditional VM
-credential delivery/client installation, and catalog discovery are prepared.
-Activation still requires the encrypted upstream token, its agenix declaration,
-the enable flag, and deployment health verification. The VM integration is tested
-with fake credentials across two boots. No live collaborator access is exercised
-by repository checks.
+The encrypted policy and upstream credential are declared in NASA's service
+inventory. Activation provisions the broker client token, delivers it to the VM,
+and installs the client and catalog discovery. Deployment health checks require
+both the broker service and guest readiness. The VM integration is tested with
+fake credentials across two boots. Repository checks do not exercise live
+collaborator access. After deployment, verify the authenticated repository list
+and clone/fetch access before starting project work.
 
 ## Checks
 

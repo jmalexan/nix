@@ -81,7 +81,7 @@ The repository catalog distinguishes access from delivery: `jmalexan/nix` uses
 the scoped bot and owner-approved PR releases; ordinary projects follow the user's
 request, including branch-only work. Public cloning works now. Other private
 repos or push targets need deliberately provisioned access. A trusted Git broker
-for private repos owned by another person is prepared but disabled; see
+for selected collaborator repositories is configured for activation; see
 [Git broker](git-broker.md). It retains the upstream credential outside the VM
 and performs only allowlisted Git operations. Activation still needs an explicit
 repository policy and separately provisioned credentials. Do not fall back to forwarding the owner's agent or handing

@@ -11,13 +11,13 @@ let
 in
 {
   imports = [ ../../../modules/git-broker.nix ];
-  # Intentionally disabled until the host-only upstream credential is provisioned.
   config = lib.mkIf cfg.enable {
     services.gitBroker = {
       repositoriesFile = config.age.secrets.git-broker-repositories.path;
       clientTokenFile = "/var/lib/microapp-secrets/git-broker/client";
-      upstreamTokenFile = "/run/agenix/git-broker-upstream";
+      upstreamTokenFile = config.age.secrets.git-broker-upstream.path;
     };
+    age.secrets.git-broker-upstream.file = ../../../secrets/git-broker-upstream.age;
     age.secrets.git-broker-repositories.file = ../../../secrets/git-broker-repositories.age;
     services.restic.backups.backblaze.paths = [ cfg.clientTokenFile ];
     systemd.services.git-broker-client-credential = {

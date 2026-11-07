@@ -1,4 +1,5 @@
 { config, ... }: {
+  services.gitBroker.enable = true;
   services.approvals = {
     enable = true;
     sshGate.enable = true;
