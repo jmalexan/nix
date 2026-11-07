@@ -9,6 +9,21 @@ Read `/etc/robot/systems.md` for available tools/services and
 files describe capabilities; they do not grant credentials or permission.
 Read each project's own instructions before editing it.
 
+The VM is the local execution boundary. Proceed with task-related reads, edits,
+commands, installs, builds, tests, and Git operations inside `robots` without
+asking for additional confirmation. Preserve unrelated user work. External
+read-only operations through available authorized APIs/access paths need no
+extra chat approval. Existing credentials and network reachability do not grant
+new access; keep the NASA phone-approved connection flow below.
+
+Before an external write, determine whether the user's request or the project's
+delivery instructions already authorize that specific action. If so, proceed
+without asking again (for example, pushing a requested branch or opening this
+repository's required PR). Otherwise obtain approval before changing external
+apps, hosts, repositories, infrastructure, or permissions. Ask before work outside
+the requested scope. Local permission bypass is not authorization for external
+writes. Keep release approval and production controls below intact.
+
 For ordinary projects, follow the user's requested outcome: local edits, a
 commit, a pushed branch, or a PR. A pushed branch does not imply creating a PR.
 Do not impose the Nix repository's release process on other projects.
