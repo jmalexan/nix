@@ -149,15 +149,7 @@ def deliver_bridge(store, origin, token, recipient, app_origin, send=call):
                             ]
                             if choices
                             else []
-                        )
-                        + [
-                            {
-                                "id": "review",
-                                "title": "Review",
-                                "kind": "open",
-                                "url": app_origin + "/?request=" + row["request_id"],
-                            }
-                        ],
+                        ),
                     },
                 )
                 done = True

@@ -46,7 +46,7 @@ def test_bridge_adapter_is_transactional_and_publishes_choices(tmp_path):
     run()
     assert len(sent) == 1
     assert sent[0]["key"] == rid
-    assert sent[0]["actions"][-1]["kind"] == "open"
+    assert sent[0]["url"] == settings.origin + "/?request=" + rid
     assert sent[0]["expires_at"] == result.json()["expires"]
     assert "secret" not in str(sent)
     with app.state.store.transaction() as db:
@@ -124,7 +124,7 @@ def test_native_decision_and_ack_retry_are_single_use(tmp_path):
     from microapps.bridge_notify import receive_bridge
 
     store, request, sent = fixture_request(tmp_path)
-    assert [a["id"] for a in sent[0]["actions"]] == ["approve", "reject", "review"]
+    assert [a["id"] for a in sent[0]["actions"]] == ["approve", "reject"]
     assert sent[0]["body"] == "Test\nOperation: demo.verify"
     event = dict(
         id="response1",
@@ -235,8 +235,9 @@ def test_native_response_rejects_invalid_or_stale_authority(tmp_path, invalid):
 
 
 def test_long_reason_falls_back_to_review_without_authority(tmp_path):
-    store, _, sent = fixture_request(tmp_path, "x" * 1000)
-    assert [a["id"] for a in sent[0]["actions"]] == ["review"]
+    store, request, sent = fixture_request(tmp_path, "x" * 1000)
+    assert sent[0]["actions"] == []
+    assert sent[0]["url"] == "https://approve.example.com/?request=" + request["id"]
     with store.transaction() as db:
         assert (
             db.execute("SELECT count(*) FROM notification_bridge_messages").fetchone()[
