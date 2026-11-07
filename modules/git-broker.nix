@@ -14,7 +14,7 @@ in
     enable = lib.mkEnableOption "the credential-isolating Git broker";
     port = lib.mkOption {
       type = lib.types.port;
-      default = 8097;
+      default = 18097;
     };
     repositories = lib.mkOption {
       default = { };
