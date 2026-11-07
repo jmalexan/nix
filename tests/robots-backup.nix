@@ -48,7 +48,7 @@ pkgs.testers.runNixOSTest {
     machine.succeed(restic + " restore latest --sparse --target /restore", timeout=180)
     restored = "/restore/vm-data/.zfs/snapshot/restic-robots/robots"
     machine.succeed("jq -r .consistency " + restored + "/backup-metadata.json | grep -Fx power-loss")
-    machine.succeed("e2fsck -p " + restored + "/root.img; test $? -le 1")
+    machine.succeed("status=0; e2fsck -p " + restored + "/root.img || status=$?; test $status -le 1")
     machine.succeed("mkdir /mnt/restored; mount -o loop,ro " + restored + "/root.img /mnt/restored; grep -Fx persisted-agent-work /mnt/restored/work.txt")
     machine.succeed("umount /mnt/restored /mnt/disk")
     # Never publish a successful backup with a missing disk.
