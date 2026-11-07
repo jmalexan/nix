@@ -83,9 +83,27 @@ access. Device-unlock options are enforced by the native UI, not independently
 attested to the server. High-stakes actions should open the service's authenticated
 web flow unless that service explicitly implements a suitable native trust model.
 
-The included Approve adapter deliberately offers **Review**, opening the existing
-passkey-authenticated request page. It cannot approve or claim a grant. The optional
-outbox is inserted in the same transaction as the request. Existing Web Push
+The Approve adapter offers **Approve**, **Reject**, and **Review** for requests
+whose full reason and operation scope fit in the notification. Longer requests
+offer Review only, opening the passkey-authenticated web page. SSH notifications
+include the account, target, maximum duration, and temporary public key. Expand
+and read the notification before approving. Request details now appear in native
+notification content; iOS preview settings control lock-screen visibility.
+
+An explicitly enrolled owner device can submit a decision after device unlock,
+without a web passkey ceremony. Enrollment therefore delegates approval authority
+to that device. The broker's authenticated response inbox is trusted by the local
+Approve adapter; keep broker and publisher credentials private. The adapter binds
+each choice to a stored request snapshot, checks recipient, scope, pending state,
+and expiry, and records the decision and event deduplication atomically before
+acknowledging. Web decisions race safely with native choices. The existing gate
+still independently checks and consumes a single scoped approval; notifications
+cannot execute commands or claim a grant. Device unlock is an iOS requirement,
+not a server-attested biometric assertion.
+
+The outbox is inserted in the same transaction as the request. Responses are
+polled about every ten seconds, so a submitted choice may take a moment to appear
+in Approve. Broker acceptance confirms recording, not execution. Existing Web Push
 continues independently; configure browser subscriptions to avoid unwanted doubles.
 
 ## Delivery and native behavior

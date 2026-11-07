@@ -133,7 +133,7 @@ in
       };
     };
     systemd.services.microapp-approvals-bridge-notify = lib.mkIf cfg.notifications.enable {
-      description = "Publish approval links to the generic notification bridge";
+      description = "Publish approval choices and apply notification responses";
       after = [ "microapp-approvals.service" ];
       requires = [ "microapp-approvals.service" ];
       environment = {
