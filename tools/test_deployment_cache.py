@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -316,6 +317,11 @@ class DeploymentValidationTests(unittest.TestCase):
                     str(cache),
                 ],
                 cwd=repo,
+                env={
+                    key: value
+                    for key, value in os.environ.items()
+                    if key not in ("GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY")
+                },
                 capture_output=True,
                 text=True,
             )
