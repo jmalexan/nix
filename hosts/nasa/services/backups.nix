@@ -9,6 +9,7 @@ let
   app = import ../../../apps/backups { inherit pkgs; };
   notifications = import ../../../apps/notifications { inherit pkgs; };
   origin = "https://backups.${vars.nasa.domain}";
+  port = 8101;
   reportRoot = "/var/lib/backups-collector";
   authRoot = "/var/lib/backups-auth";
   publisher = "/var/lib/microapp-secrets/backups/publisher";
@@ -41,6 +42,25 @@ let
   };
 in
 {
+  assertions = [
+    {
+      assertion =
+        !(builtins.elem port (
+          [
+            8091
+            8095
+            8096
+          ]
+          ++ lib.optional config.services.open-webui.enable config.services.open-webui.port
+          ++ lib.optional config.services.notificationBridge.enable config.services.notificationBridge.port
+          ++ lib.optional config.services.gitBroker.enable config.services.gitBroker.port
+          ++ map (app: app.port) (
+            builtins.attrValues (lib.filterAttrs (_: app: app.enable) config.services.microapps.apps)
+          )
+        ));
+      message = "Backups must use a different port from other NASA app listeners";
+    }
+  ];
   users.groups.backups-report = { };
   users.users.backups-web = {
     isSystemUser = true;
@@ -83,6 +103,7 @@ in
       "backups-publisher-credentials.service"
     ];
     environment = {
+      PORT = toString port;
       BACKUPS_ORIGIN = origin;
       BACKUPS_DATABASE = "${authRoot}/state.sqlite";
       BACKUPS_ALIASES = "https://backups";
@@ -139,6 +160,8 @@ in
     after = [
       "backups-publisher-credentials.service"
       "microapp-notifications.service"
+      "nginx.service"
+      "backups-collector.service"
     ];
     environment = {
       PYTHONPATH = pythonPath;
@@ -217,6 +240,6 @@ in
       allow 127.0.0.1;
       deny all;
     '';
-    locations."/".proxyPass = "http://127.0.0.1:8093";
+    locations."/".proxyPass = "http://127.0.0.1:${toString port}";
   };
 }

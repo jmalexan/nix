@@ -14,7 +14,7 @@ let
     runtimeInputs = [ platform.python ];
     text = ''
       export PYTHONPATH=${./.}:${../microapps/backend}
-      exec uvicorn api:from_environment --factory --host 127.0.0.1 --port 8093 --no-access-log
+      exec uvicorn api:from_environment --factory --host 127.0.0.1 --port "''${PORT:-8101}" --no-access-log
     '';
   };
 in
@@ -24,6 +24,7 @@ in
   tests = pkgs.runCommand "backups-tests" { nativeBuildInputs = [ platform.python ]; } ''
     test -s ${static}/styles.css
     test -x ${server}/bin/backups-server
+    export BACKUPS_TEST_LAUNCHER=${server}/bin/backups-server
     export PYTHONPATH=${./.}:${../microapps/backend}:${../../hosts/nasa/services/updates-dashboard}
     export PYTHONDONTWRITEBYTECODE=1
     pytest -q -p no:cacheprovider ${./tests}

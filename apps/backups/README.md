@@ -35,7 +35,7 @@ A separate notifier checks report health every five minutes, including collector
 staleness, and publishes to the existing notification bridge with a dedicated
 `backups` credential scoped to the short and full origins and the owner.
 Notification links use `https://backups/`. It sends on changes, repeats
-unresolved alerts daily, retries failures on the next timer, and reports
+unresolved alerts daily, retries transient network/gateway failures on the next timer without failing activation, and reports
 recovery. Notification actions are empty. iPhone delivery still depends on the
 existing bridge device enrollment/APNs configuration.
 
@@ -52,7 +52,7 @@ snapshots do not prove recovery was tested.
 ## Deployment and recovery
 
 The NASA module exposes `https://backups` and its full hostname through nginx's
-private access policy, proxying to loopback 8093. Both URLs support direct
+private access policy, proxying to loopback 8101. Both URLs support direct
 shared account password sign-in with independent remembered sessions. The short
 URL is preferred for people and notification links. No separate Backups setup
 code or passkey enrollment is required. If the shared account is not yet
