@@ -362,6 +362,16 @@ class DeploymentValidationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(recorded)
 
+    def test_host_validation_does_not_allow_import_from_derivation(self):
+        result, recorded = self.validate_fixture(
+            "nasa.config.system.build.toplevel = "
+            'builtins.seq (builtins.readFile (mk "ifd")) (mk "nasa"); '
+            'htpc.config.system.build.toplevel = mk "htpc";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("allow-import-from-derivation", result.stderr)
+        self.assertFalse(recorded)
+
 
 if __name__ == "__main__":
     unittest.main()
