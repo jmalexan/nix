@@ -194,8 +194,9 @@ deployed. Repeat readiness and identity checks after deploying enrollment cleanu
 Use CI for routine guest updates. For recovery, use the authorized NASA access
 workflow; the agent guest is not an administrator backdoor. A host administrator
 can stop `microvm@robots`, preserve/copy its disk, or restore a previous NASA
-configuration. Back up needed source in Git; this initial release does not add
-VM disk backups or replicate personal home directories.
+configuration. The daily encrypted Restic job backs up an atomic ZFS snapshot
+of the persistent VM disk without stopping robots. See [backup and disk restore](nasa-recovery.md#robots-vm-disk)
+for consistency limits and recovery steps. Keep source in Git as well.
 
 References: [microvm host](https://microvm-nix.github.io/microvm.nix/host.html),
 [systemd credentials](https://systemd.io/CREDENTIALS/),

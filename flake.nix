@@ -217,6 +217,7 @@
         // nixpkgs.lib.optionalAttrs (system == linuxSystem) {
           approval-ssh-gate = import ./apps/microapps/tests/gate-vm.nix { inherit pkgs; };
           agent-network = import ./tests/agent-network.nix { inherit pkgs; };
+          robots-backup = import ./tests/robots-backup.nix { inherit pkgs; };
           agent-guest = import ./tests/agent-guest.nix {
             inherit pkgs nixpkgs microvm;
             specialArgs = nixosSpecialArgs;
