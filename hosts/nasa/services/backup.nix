@@ -6,6 +6,12 @@ let
   pgDump = "${config.services.postgresql.package}/bin/pg_dump";
 in
 {
+  imports = [
+    (import ./backup/robots.nix {
+      dataset = config.fileSystems."/".device;
+      mountPoint = "/";
+    })
+  ];
   age.secrets.backblaze-env = {
     file = ../../../secrets/backblaze-env.age;
     # Decrypted to /run/agenix/backblaze-env (root-readable only)

@@ -111,7 +111,7 @@ With verified PR reuse, main still compares only validated derivation metadata.
 
 On PRs, each VM check runs only when its derivation differs from the exact base's
 successful main-validation record. This covers `approval-ssh-gate`, `agent-network`,
-and `agent-guest` independently. Nix captures their transitive source and package
+`agent-guest`, and `robots-backup` independently. Nix captures their transitive source and package
 dependencies, so this does not rely on filename filters. The same evaluation
 records all Linux check derivations for possible future selection, but lint,
 backend tests, and frontend checks still run on every PR. The required `nix` job

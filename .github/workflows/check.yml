@@ -74,6 +74,7 @@ jobs:
         if: steps.reuse.outputs.reused != 'true'
         run: python3 -m unittest discover -s tools -p 'test_deployment*.py'
       - name: Run Linux repository checks
+        timeout-minutes: 20
         if: steps.reuse.outputs.reused != 'true'
         env:
           CI_VM_CHECKS: ${{ steps.plan.outputs.vm_checks }}
