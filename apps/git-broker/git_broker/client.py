@@ -150,7 +150,7 @@ def main():
                     local_git("bundle", "create", str(bundle), "refs/heads/" + branch)
                     from urllib.parse import quote
 
-                    from .approval import request_approval
+                    from .request import request_approval
 
                     policy = client.call("/v1/repositories")[alias]
                     if not branch.startswith(tuple(policy["write_prefixes"])):

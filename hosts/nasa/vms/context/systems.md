@@ -65,16 +65,19 @@ Use authenticated app APIs first. For host files or operations an API cannot
 perform, the packaged approval client is available from any directory; the
 repository's `tools/nasa-access.py --approved` honors the same requester path.
 Only the request-creation token is present. It cannot approve or claim requests.
-The old copied `nasa-journalctl` directory is not mounted in robots. Do not claim
-local host logs exist here; consult available APIs or request approved access
-when host logs are needed.
+Use `nasa-journalctl -u SERVICE --since today --no-pager -n 100` for NASA logs.
+NASA's persistent journal is the VM's only host directory share, read-only at
+`/var/log/nasa-journal`. This needs neither sudo nor an SSH connection. Host file
+access outside the journal still requires the approved connection flow.
 
 NASA HTTPS, the approved gate, DNS, and public web/package downloads are allowed.
 The host firewall and `tag:agent` policy block ordinary host SSH/Rex and other
 private-network access. An access failure is not permission to change that policy.
 
 CI deploys approved Nix changes and checks guest readiness. Updating the guest
-configuration restarts robots, so save work before an owner merges such a release.
+configuration restarts robots when its runtime closure changes. Host-only app edits
+keep it running; guest tools, packages, mounts, credentials, and boot changes may
+restart it, so save work before merging those releases.
 The full recovery/migration guide is `docs/agent-vm.md` in the Nix repo.
 
 ## Current scope and follow-ups

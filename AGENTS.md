@@ -1,6 +1,6 @@
 # Infrastructure debugging
 
-The current environment has a read-only local wrapper for inspecting logs copied from the `nasa` host:
+Use the local wrapper to read NASA’s shared journal:
 
 ```sh
 nasa-journalctl [journalctl arguments]
@@ -16,7 +16,7 @@ The wrapper may print a harmless warning about a missing journal directory befor
 
 # NAS access
 
-Use an application's authenticated API for application operations, and the copied
+Use an application's authenticated API for application operations, and the read-only
 journal wrapper above for logs. Do not start with SSH when either covers the task.
 
 When a task needs host filesystem access or another operation the APIs cannot

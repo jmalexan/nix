@@ -9,6 +9,7 @@ let
     system = "x86_64-linux";
     specialArgs = specialArgs // {
       gitBrokerEnabled = true;
+      nasaJournalSource = "nasa-journal";
     };
     modules = [
       microvm.nixosModules.microvm
@@ -61,6 +62,7 @@ let
         services.rex.loginServer.enable = lib.mkForce false;
         systemd.services.agent-boot-test = {
           wantedBy = [ "multi-user.target" ];
+          unitConfig.RequiresMountsFor = [ "/var/log/nasa-journal" ];
           unitConfig.OnFailure = "poweroff.target";
           requires = [
             "agent-github-identity.service"
@@ -126,9 +128,16 @@ let
             test "$(cat /home/robot/.local/share/git-broker/token)" = test-only-broker-client
             test "$(stat -c '%a:%U' /home/robot/.local/share/git-broker/token)" = 600:robot
             runuser -u robot -- /run/current-system/sw/bin/git-broker --help >/dev/null
+            runuser -u robot -- /run/current-system/sw/bin/nasa-approved-access --dry-run --reason 'Packaged access client check' -- true | grep -F 'nasa-automation'
             test "$(cat /home/robot/.local/share/nasa-github-app/private-key.pem)" = test-only-github-key
             test "$(stat -c '%a:%U' /home/robot/.local/share/nasa-github-app/private-key.pem)" = 600:robot
-            test "$(id -nG robot)" = users
+            test "$(id -nG robot)" = "users systemd-journal"
+            runuser -u robot -- /run/current-system/sw/bin/nasa-journalctl -u fixture.service --no-pager -o cat | grep -Fx NASA_JOURNAL_FIXTURE
+            if touch /var/log/nasa-journal/guest-write; then exit 1; fi
+            # Even guest root cannot make QEMU's read-only export writable.
+            mount -o remount,rw /var/log/nasa-journal || true
+            if touch /var/log/nasa-journal/guest-write; then exit 1; fi
+            mount -o remount,ro /var/log/nasa-journal
             test ! -e /run/wrappers/bin/sudo
             sshd -T -f /etc/ssh/sshd_config > /run/test-sshd-config
             grep -i '^AllowAgentForwarding no$' /run/test-sshd-config
@@ -154,6 +163,19 @@ in
 pkgs.runCommand "agent-guest-boot" { nativeBuildInputs = [ pkgs.coreutils ]; } ''
   export HOME="$TMPDIR"
   set -o pipefail
+  mkdir nasa-journal
+  cat > fixture.export <<'EOF'
+  __REALTIME_TIMESTAMP=1794051000000000
+  __MONOTONIC_TIMESTAMP=1
+  _BOOT_ID=11111111111111111111111111111111
+  _MACHINE_ID=22222222222222222222222222222222
+  _SYSTEMD_UNIT=fixture.service
+  MESSAGE=NASA_JOURNAL_FIXTURE
+
+  EOF
+  ${pkgs.systemd}/lib/systemd/systemd-journal-remote --output=nasa-journal/fixture.journal --split-mode=none fixture.export
+  chmod 755 nasa-journal
+  chmod 644 nasa-journal/fixture.journal
   for boot in FIRST SECOND; do
     timeout 180 ${guest.config.microvm.declaredRunner}/bin/microvm-run 2>&1 | tr -d '\r' | tee "$boot.log"
     grep -q "AGENT_TEST_''${boot}_BOOT_OK" "$boot.log" || { cat "$boot.log"; exit 1; }

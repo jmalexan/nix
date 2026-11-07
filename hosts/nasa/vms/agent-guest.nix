@@ -8,6 +8,7 @@
   rex,
   vars,
   gitBrokerEnabled ? false,
+  nasaJournalSource ? "/var/log/journal",
   ...
 }:
 let
@@ -21,7 +22,7 @@ let
 in
 {
   imports = [
-    (import ../../../modules/dev-environment.nix { inherit pkgs pkgs-unstable claude-code-pkg; })
+    ../../../modules/dev-environment.nix
     (import ../../../modules/rex.nix {
       inherit rex;
       vars = agentVars;
@@ -37,7 +38,16 @@ in
     # the guest sees 8 GiB throughout, while host residency follows page use.
     mem = 8192;
     balloon = true;
-    shares = [ ];
+    # The only host share is journal data, enforced read-only by QEMU.
+    shares = [
+      {
+        source = nasaJournalSource;
+        mountPoint = "/var/log/nasa-journal";
+        tag = "nasa-journal";
+        proto = "9p";
+        readOnly = true;
+      }
+    ];
     devices = [ ];
     interfaces = [
       {
@@ -62,6 +72,7 @@ in
       agent-git-broker = "/run/credentials/microvm@robots.service/agent-git-broker";
     };
   };
+  fileSystems."/var/log/nasa-journal".options = [ "ro" ];
   # QEMU fw_cfg credentials arrive in PID 1, never in the Nix store.
   boot.initrd.kernelModules = [ "qemu_fw_cfg" ];
   # Concurrent agents and builds share the guest RAM. Give short memory spikes a
@@ -149,6 +160,7 @@ in
   users.users.robot = {
     isNormalUser = true;
     shell = pkgs.fish;
+    extraGroups = [ "systemd-journal" ];
     openssh.authorizedKeys.keys = import ../../../users/authorized-keys.nix;
   };
   security.sudo.enable = false;
@@ -175,6 +187,9 @@ in
           --permission-mode bypassPermissions "$@"
       ''
     ))
+    (pkgs.writeShellScriptBin "nasa-journalctl" ''
+      exec ${pkgs.systemd}/bin/journalctl --directory=/var/log/nasa-journal "$@"
+    '')
     (import ../../../tools/github-bot.nix { inherit pkgs; })
     (import ../../../apps/microapps { inherit pkgs; }).access
     (pkgs.writeShellScriptBin "robot-guide" ''
@@ -284,8 +299,17 @@ in
   };
   assertions = [
     {
-      assertion = config.microvm.shares == [ ];
-      message = "Agent VM must not share host filesystems.";
+      assertion =
+        builtins.length config.microvm.shares == 1
+        && builtins.all (
+          share:
+          share.source == nasaJournalSource
+          && share.mountPoint == "/var/log/nasa-journal"
+          && share.tag == "nasa-journal"
+          && share.proto == "9p"
+          && share.readOnly
+        ) config.microvm.shares;
+      message = "Agent VM may share only the read-only NASA journal.";
     }
     {
       assertion = !(builtins.elem "wheel" config.users.users.robot.extraGroups);

@@ -105,7 +105,11 @@ def test_client_clone_fetch_push_over_verified_https(repository, tmp_path):
 
         def client(*args, cwd=None, check=True):
             result = subprocess.run(
-                [sys.executable, "-m", "git_broker.client", *args],
+                (
+                    [os.environ["GIT_BROKER_TEST_CLIENT"], *args]
+                    if os.environ.get("GIT_BROKER_TEST_CLIENT")
+                    else [sys.executable, "-m", "git_broker.client", *args]
+                ),
                 cwd=cwd,
                 env=env,
                 text=True,
