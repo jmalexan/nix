@@ -56,21 +56,22 @@ class GitHub:
         return data if binary else json.loads(data)
 
 
-def record(path):
+def record(path, derivations_path=None):
     commit = git("HEAD")
     if commit != os.environ["GITHUB_SHA"]:
         raise ValueError("Checkout differs from the workflow revision")
-    Path(path).write_text(
-        json.dumps(
-            {
-                "commit": commit,
-                "tree": git("HEAD^{tree}"),
-                "run_id": int(os.environ["GITHUB_RUN_ID"]),
-                "attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
-            }
-        )
-        + "\n"
-    )
+    proof = {
+        "commit": commit,
+        "tree": git("HEAD^{tree}"),
+        "run_id": int(os.environ["GITHUB_RUN_ID"]),
+        "attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+    }
+    if derivations_path:
+        values = json.loads(Path(derivations_path).read_text())
+        if values.get("tree") != proof["tree"]:
+            raise ValueError("Derivations differ from the tested source tree")
+        proof["deployment_derivations"] = values
+    Path(path).write_text(json.dumps(proof) + "\n")
 
 
 def manifest(data):
@@ -85,7 +86,7 @@ def manifest(data):
         return json.loads(archive.read(entries[0]))
 
 
-def find_run(api, workflow, commit, tree):
+def find_run(api, workflow, commit, tree, derivations_output=None):
     # Restrict reuse to PR heads associated with this merged main revision.
     pulls = api.get(f"commits/{commit}/pulls?per_page=100")
     heads = {
@@ -143,6 +144,16 @@ def find_run(api, workflow, commit, tree):
             and len(parents) == 2
             and parents[1] == run["head_sha"]
         ):
+            values = proof.get("deployment_derivations")
+            if (
+                derivations_output
+                and workflow == "check.yml"
+                and isinstance(values, dict)
+                and values.get("tree") == tree
+            ):
+                # Publish metadata only after all checkout/run checks passed.
+                # The planner independently checks context and host paths.
+                Path(derivations_output).write_text(json.dumps(values) + "\n")
             return run["html_url"]
     return None
 
@@ -150,10 +161,13 @@ def find_run(api, workflow, commit, tree):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--record")
+    parser.add_argument(
+        "--derivations", help="Include the planner's evaluated head record"
+    )
     parser.add_argument("--workflow", choices=("check.yml", "notification-ios.yml"))
     args = parser.parse_args()
     if args.record:
-        record(args.record)
+        record(args.record, args.derivations)
         return
     if not args.workflow:
         parser.error("--workflow is required for lookup")
@@ -167,7 +181,13 @@ def main():
             commit = git("HEAD")
             if commit != os.environ["GITHUB_SHA"]:
                 raise ValueError("Checkout differs from the workflow revision")
-            url = find_run(GitHub(), args.workflow, commit, git("HEAD^{tree}"))
+            url = find_run(
+                GitHub(),
+                args.workflow,
+                commit,
+                git("HEAD^{tree}"),
+                os.environ.get("CI_DERIVATIONS_OUTPUT"),
+            )
         except Exception as error:
             # An optimization must never turn an unavailable proof into a pass.
             print(

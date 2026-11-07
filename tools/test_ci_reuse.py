@@ -291,6 +291,56 @@ class ReuseTests(unittest.TestCase):
                 "https://storage.example/archive", timeout=15
             )
 
+    def test_only_verified_matching_derivations_are_published(self):
+        values = {"tree": TREE, "context": {"schema": 1}, "derivations": {}}
+        for variant in ("valid", "failed-run", "wrong-tree", "old-artifact"):
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as temp:
+                api = copy.deepcopy(self.api)
+                api.proof["deployment_derivations"] = copy.deepcopy(values)
+                if variant == "failed-run":
+                    api.run["conclusion"] = "failure"
+                elif variant == "wrong-tree":
+                    api.proof["deployment_derivations"]["tree"] = "e" * 40
+                elif variant == "old-artifact":
+                    del api.proof["deployment_derivations"]
+                path = Path(temp) / "verified.json"
+                reuse.find_run(api, "check.yml", MAIN, TREE, path)
+                if variant == "valid":
+                    self.assertEqual(json.loads(path.read_text()), values)
+                else:
+                    self.assertFalse(path.exists())
+
+    def test_record_binds_derivations_to_tested_tree(self):
+        for tree in (TREE, "e" * 40):
+            with self.subTest(tree=tree), tempfile.TemporaryDirectory() as temp:
+                values = {"tree": tree, "context": {"schema": 1}, "derivations": {}}
+                source, output = (
+                    Path(temp) / "derivations.json",
+                    Path(temp) / "validation.json",
+                )
+                source.write_text(json.dumps(values))
+                with (
+                    patch.dict(
+                        os.environ,
+                        {
+                            "GITHUB_SHA": MERGE,
+                            "GITHUB_RUN_ID": "123",
+                            "GITHUB_RUN_ATTEMPT": "2",
+                        },
+                    ),
+                    patch.object(reuse, "git", side_effect=[MERGE, TREE]),
+                ):
+                    if tree == TREE:
+                        reuse.record(output, source)
+                        self.assertEqual(
+                            json.loads(output.read_text())["deployment_derivations"],
+                            values,
+                        )
+                    else:
+                        with self.assertRaises(ValueError):
+                            reuse.record(output, source)
+                        self.assertFalse(output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
