@@ -220,3 +220,10 @@ The personal home container no longer mounts NASA’s journal or installs the
 wrapper, Codex, or Claude Code through the shared development module. Its shell,
 Rex access, development tools, personal files, credentials, and repositories stay
 in place. Existing user-installed software and login state are not deleted.
+
+## Package store across image updates
+
+Boot packages are retained in the writable store before the Nix daemon starts,
+so replacing the read-only image does not strand locally installed dependencies.
+See [persistent package store](agent-store.md) for startup behavior, disk usage,
+image symlink preservation, and the two-generation boot regression.

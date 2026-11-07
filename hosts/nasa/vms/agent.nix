@@ -80,7 +80,7 @@
         done
         invocation=$(systemctl show microvm@robots.service --property=InvocationID --value)
         test -n "$invocation"
-        for _attempt in $(seq 1 90); do
+        for _attempt in $(seq 1 330); do
           records=$(journalctl --quiet --no-pager -o cat "_SYSTEMD_INVOCATION_ID=$invocation" | tr -d '\r')
           if grep -qx ROBOTS_READY <<< "$records"; then
             systemctl is-active --quiet microvm@robots.service
