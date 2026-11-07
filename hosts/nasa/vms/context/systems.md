@@ -4,6 +4,11 @@
 
 - Login: `robot` on `robots`, via Rex or ordinary SSH (`ssh robot@robots`).
 - Development: `/home/robot/dev`; 2 vCPUs, 8 GiB guest RAM ceiling, persistent 64 GiB disk.
+- Agent permissions: system-PATH Codex and Claude Code use the VM as their local
+  sandbox and skip local command approvals. External reads through authorized
+  access paths need no extra chat confirmation; external writes need task or
+  delivery authorization, otherwise ask. NASA access and releases retain their
+  separate approval gates. Bundled agent clients may impose their own settings.
 - Memory: free-page reporting returns unused guest pages to NASA automatically;
   the guest always sees 8 GiB, but host RAM is shared and not reserved. Compressed
   swap (up to 2 GiB logical capacity) buffers brief concurrent-agent/build spikes.

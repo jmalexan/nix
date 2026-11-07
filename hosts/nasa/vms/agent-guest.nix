@@ -156,6 +156,21 @@ in
     auto-optimise-store = false;
   };
   environment.systemPackages = [
+    # robots is the sandbox. Keep these defaults guest-only and leave user
+    # config/auth files alone. Explicit CLI options can select stricter modes.
+    (lib.hiPrio (
+      pkgs.writeShellScriptBin "codex" ''
+        exec ${pkgs-unstable.codex}/bin/codex \
+          -c 'sandbox_mode="danger-full-access"' \
+          -c 'approval_policy="never"' "$@"
+      ''
+    ))
+    (lib.hiPrio (
+      pkgs.writeShellScriptBin "claude" ''
+        exec ${claude-code-pkg}/bin/claude \
+          --permission-mode bypassPermissions "$@"
+      ''
+    ))
     (import ../../../tools/github-bot.nix { inherit pkgs; })
     (import ../../../apps/microapps { inherit pkgs; }).access
     (pkgs.writeShellScriptBin "robot-guide" ''

@@ -53,6 +53,30 @@ Home Manager installs the shared instructions as `~/.codex/AGENTS.md` and
 `~/.claude/CLAUDE.md`, so new CLI sessions load them automatically. No personal
 configuration or credentials are copied. `/home/robot/dev` is the project workspace.
 
+### Agent permissions
+
+The VM is the local execution boundary. Guest-only `codex` and `claude` launchers
+select Codex `sandbox_mode = "danger-full-access"` / `approval_policy = "never"`
+and Claude Code `--permission-mode bypassPermissions`. Local work, downloads,
+builds, caches, and Git operations therefore do not require per-command approval.
+Existing user configuration and authentication files are preserved. Explicit CLI
+options can choose stricter modes. These launchers apply to programs invoked
+through the guest system PATH; clients bundling their own agent executable or
+imposing a session permission profile must be configured separately. Existing
+sessions retain their permissions; start a new session after deployment.
+
+Shared agent instructions require approval for external writes unless the user's
+request or the project's delivery instructions already authorize the action.
+Authorized external reads need no additional chat confirmation. This distinction
+is an agent instruction, not a read/write filter on outgoing HTTPS: an agent can
+use the scoped credentials available to `robot`. The no-sudo account, VM/network
+isolation, scoped credentials, NASA phone-approved access gate, and owner-reviewed
+release process remain enforced separately. This does not grant new external
+access or permission to bypass those controls.
+
+References: [Codex sandbox and approvals](https://learn.chatgpt.com/docs/agent-approvals-security),
+[Claude Code permissions](https://code.claude.com/docs/en/permissions).
+
 The repository catalog distinguishes access from delivery: `jmalexan/nix` uses
 the scoped bot and owner-approved PR releases; ordinary projects follow the user's
 request, including branch-only work. Public cloning works now. Other private
