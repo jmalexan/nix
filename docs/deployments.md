@@ -60,11 +60,11 @@ a fresh signed device archive.
 
 ### Deployment planning cache
 
-Successful main validation saves a small JSON record of NASA/HTPC derivation
-paths through Actions cache. Subsequent runs restore the entry for their exact
+Successful main validation saves a small JSON record of NASA/HTPC and Linux check
+derivation paths through Actions cache. Subsequent runs restore the entry for their exact
 base source tree. Only main saves shared entries; PRs can read them but write
 their new-tree result only into the verified validation artifact. The planner
-checks source tree, planner-code hash, Nix version, platform, schema, both host
+checks source tree, planner-code hash, Nix version, platform, runner image, schema, both host
 names, and derivation-path syntax before accepting a record. Cache keys include
 the same evaluation context and source tree, with no broad restore-key fallback.
 Changing the planner, evaluation environment, or source invalidates the result.
@@ -106,6 +106,28 @@ missing host names fail validation. This avoids repeating host evaluation;
 `nix flake check` itself does not use Nix's evaluation cache. Valid cached metadata
 never bypasses a requested validation. Failed validation publishes no new record.
 With verified PR reuse, main still compares only validated derivation metadata.
+
+### Conditional VM checks
+
+On PRs, each VM check runs only when its derivation differs from the exact base's
+successful main-validation record. This covers `approval-ssh-gate`, `agent-network`,
+`agent-guest`, and `robots-backup` independently. Nix captures their transitive source and package
+dependencies, so this does not rely on filename filters. The same evaluation
+records all Linux check derivations for possible future selection, but lint,
+backend tests, and frontend checks still run on every PR. The required `nix` job
+always runs, and its summary shows the VM checks selected or inherited from base.
+
+A freshly evaluated base is not proof that its checks passed. Missing, expired,
+invalid, or incompatible main metadata runs every VM check, even if a fresh base
+evaluation yields unchanged paths. Full validation, manual runs, and main runs
+without verified PR reuse also run every VM check. The runner defaults to all
+checks when invoked locally and rejects invalid selections. No test binaries or
+Nix store outputs are cached or restored.
+
+The first PR after rollout runs every VM check; merging a successful validation
+seeds the new metadata schema for subsequent PRs. Updating the planner, Nix,
+platform, or runner image likewise falls back to full VM coverage. Deployment
+health checks and live update polling are never skipped by this selector.
 
 ### Local production build reuse
 

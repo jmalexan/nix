@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 
 HOSTS = ("nasa", "htpc")
+VM_CHECKS = ("approval-ssh-gate", "agent-network", "agent-guest", "robots-backup")
+CHECK_NAME = re.compile(r"[a-zA-Z0-9_-]+")
 REVISION = re.compile(r"[0-9a-f]{40}")
 DRV = re.compile(r"/nix/store/[0-9abcdfghijklmnpqrsvwxyz]{32}-[^/\n]+\.drv")
 
@@ -33,18 +35,38 @@ def derivations(repo, commit, directory, validate=False):
     subprocess.run(
         ["tar", "-x", "-C", str(directory)], input=archive.stdout, check=True
     )
-    if validate:
-        # flake check does not use Nix's evaluation cache. Leave host validation
-        # to the drvPath evaluation below instead of evaluating each host twice.
-        # The wrapper forwards all other outputs, preserving their original self.
-        wrapper = directory.parent / "validation"
-        wrapper.mkdir()
-        (wrapper / "flake.nix").write_text(
-            "{ inputs.repo.url = "
-            + json.dumps(f"path:{directory}")
-            + "; outputs = { repo, ... }: "
-            'builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]; }\n'
+    # Evaluate both hosts in one process so they can share imported Nix modules.
+    expression = (
+        "flake: let configs = flake.nixosConfigurations; in "
+        + "assert builtins.attrNames configs == "
+        + "[ "
+        + " ".join(json.dumps(host) for host in sorted(HOSTS))
+        + " ]"
+        + "; { hosts = { "
+        + " ".join(
+            f"{host} = assert configs.{host}.config.system.build.toplevel.type "
+            f'== "derivation"; configs.{host}.config.system.build.toplevel.drvPath;'
+            for host in HOSTS
         )
+        + " }; checks = builtins.mapAttrs (_: drv: "
+        + 'assert drv.type == "derivation"; drv.drvPath) flake.checks.x86_64-linux; }'
+    )
+    # A temporary wrapper exposes metadata under lib without altering the source
+    # flake's self. Both validation and metadata evaluation use this same wrapper.
+    wrapper = directory.parent / f"{directory.name}-validation"
+    wrapper.mkdir()
+    (wrapper / "flake.nix").write_text(
+        "{ inputs.repo.url = "
+        + json.dumps(f"path:{directory}")
+        + "; outputs = { repo, ... }: "
+        + '(builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]) // { '
+        + "lib = (repo.lib or {}) // { ciDerivations = ("
+        + expression
+        + ") repo; }; }; }\n"
+    )
+    if validate:
+        # flake check does not cache evaluations. The host derivation checks are
+        # performed by ciDerivations; all other outputs retain native validation.
         subprocess.run(
             [
                 "nix",
@@ -57,20 +79,6 @@ def derivations(repo, commit, directory, validate=False):
             ],
             check=True,
         )
-    # Evaluate both hosts in one process so they can share imported Nix modules.
-    expression = (
-        "configs: assert builtins.attrNames configs == "
-        + "[ "
-        + " ".join(json.dumps(host) for host in sorted(HOSTS))
-        + " ]"
-        + "; { "
-        + " ".join(
-            f"{host} = assert configs.{host}.config.system.build.toplevel.type "
-            f'== "derivation"; configs.{host}.config.system.build.toplevel.drvPath;'
-            for host in HOSTS
-        )
-        + " }"
-    )
     return json.loads(
         subprocess.check_output(
             [
@@ -81,9 +89,7 @@ def derivations(repo, commit, directory, validate=False):
                 "--option",
                 "allow-import-from-derivation",
                 "false",
-                f"path:{directory}#nixosConfigurations",
-                "--apply",
-                expression,
+                f"path:{wrapper}#lib.ciDerivations",
             ],
             text=True,
         )
@@ -92,10 +98,11 @@ def derivations(repo, commit, directory, validate=False):
 
 def evaluation_context():
     return {
-        "schema": 1,
+        "schema": 2,
         "planner": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "nix": subprocess.check_output(["nix", "--version"], text=True).strip(),
         "platform": f"{platform.system()}-{platform.machine()}",
+        "runner_image": f"{os.environ.get('ImageOS', 'local')}:{os.environ.get('ImageVersion', 'local')}",
     }
 
 
@@ -114,11 +121,18 @@ def valid_record(record, tree, context):
     if not isinstance(record, dict):
         return False
     values = record.get("derivations")
+    checks = record.get("checks")
     return (
         record.get("tree") == tree
         and record.get("context") == context
         and isinstance(values, dict)
         and set(values) == set(HOSTS)
+        and isinstance(checks, dict)
+        and set(VM_CHECKS) <= set(checks)
+        and all(isinstance(name, str) and CHECK_NAME.fullmatch(name) for name in checks)
+        and all(
+            isinstance(value, str) and DRV.fullmatch(value) for value in checks.values()
+        )
         and all(
             isinstance(value, str) and DRV.fullmatch(value) for value in values.values()
         )
@@ -145,6 +159,8 @@ def plan(
     verified_head=None,
     fresh=False,
     validate=False,
+    vm_selection=None,
+    select_vm=False,
 ):
     context = evaluation_context()
     records = [] if fresh else [read_record(cache), read_record(verified_head)]
@@ -165,17 +181,19 @@ def plan(
             directory = Path(temp) / label
             directory.mkdir()
             started = time.monotonic()
+            evaluated = (
+                derivations(repo, commit, directory, validate=True)
+                if validate
+                else derivations(repo, commit, directory)
+            )
             record = {
                 "tree": tree,
                 "context": context,
-                "derivations": (
-                    derivations(repo, commit, directory, validate=True)
-                    if validate
-                    else derivations(repo, commit, directory)
-                ),
+                "derivations": evaluated["hosts"],
+                "checks": evaluated["checks"],
             }
             if not valid_record(record, tree, context):
-                raise ValueError("Nix returned invalid host derivations")
+                raise ValueError("Nix returned invalid host/check derivations")
             print(
                 f"{label}: evaluated in {time.monotonic() - started:.1f}s",
                 file=sys.stderr,
@@ -187,14 +205,24 @@ def plan(
         # Resolving head first also avoids duplicate work for identical trees.
         after = resolve(head, "head", validate=True) if validate else None
         # A forced reconciliation only needs the new configurations validated.
-        before = (
-            resolve(base, "base")["derivations"]
-            if base != "0" * 40 and not force
-            else {}
+        before_record = (
+            resolve(base, "base") if base != "0" * 40 and not force else None
         )
         if after is None:
             after = resolve(head, "head")
+    before = before_record["derivations"] if before_record else {}
     hosts = select_hosts(before, after["derivations"], force)
+    # Only an exact base record restored from successful main validation can
+    # justify skipping. A freshly evaluated base is not evidence its tests ran.
+    cached_base = records[0] if records else None
+    trusted_base = (
+        cached_base if before_record and cached_base == before_record else None
+    )
+    selected = select_vm_checks(
+        trusted_base, after, enabled=select_vm and not fresh and not force
+    )
+    if vm_selection is not None:
+        vm_selection.extend(selected)
     if cache:
         Path(cache).parent.mkdir(parents=True, exist_ok=True)
         Path(cache).write_text(json.dumps(after, sort_keys=True) + "\n")
@@ -209,6 +237,14 @@ def select_hosts(before, after, force=None):
             raise ValueError("Unknown deployment host")
         return [force]
     return [host for host in HOSTS if before.get(host) != after[host]]
+
+
+def select_vm_checks(before, after, enabled=False):
+    if not enabled or before is None:
+        return list(VM_CHECKS)
+    return [
+        name for name in VM_CHECKS if before["checks"][name] != after["checks"][name]
+    ]
 
 
 def main():
@@ -244,6 +280,7 @@ def main():
                 for key, value in keys.items():
                     stream.write(f"{key}={value}\n")
         return
+    vm_checks = []
     hosts = plan(
         repo,
         args.base,
@@ -253,12 +290,15 @@ def main():
         args.verified_head,
         fresh=os.environ.get("CI_FORCE_VALIDATION") == "true",
         validate=args.validate,
+        vm_selection=vm_checks,
+        select_vm=os.environ.get("GITHUB_EVENT_NAME") == "pull_request",
     )
     result = json.dumps(hosts)
     print(result)
     if output := os.environ.get("GITHUB_OUTPUT"):
         with open(output, "a") as stream:
             stream.write(f"hosts={result}\nhas_changes={str(bool(hosts)).lower()}\n")
+            stream.write(f"vm_checks={json.dumps(vm_checks)}\n")
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(summary, "a") as stream:
             stream.write("## Deployment plan\n\n")
@@ -266,6 +306,16 @@ def main():
             for host in HOSTS:
                 action = "Deploy" if host in hosts else "Unchanged"
                 stream.write(f"| {host} | {action} |\n")
+            stream.write("\n| VM check | Validation |\n| --- | --- |\n")
+            for name in VM_CHECKS:
+                action = (
+                    "Covered by verified PR validation"
+                    if os.environ.get("REUSED_VALIDATION") == "true"
+                    else "Run"
+                    if name in vm_checks
+                    else "Unchanged from validated base"
+                )
+                stream.write(f"| {name} | {action} |\n")
             stream.write(
                 "\nPR checks never connect to a host. Deployment uses the exact merged revision.\n"
             )

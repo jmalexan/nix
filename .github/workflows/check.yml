@@ -76,6 +76,8 @@ jobs:
       - name: Run Linux repository checks
         timeout-minutes: 20
         if: steps.reuse.outputs.reused != 'true'
+        env:
+          CI_VM_CHECKS: ${{ steps.plan.outputs.vm_checks }}
         run: bash tools/ci-checks.sh
       - name: Record tested checkout
         if: github.event_name == 'pull_request'
