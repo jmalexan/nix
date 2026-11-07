@@ -257,44 +257,6 @@
         }
       }
     },
-    "/api/auth/password": {
-      "post": {
-        "summary": "Change",
-        "operationId": "change_api_auth_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordSet"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PasswordStatus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -607,22 +569,6 @@
           "password"
         ],
         "title": "PasswordLogin"
-      },
-      "PasswordSet": {
-        "properties": {
-          "password": {
-            "type": "string",
-            "maxLength": 1024,
-            "minLength": 15,
-            "title": "Password"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "password"
-        ],
-        "title": "PasswordSet"
       },
       "PasswordStatus": {
         "properties": {

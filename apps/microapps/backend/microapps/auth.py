@@ -21,6 +21,7 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
+from .accounts import Account, AccountClient
 from .auth_store import digest
 from .passwords import install_passwords
 
@@ -50,6 +51,11 @@ def install_auth(
         "__Host-microapp" if settings.origin.startswith("https:") else "microapp-dev"
     )
     rp_id = urlparse(settings.origin).hostname
+    account = (
+        AccountClient(settings.account_socket)
+        if settings.account_socket
+        else Account(store, settings.enrollment_token)
+    )
 
     def request_origin(request):
         return app.state.origins[request.headers["host"]]
@@ -60,26 +66,30 @@ def install_auth(
 
     def canonical(request: Request):
         origin(request)
+        if settings.account_socket:
+            raise HTTPException(403, "Use password sign-in")
         if request_origin(request) != settings.origin:
             raise HTTPException(403, "Use the full hostname for passkeys")
 
-    def session_id(token, request):
+    def session_id(token, request, generation=None):
         host_origin = request_origin(request)
+        if settings.account_socket:
+            return digest(generation + "\0" + host_origin + "\0" + token)
         # Retain existing canonical sessions, but bind new alias sessions to
         # their own origin even if a cookie is manually copied between hosts.
         return digest(
             token if host_origin == settings.origin else host_origin + "\0" + token
         )
 
-    def new_session(request, response, db=None):
+    def new_session(request, response, db=None, generation=None):
         if db is None:
             with store.transaction() as transaction:
-                return new_session(request, response, transaction)
+                return new_session(request, response, transaction, generation)
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         db.execute("DELETE FROM sessions WHERE expires<?", (time.time(),))
         db.execute(
             "INSERT INTO sessions VALUES(?,?,?)",
-            (session_id(token, request), csrf, time.time() + 30 * 86400),
+            (session_id(token, request, generation), csrf, time.time() + 30 * 86400),
         )
         response.set_cookie(
             cookie,
@@ -92,10 +102,19 @@ def install_auth(
         )
 
     def human(request: Request):
+        generation = None
+        if settings.account_socket:
+            state = account.status()
+            if not state.password:
+                raise HTTPException(401, "Sign in to continue")
+            generation = state.generation
         with store.transaction() as db:
             row = db.execute(
                 "SELECT * FROM sessions WHERE id=? AND expires>?",
-                (session_id(request.cookies.get(cookie, ""), request), time.time()),
+                (
+                    session_id(request.cookies.get(cookie, ""), request, generation),
+                    time.time(),
+                ),
             ).fetchone()
         if not row:
             raise HTTPException(401, "Sign in to continue")
@@ -222,5 +241,5 @@ def install_auth(
         )
         return {"status": "signed-out"}
 
-    install_passwords(app, store, settings, human, origin, new_session)
+    install_passwords(app, account, settings, origin, new_session)
     return human, origin

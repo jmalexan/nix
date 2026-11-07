@@ -1,5 +1,5 @@
 import { buttonClass } from "./components.js";
-import { api, showSignIn, showPasswordSettings } from "./auth.js";
+import { api, showSignIn } from "./auth.js";
 
 const content = document.querySelector("#content");
 const nixScanDialog = document.querySelector("#nix-scan-confirm");
@@ -9,41 +9,16 @@ const confirmNixScan = document.querySelector("#confirm-nix-scan");
 let dashboard = null;
 let session = null;
 const signOut = document.querySelector("#sign-out");
-const setPassword = document.querySelector("#set-password");
-let passwordEditing = false;
-
-setPassword.onclick = () => {
-  passwordEditing = true;
-  showPasswordSettings(
-    content,
-    session,
-    (value) => {
-      session = value;
-      passwordEditing = false;
-      render();
-      load();
-    },
-    () => {
-      passwordEditing = false;
-      render();
-      load();
-    },
-  );
-};
-
 function signedOut() {
   session = null;
-  passwordEditing = false;
   dashboard = null;
   pendingActions.clear();
   actionErrors.clear();
   nixScanDialog.close();
   signOut.hidden = true;
-  setPassword.hidden = true;
   showSignIn(content, (value) => {
     session = value;
     signOut.hidden = false;
-    setPassword.hidden = false;
     load();
   });
 }
@@ -838,7 +813,7 @@ function renderHistory() {
 }
 
 function render() {
-  if (!dashboard || passwordEditing) return;
+  if (!dashboard) return;
   const historyOpen =
     content.querySelector(".history-disclosure")?.open || false;
   const page = element(
@@ -855,7 +830,7 @@ function render() {
 }
 
 async function load() {
-  if (loadInProgress || !session || passwordEditing) return;
+  if (loadInProgress || !session) return;
   const currentSession = session;
   loadInProgress = true;
   try {
@@ -903,7 +878,6 @@ api("/session")
   .then((value) => {
     session = value;
     signOut.hidden = false;
-    setPassword.hidden = false;
     load();
   })
   .catch(() => signedOut());

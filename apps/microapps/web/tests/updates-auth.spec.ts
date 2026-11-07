@@ -17,7 +17,7 @@ test("Updates password enrollment, remembered session, protected actions and log
   await expect(
     page.getByRole("button", { name: "Run scan", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Set up this app" }).click();
+  await page.getByRole("button", { name: "Set up account" }).click();
   await page.getByLabel("Setup code").fill("u".repeat(32));
   await page
     .getByLabel("New password", { exact: true })
@@ -25,7 +25,7 @@ test("Updates password enrollment, remembered session, protected actions and log
   await page
     .getByLabel("Confirm password")
     .fill("a long password saved in Bitwarden");
-  await page.getByRole("button", { name: "Create password" }).click();
+  await page.getByRole("button", { name: "Create account" }).click();
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),
   ).toBeVisible();

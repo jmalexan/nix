@@ -12,9 +12,8 @@ repository = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(repository / "hosts/nasa/services/updates-dashboard"))
 from updates_api import Settings, create_app  # noqa: E402
 
-with tempfile.TemporaryDirectory() as directory:
-    root = Path(directory)
-    static = root / "static"
+
+def prepare_static(static):
     static.mkdir()
     shared = repository / "apps/microapps/web/src/shared"
     source = repository / "hosts/nasa/services/updates-dashboard"
@@ -29,19 +28,26 @@ with tempfile.TemporaryDirectory() as directory:
         )
         + (source / "styles.css").read_text()
     )
-    reports = root / "reports"
-    reports.mkdir()
-    (reports / "releases.json").write_text(
-        json.dumps({"checkedAt": "2026-11-06T12:00:00Z", "items": []})
-    )
-    app = create_app(
-        Settings(
-            "http://localhost:5174",
-            str(root / "auth.sqlite"),
-            "u" * 32,
-            str(reports),
-            str(static),
-            systemctl="/no-systemctl",
+
+
+if __name__ == "__main__":
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        static = root / "static"
+        prepare_static(static)
+        reports = root / "reports"
+        reports.mkdir()
+        (reports / "releases.json").write_text(
+            json.dumps({"checkedAt": "2026-11-06T12:00:00Z", "items": []})
         )
-    )
-    uvicorn.run(app, host="127.0.0.1", port=5174)
+        app = create_app(
+            Settings(
+                "http://localhost:5174",
+                str(root / "auth.sqlite"),
+                "u" * 32,
+                str(reports),
+                str(static),
+                systemctl="/no-systemctl",
+            )
+        )
+        uvicorn.run(app, host="127.0.0.1", port=5174)

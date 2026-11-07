@@ -86,7 +86,6 @@ in
       credentials = {
         requester = "/var/lib/microapp-secrets/approvals/requester";
         worker = "/var/lib/microapp-secrets/approvals/worker";
-        enrollment = "/var/lib/microapp-secrets/approvals/enrollment";
       }
       // lib.optionalAttrs cfg.sshGate.enable {
         gate = "/var/lib/microapp-secrets/approvals/gate";
@@ -100,7 +99,6 @@ in
         MICROAPP_DATABASE = "/var/lib/microapp-approvals/state.sqlite";
         MICROAPP_REQUESTER_FILE = "%d/requester";
         MICROAPP_WORKER_FILE = "%d/worker";
-        MICROAPP_ENROLLMENT_FILE = "%d/enrollment";
         MICROAPP_VAPID_PUBLIC = cfg.vapidPublicKey;
         MICROAPP_NOTIFICATION_BRIDGE = if cfg.notifications.enable then "1" else "0";
       }

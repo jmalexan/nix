@@ -5,7 +5,6 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 from microapps.api import Settings, create_app
-from microapps.auth_store import digest
 from updates_api import Settings as UpdateSettings
 from updates_api import create_app as create_updates
 
@@ -123,58 +122,12 @@ def test_password_setup_short_and_full_logins_and_origin_isolation(app_clients):
     assert post(restarted, "/login", {"password": PASSWORD}).status_code == 200
 
 
-def test_change_password_requires_session_csrf_and_revokes_other_sessions(app_clients):
+def test_password_management_is_not_exposed(app_clients):
     app, full, short, *_ = app_clients
-    assert post(full, "", {"password": PASSWORD}, "not-a-session").status_code == 401
     csrf = enroll(full)
+    for client in (full, short):
+        assert post(client, "", {"password": NEW_PASSWORD}, csrf).status_code == 404
     assert post(short, "/login", {"password": PASSWORD}).status_code == 200
-    assert post(full, "", {"password": NEW_PASSWORD}).status_code == 403
-    assert post(full, "", {"password": NEW_PASSWORD}, "wrong-csrf").status_code == 403
-    assert post(full, "", {"password": NEW_PASSWORD}, csrf).status_code == 200
-    assert full.get("/api/session").status_code == 200
-    assert short.get("/api/session").status_code == 401
-    assert post(short, "/login", {"password": PASSWORD}).status_code == 401
-    assert post(short, "/login", {"password": NEW_PASSWORD}).status_code == 200
-    short_csrf = short.get("/api/session").json()["csrf"]
-    assert (
-        short.post(
-            "/api/logout",
-            json={},
-            headers={
-                "Origin": str(short.base_url).rstrip("/"),
-                "X-CSRF-Token": short_csrf,
-            },
-        ).status_code
-        == 200
-    )
-    assert short.get("/api/session").status_code == 401
-
-
-def test_existing_passkey_owner_can_add_password_without_reopening_enrollment(
-    app_clients,
-):
-    app, full, short, settings, *_ = app_clients
-    with app.state.store.transaction() as db:
-        db.execute("INSERT INTO credentials VALUES('existing', 'public-key', 0)")
-        db.execute(
-            "INSERT INTO sessions VALUES(?,?,?)",
-            (digest("existing-session"), "csrf", time.time() + 60),
-        )
-    assert (
-        post(short, "/enroll", {"password": PASSWORD, "token": "e" * 32}).status_code
-        == 403
-    )
-    assert full.get("/api/auth/methods").json() == {
-        "password": False,
-        "passkey": True,
-        "setup": False,
-    }
-    assert short.get("/api/auth/methods").json()["passkey"] is False
-    full.cookies.set("__Host-microapp", "existing-session")
-    assert post(full, "", {"password": PASSWORD}, "csrf").status_code == 200
-    assert post(short, "/login", {"password": PASSWORD}).status_code == 200
-    with app.state.store.transaction() as db:
-        assert db.execute("SELECT id FROM credentials").fetchone()["id"] == "existing"
 
 
 def test_rate_limit_persists_and_cannot_be_bypassed_by_switching_host(
@@ -182,7 +135,7 @@ def test_rate_limit_persists_and_cannot_be_bypassed_by_switching_host(
 ):
     app, full, short, settings, factory = app_clients
     # Exercise persistent reservation, not expensive KDF timings in this test.
-    monkeypatch.setattr("microapps.passwords.password_hash", lambda *_: b"dummy")
+    monkeypatch.setattr("microapps.accounts.password_hash", lambda *_: b"dummy")
     for _ in range(10):
         assert post(short, "/login", {"password": "wrong"}).status_code == 401
     response = post(full, "/login", {"password": "wrong"})

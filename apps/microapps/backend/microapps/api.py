@@ -31,6 +31,7 @@ class Settings:
     notification_bridge: bool = False
     git_broker_token: str = ""
     aliases: tuple[str, ...] = ()
+    account_socket: str | None = None
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -40,7 +41,9 @@ class Settings:
             url.scheme == "http" and url.hostname == "localhost"
         ):
             raise ValueError("HTTPS required except localhost development")
-        values = [self.requester_token, self.worker_token, self.enrollment_token]
+        values = [self.requester_token, self.worker_token]
+        if not self.account_socket:
+            values.append(self.enrollment_token)
         if self.gate_token:
             values.append(self.gate_token)
         if self.git_broker_token:
@@ -439,11 +442,14 @@ def from_environment():
             if os.environ.get("MICROAPP_GIT_BROKER_FILE")
             else "",
             origin=os.environ["MICROAPP_ORIGIN"],
+            account_socket=os.environ.get("MICROAPP_ACCOUNT_SOCKET"),
             aliases=tuple(os.environ.get("MICROAPP_ALIASES", "").split()),
             database=os.environ["MICROAPP_DATABASE"],
             requester_token=secret("MICROAPP_REQUESTER_FILE"),
             worker_token=secret("MICROAPP_WORKER_FILE"),
-            enrollment_token=secret("MICROAPP_ENROLLMENT_FILE"),
+            enrollment_token=secret("MICROAPP_ENROLLMENT_FILE")
+            if not os.environ.get("MICROAPP_ACCOUNT_SOCKET")
+            else "",
             static=os.environ.get("MICROAPP_STATIC"),
             vapid_public=os.environ.get("MICROAPP_VAPID_PUBLIC", ""),
             gate_token=secret("MICROAPP_GATE_FILE")
