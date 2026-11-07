@@ -11,8 +11,8 @@ let
 in
 {
   imports = [ ../../../modules/notification-bridge.nix ];
-  # Enable only after Apple identifiers and root-only credentials are provisioned.
   config = lib.mkIf cfg.enable {
+    age.secrets.notifications-apns.file = ../../../secrets/notifications-apns.age;
     systemd.services.notification-publisher-credentials = {
       description = "Provision the local notification publisher credential";
       serviceConfig = {
