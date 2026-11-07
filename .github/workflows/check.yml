@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      full_validation:
+        description: Run all checks even when verified PR validation exists
+        type: boolean
+        default: false
       host:
         description: Host to retry or reconcile (main only)
         type: choice
@@ -19,6 +23,13 @@ permissions:
 jobs:
   nix:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    concurrency:
+      group: nix-validation-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     outputs:
       hosts: ${{ steps.plan.outputs.hosts }}
       has_changes: ${{ steps.plan.outputs.has_changes }}
@@ -26,13 +37,16 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Find verified PR validation
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FORCE_VALIDATION: ${{ inputs.full_validation || false }}
+        run: python3 tools/ci-reuse.py --workflow check.yml
       - uses: cachix/install-nix-action@v31
       - name: Evaluate every host
+        if: steps.reuse.outputs.reused != 'true'
         run: nix flake check --no-build --all-systems
-      - name: Construct NixOS system derivations
-        run: |
-          nix eval --raw .#nixosConfigurations.nasa.config.system.build.toplevel.drvPath
-          nix eval --raw .#nixosConfigurations.htpc.config.system.build.toplevel.drvPath
       - name: Plan host deployments
         id: plan
         env:
@@ -44,9 +58,22 @@ jobs:
           if [[ -n "$FORCE_HOST" ]]; then args+=(--force "$FORCE_HOST"); fi
           python3 tools/deployment-plan.py "${args[@]}"
       - name: Test deployment selection
+        if: steps.reuse.outputs.reused != 'true'
         run: python3 -m unittest discover -s tools -p test_deployment_plan.py
       - name: Run Linux repository checks
+        if: steps.reuse.outputs.reused != 'true'
         run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.notifications .#checks.x86_64-linux.approval-ssh-gate .#checks.x86_64-linux.agent-network .#checks.x86_64-linux.agent-guest
+      - name: Record tested checkout
+        if: github.event_name == 'pull_request'
+        run: python3 tools/ci-reuse.py --record "$RUNNER_TEMP/validation.json"
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'pull_request'
+        with:
+          name: validated-tree-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/validation.json
+          if-no-files-found: error
+          retention-days: 14
+          archive: true
 
   deploy:
     name: Deploy ${{ matrix.host }}
