@@ -376,3 +376,51 @@ def test_new_alert_after_recovery_gets_a_new_notification_key(tmp_path, report):
         atomic_json(path, report.model_dump())
         assert notify(*args, send=send, now=NOW + index * 60)
     assert len({notification["key"] for notification in sent}) == 3
+
+
+@pytest.mark.parametrize("code", [408, 429, 500, 502, 503, 504, None])
+def test_transient_notify_failure_retries(tmp_path, report, capsys, code):
+    from urllib.error import HTTPError, URLError
+
+    path, state = tmp_path / "report.json", tmp_path / "notify.json"
+    report.backup.result = "exit-code"
+    atomic_json(path, report.model_dump())
+    args = (path, state, "https://notify.test", "token", "https://backups")
+
+    def fail(*args):
+        if code is None:
+            raise URLError("sensitive internal error")
+        raise HTTPError(
+            "https://notify.test", code, "sensitive internal error", {}, None
+        )
+
+    assert not notify(*args, send=fail, now=NOW)
+    assert not state.exists()
+    assert "sensitive" not in capsys.readouterr().err
+    sent = []
+    assert notify(*args, send=lambda *args: sent.append(args), now=NOW + 300)
+    assert len(sent) == 1
+    assert state.exists()
+
+
+def test_notify_bad_credentials_still_fail(tmp_path, report):
+    from urllib.error import HTTPError
+
+    path, state = tmp_path / "report.json", tmp_path / "notify.json"
+    report.backup.result = "exit-code"
+    atomic_json(path, report.model_dump())
+
+    def fail(*args):
+        raise HTTPError("https://notify.test", 403, "Forbidden", {}, None)
+
+    with pytest.raises(HTTPError):
+        notify(
+            path,
+            state,
+            "https://notify.test",
+            "token",
+            "https://backups",
+            send=fail,
+            now=NOW,
+        )
+    assert not state.exists()

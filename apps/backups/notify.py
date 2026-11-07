@@ -3,8 +3,10 @@
 import hashlib
 import json
 import os
+import sys
 import time
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 from collector import atomic_json, read_json
 from microapps.http import call
@@ -26,21 +28,36 @@ def notify(report, state, origin, token, app_origin, send=call, now=None):
         if alerts
         else "All monitored storage and backup checks are healthy."
     )
-    send(
-        origin,
-        token,
-        "/v1/notifications",
-        {
-            "recipient": "owner",
-            "key": f"storage-{signature[:24]}-{int(previous.get('sent', 0) * 1000)}-{int(now // 86400)}",
-            "title": "Backups need attention" if alerts else "Backups recovered",
-            "body": body[:500],
-            "url": app_origin + "/",
-            "group": "backups",
-            "ttl": 86400,
-            "actions": [],
-        },
-    )
+    try:
+        send(
+            origin,
+            token,
+            "/v1/notifications",
+            {
+                "recipient": "owner",
+                "key": f"storage-{signature[:24]}-{int(previous.get('sent', 0) * 1000)}-{int(now // 86400)}",
+                "title": "Backups need attention" if alerts else "Backups recovered",
+                "body": body[:500],
+                "url": app_origin + "/",
+                "group": "backups",
+                "ttl": 86400,
+                "actions": [],
+            },
+        )
+    except HTTPError as error:
+        if error.code not in (408, 429, 500, 502, 503, 504):
+            raise
+        print(
+            "Notification service unavailable; retrying on the next timer",
+            file=sys.stderr,
+        )
+        return False
+    except (URLError, TimeoutError, ConnectionError):
+        print(
+            "Notification service unavailable; retrying on the next timer",
+            file=sys.stderr,
+        )
+        return False
     atomic_json(state, {"signature": signature, "sent": now, "alerting": bool(alerts)})
     return True
 
