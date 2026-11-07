@@ -473,3 +473,43 @@ def test_absolute_expiry_is_preserved_and_preferences_cancel_pending_delivery(en
     sent = []
     deliver(store, lambda *_: sent.append(True))
     assert sent == []
+
+
+def test_preferred_short_settings_link_and_matching_host_origin(tmp_path):
+    app = create_app(
+        Settings(
+            "https://notifications.example.com",
+            str(tmp_path / "short.sqlite"),
+            {},
+            aliases=("https://notifications",),
+            link_origin="https://notifications",
+        )
+    )
+    full = TestClient(app, base_url="https://notifications.example.com")
+    short = TestClient(app, base_url="https://notifications")
+    device, _ = enroll((app.state.store, full))
+    link = full.post(
+        "/v1/device/settings", headers=auth(device["token"]), json={}
+    ).json()["url"]
+    assert link.startswith("https://notifications/#")
+    ticket = link.split("#", 1)[1]
+    assert (
+        short.post(
+            "/v1/web/session",
+            json={"ticket": ticket},
+            headers={"Origin": "https://notifications.example.com"},
+        ).status_code
+        == 403
+    )
+    assert (
+        short.post(
+            "/v1/web/session",
+            json={"ticket": ticket},
+            headers={"Origin": "https://notifications"},
+        ).status_code
+        == 200
+    )
+    assert short.get("/v1/web/settings").status_code == 200
+    assert (
+        short.get("/v1/web/settings", headers={"Host": "evil.test"}).status_code == 400
+    )

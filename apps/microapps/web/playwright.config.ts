@@ -5,9 +5,14 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: "http://localhost:5173",
+    ignoreHTTPSErrors: true,
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH,
-      args: ["--no-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--no-proxy-server",
+        "--host-resolver-rules=MAP approve 127.0.0.1, MAP approve.example.test 127.0.0.1, MAP updates 127.0.0.1, MAP updates.example.test 127.0.0.1, MAP backups 127.0.0.1, MAP backups.example.test 127.0.0.1",
+      ],
     },
   },
   webServer: [
@@ -16,7 +21,15 @@ export default defineConfig({
       env: {
         PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
       },
-      url: "http://localhost:5175/health",
+      port: 5177,
+      reuseExistingServer: false,
+    },
+    {
+      command: "python ../backend/tests/serve_password.py",
+      env: {
+        PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
+      },
+      port: 5175,
       reuseExistingServer: false,
     },
     {

@@ -9,7 +9,6 @@ const confirmNixScan = document.querySelector("#confirm-nix-scan");
 let dashboard = null;
 let session = null;
 const signOut = document.querySelector("#sign-out");
-
 function signedOut() {
   session = null;
   dashboard = null;

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { IonApp, IonContent, IonPage, setupIonicReact } from "@ionic/react";
-import { signIn, createPasskey } from "./shared/passkeys";
+import { showSignIn } from "./shared/auth-panel";
 import "@ionic/react/css/core.css";
 import "@ionic/react/css/normalize.css";
 import "@ionic/react/css/structure.css";
@@ -22,6 +22,13 @@ import { NotificationSetup } from "./notifications";
 
 type Approval = components["schemas"]["RequestView"];
 type Session = components["schemas"]["SessionView"];
+function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    showSignIn(root.current!, (value) => onSignedIn(value as Session));
+  }, []);
+  return <div ref={root} />;
+}
 setupIonicReact();
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -32,9 +39,6 @@ function App() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
-  const [enrolling, setEnrolling] = useState(false);
-  const [token, setToken] = useState("");
-  const [notice, setNotice] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   async function refresh() {
@@ -67,21 +71,6 @@ function App() {
     } finally {
       setBusy(false);
     }
-  }
-  async function login() {
-    await run(async () => {
-      await signIn(api);
-      setSession(await api<Session>("/session"));
-      setNotice("");
-    });
-  }
-  async function enroll() {
-    await run(async () => {
-      await createPasskey(api, token);
-      setToken("");
-      setEnrolling(false);
-      setNotice("Passkey created. Sign in to continue.");
-    });
   }
   const active = requests.find((r) => r.id === selected);
   const pending = requests.filter((r) => r.state === "pending");
@@ -179,55 +168,10 @@ function App() {
                 {error}
               </p>
             )}
-            {notice && (
-              <p role="status" className="ui-message">
-                {notice}
-              </p>
-            )}
             {!ready ? (
               <Empty>Loading…</Empty>
             ) : !session ? (
-              <section className="signin ui-panel" aria-label="Sign in">
-                <div className="signin-icon">
-                  <Icon name="lock" />
-                </div>
-                <Button variant="primary" disabled={busy} onClick={login}>
-                  Sign in with passkey
-                </Button>
-                <Button
-                  variant="quiet"
-                  onClick={() => setEnrolling(!enrolling)}
-                  aria-expanded={enrolling}
-                >
-                  Set up this app
-                </Button>
-                {enrolling && (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      enroll();
-                    }}
-                  >
-                    <label>
-                      Setup code
-                      <input
-                        className="ui-input"
-                        type="password"
-                        autoComplete="off"
-                        value={token}
-                        onChange={(event) => setToken(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      variant="primary"
-                      type="submit"
-                      disabled={busy || !token}
-                    >
-                      Create passkey
-                    </Button>
-                  </form>
-                )}
-              </section>
+              <SignIn onSignedIn={setSession} />
             ) : (
               <>
                 <NotificationSetup

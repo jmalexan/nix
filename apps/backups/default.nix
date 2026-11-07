@@ -24,7 +24,7 @@ in
   tests = pkgs.runCommand "backups-tests" { nativeBuildInputs = [ platform.python ]; } ''
     test -s ${static}/styles.css
     test -x ${server}/bin/backups-server
-    export PYTHONPATH=${./.}:${../microapps/backend}
+    export PYTHONPATH=${./.}:${../microapps/backend}:${../../hosts/nasa/services/updates-dashboard}
     export PYTHONDONTWRITEBYTECODE=1
     pytest -q -p no:cacheprovider ${./tests}
     python ${./export_api.py} > openapi.json

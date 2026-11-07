@@ -1,8 +1,7 @@
-"""Passkey-protected storage reports; no host-command or backup-control API."""
+"""Shared-account-protected storage reports; no host-command or backup-control API."""
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import Depends
@@ -22,6 +21,8 @@ class Settings:
     enrollment_token: str
     report: str
     static: str | None = None
+    aliases: tuple[str, ...] = ()
+    account_socket: str | None = None
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -38,7 +39,7 @@ class Settings:
             )
         ):
             raise ValueError("An HTTPS origin is required")
-        if len(self.enrollment_token) < 32:
+        if not self.account_socket and len(self.enrollment_token) < 32:
             raise ValueError("Enrollment credential must have at least 32 characters")
 
 
@@ -47,7 +48,7 @@ class Healthy(BaseModel):
 
 
 def create_app(settings):
-    app = create_service("Backups", settings.origin)
+    app = create_service("Backups", settings.origin, settings.aliases)
     store = AuthStore(settings.database)
     app.state.store = store
     human, _ = install_auth(app, store, settings, "Backups")
@@ -70,9 +71,9 @@ def from_environment():
         Settings(
             origin=os.environ["BACKUPS_ORIGIN"],
             database=os.environ["BACKUPS_DATABASE"],
-            enrollment_token=Path(os.environ["BACKUPS_ENROLLMENT_FILE"])
-            .read_text()
-            .strip(),
+            enrollment_token="",
+            account_socket=os.environ["MICROAPP_ACCOUNT_SOCKET"],
+            aliases=tuple(os.environ.get("BACKUPS_ALIASES", "").split()),
             report=os.environ["BACKUPS_REPORT"],
             static=os.environ["BACKUPS_STATIC"],
         )

@@ -11,7 +11,6 @@ let
   origin = "https://backups.${vars.nasa.domain}";
   reportRoot = "/var/lib/backups-collector";
   authRoot = "/var/lib/backups-auth";
-  enrollment = "/var/lib/microapp-secrets/backups/enrollment";
   publisher = "/var/lib/microapp-secrets/backups/publisher";
   backup = config.services.restic.backups.backblaze;
   inventory = pkgs.writeText "backup-monitor-inventory.json" (
@@ -52,18 +51,15 @@ in
     group = "backups-report";
   };
   systemd.tmpfiles.rules = [ "d ${reportRoot} 0750 root backups-report -" ];
-  services.restic.backups.backblaze.paths = [
-    enrollment
-    publisher
-  ];
+  services.restic.backups.backblaze.paths = [ publisher ];
   # Record the whole backup/prune result, including partial backups (exit 3).
   # These probes neither alter Restic arguments nor suppress its failures.
   systemd.services.restic-backups-backblaze = {
     preStart = lib.mkBefore (record "start");
     postStop = lib.mkBefore (record "finish");
   };
-  systemd.services.backups-credentials = {
-    description = "Provision Backups passkey and notification credentials";
+  systemd.services.backups-publisher-credentials = {
+    description = "Provision Backups notification credentials";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -71,24 +67,25 @@ in
     };
     environment.PYTHONPATH = "${../../../apps/microapps/backend}:${../../../apps/notifications/backend}";
     script = ''
-      ${app.python}/bin/python -m microapps.auth_admin provision --token-file ${enrollment}
       ${notifications.python}/bin/python -m notifications.bootstrap \
         --registry ${lib.escapeShellArg config.services.notificationBridge.servicesFile} \
-        --publisher ${publisher} --service backups --origin ${lib.escapeShellArg origin}
+        --publisher ${publisher} --service backups --origin ${lib.escapeShellArg origin} --additional-origin https://backups
     '';
   };
+  services.microappAccounts.clients = [ "backups-web" ];
   systemd.services.backups-web = {
+    stopIfChanged = false;
     description = "ZFS and offsite backup dashboard";
     wantedBy = [ "multi-user.target" ];
-    requires = [ "backups-credentials.service" ];
+    requires = [ "backups-publisher-credentials.service" ];
     after = [
       "network.target"
-      "backups-credentials.service"
+      "backups-publisher-credentials.service"
     ];
     environment = {
       BACKUPS_ORIGIN = origin;
       BACKUPS_DATABASE = "${authRoot}/state.sqlite";
-      BACKUPS_ENROLLMENT_FILE = "%d/enrollment";
+      BACKUPS_ALIASES = "https://backups";
       BACKUPS_REPORT = "${reportRoot}/report.json";
       BACKUPS_STATIC = "${app.static}";
     };
@@ -98,7 +95,6 @@ in
       ExecStart = lib.getExe app.server;
       StateDirectory = "backups-auth";
       StateDirectoryMode = "0700";
-      LoadCredential = [ "enrollment:${enrollment}" ];
       Restart = "on-failure";
       CapabilityBoundingSet = "";
       RestrictAddressFamilies = [
@@ -139,16 +135,16 @@ in
   };
   systemd.services.backups-notify = {
     description = "Notify about failed or overdue storage protection";
-    requires = [ "backups-credentials.service" ];
+    requires = [ "backups-publisher-credentials.service" ];
     after = [
-      "backups-credentials.service"
+      "backups-publisher-credentials.service"
       "microapp-notifications.service"
     ];
     environment = {
       PYTHONPATH = pythonPath;
       BACKUPS_REPORT = "${reportRoot}/report.json";
       BACKUPS_NOTIFY_STATE = "/var/lib/backups-notify/state.json";
-      BACKUPS_ORIGIN = origin;
+      BACKUPS_ORIGIN = "https://backups";
       NOTIFICATIONS_ORIGIN = config.services.notificationBridge.origin;
       NOTIFICATIONS_TOKEN_FILE = "%d/publisher";
     };
@@ -165,8 +161,8 @@ in
     };
   };
   systemd.services.microapp-notifications = {
-    requires = [ "backups-credentials.service" ];
-    after = [ "backups-credentials.service" ];
+    requires = [ "backups-publisher-credentials.service" ];
+    after = [ "backups-publisher-credentials.service" ];
   };
   systemd.timers.backups-collector = {
     wantedBy = [ "timers.target" ];
@@ -211,6 +207,7 @@ in
     after = [ "backups-auth-backup.service" ];
   };
   services.nginx.virtualHosts."backups.${vars.nasa.domain}" = {
+    serverAliases = [ "backups" ];
     forceSSL = true;
     sslCertificate = "/var/lib/nginx/certs/server.crt";
     sslCertificateKey = "/var/lib/nginx/certs/server.key";

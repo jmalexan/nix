@@ -1,12 +1,21 @@
 """Disposable browser-test server with a realistic report and test-only setup code."""
 
+import datetime as dt
 import shutil
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
 import uvicorn
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+from microapps.accounts import Account
+from microapps.accounts import create_app as account_app
+from microapps.auth_store import AuthStore
 
 repository = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(repository / "apps/backups"))
@@ -87,13 +96,65 @@ with tempfile.TemporaryDirectory() as directory:
         next_backup="Tomorrow at midnight",
     )
     atomic_json(root / "report.json", report.model_dump())
-    app = create_app(
-        Settings(
-            "http://localhost:5175",
-            str(root / "auth.sqlite"),
-            "b" * 32,
-            str(root / "report.json"),
-            str(static),
+    # Test-only account setup; production requires the host account socket.
+    account = Account(AuthStore(root / "accounts.sqlite"), "e" * 32)
+    account.enroll("one shared password for NASA apps", "e" * 32)
+    socket = str(root / "accounts.sock")
+    server = uvicorn.Server(
+        uvicorn.Config(account_app(account), uds=socket, log_level="error")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "backups.example.test")])
+    now = dt.datetime.now(dt.timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(minutes=1))
+        .not_valid_after(now + dt.timedelta(days=1))
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [x509.DNSName("backups"), x509.DNSName("backups.example.test")]
+            ),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    (root / "key.pem").write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
         )
     )
-    uvicorn.run(app, host="127.0.0.1", port=5175)
+    (root / "cert.pem").write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    try:
+        deadline = time.monotonic() + 10
+        while not server.started:
+            assert thread.is_alive() and time.monotonic() < deadline
+            time.sleep(0.01)
+        app = create_app(
+            Settings(
+                "https://backups.example.test:5177",
+                str(root / "auth.sqlite"),
+                "",
+                str(root / "report.json"),
+                str(static),
+                aliases=("https://backups:5177",),
+                account_socket=socket,
+            )
+        )
+        uvicorn.run(
+            app,
+            host="127.0.0.1",
+            port=5177,
+            ssl_keyfile=str(root / "key.pem"),
+            ssl_certfile=str(root / "cert.pem"),
+        )
+    finally:
+        server.should_exit = True
+        thread.join(10)

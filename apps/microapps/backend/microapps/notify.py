@@ -9,7 +9,7 @@ from pywebpush import WebPushException, webpush
 from .store import Store
 
 
-def deliver(store, private_key, subject, send=webpush):
+def deliver(store, private_key, subject, send=webpush, app_origin=None):
     with store.transaction() as db:
         Store.expire(db)
         rows = db.execute(
@@ -26,7 +26,16 @@ def deliver(store, private_key, subject, send=webpush):
             try:
                 send(
                     subscription_info=json.loads(row["body"]),
-                    data=json.dumps({"request_id": row["request_id"]}),
+                    data=json.dumps(
+                        {
+                            "request_id": row["request_id"],
+                            **(
+                                {"url": app_origin + "/?request=" + row["request_id"]}
+                                if app_origin
+                                else {}
+                            ),
+                        }
+                    ),
                     vapid_private_key=private_key,
                     vapid_claims={"sub": subject},
                     ttl=max(0, int(row["expires"] - time.time())),
@@ -63,4 +72,5 @@ if __name__ == "__main__":
         Store(os.environ["MICROAPP_DATABASE"]),
         os.environ["MICROAPP_VAPID_PRIVATE_FILE"],
         os.environ["MICROAPP_PUSH_SUBJECT"],
+        app_origin=os.environ.get("MICROAPP_LINK_ORIGIN"),
     )

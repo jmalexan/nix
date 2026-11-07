@@ -31,10 +31,15 @@ in
         ${platform.python}/bin/python -m notifications.bootstrap \
           --registry ${lib.escapeShellArg cfg.servicesFile} \
           --publisher ${lib.escapeShellArg config.services.approvals.notifications.tokenFile} \
-          --origin ${lib.escapeShellArg "https://approve.${vars.nasa.domain}"}
+          --origin ${lib.escapeShellArg "https://approve.${vars.nasa.domain}"} \
+          --additional-origin https://approve
       '';
     };
     systemd.services.microapp-notifications = {
+      environment = {
+        NOTIFICATIONS_ALIASES = "https://notifications";
+        NOTIFICATIONS_LINK_ORIGIN = "https://notifications";
+      };
       requires = [ "notification-publisher-credentials.service" ];
       after = [ "notification-publisher-credentials.service" ];
     };
@@ -49,6 +54,7 @@ in
       config.services.approvals.notifications.tokenFile
     ];
     services.nginx.virtualHosts."notifications.${vars.nasa.domain}" = {
+      serverAliases = [ "notifications" ];
       forceSSL = true;
       sslCertificate = "/var/lib/nginx/certs/server.crt";
       sslCertificateKey = "/var/lib/nginx/certs/server.key";

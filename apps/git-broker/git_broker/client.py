@@ -176,6 +176,9 @@ def main():
                         .strip(),
                         scope,
                         args.reason,
+                        link_origin=os.environ.get(
+                            "GIT_BROKER_APPROVAL_LINK_ORIGIN", "https://approve"
+                        ),
                     )
                     query = urlencode(
                         {

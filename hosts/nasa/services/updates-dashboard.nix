@@ -9,7 +9,6 @@
 let
   platform = import ../../../apps/microapps { inherit pkgs; };
   authState = "/var/lib/updates-dashboard-auth";
-  enrollmentFile = "/var/lib/microapp-secrets/updates/enrollment";
   reportState = "/var/lib/updates-dashboard-reporter";
   triggerState = "${reportState}/triggers";
   prQueue = "${reportState}/pr-queue";
@@ -311,23 +310,11 @@ in
     "d ${prResults} 0770 updates-dashboard-reporter updates-dashboard-reporter -"
   ];
 
-  services.restic.backups.backblaze.paths = [ enrollmentFile ];
-  environment.systemPackages = [ platform.authAdmin ];
   systemd.services.database-backup = {
     requires = [ "updates-dashboard-auth-backup.service" ];
     after = [ "updates-dashboard-auth-backup.service" ];
   };
   systemd.services = {
-    updates-dashboard-auth-credentials = {
-      description = "Provision Updates passkey setup credential";
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        UMask = "0077";
-      };
-      environment.PYTHONPATH = "${../../../apps/microapps/backend}";
-      script = "${platform.python}/bin/python -m microapps.auth_admin provision --token-file ${enrollmentFile}";
-    };
     updates-dashboard-auth-backup = {
       description = "Consistent Updates authentication database backup";
       after = [ "updates-dashboard.service" ];
@@ -358,13 +345,11 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [
         "network.target"
-        "updates-dashboard-auth-credentials.service"
       ];
-      requires = [ "updates-dashboard-auth-credentials.service" ];
       environment = {
         UPDATES_ORIGIN = "https://updates.${vars.nasa.domain}";
+        UPDATES_ALIASES = "https://updates";
         UPDATES_DATABASE = "${authState}/state.sqlite";
-        UPDATES_ENROLLMENT_FILE = "%d/enrollment";
         UPDATES_DATA = reportState;
         UPDATES_STATIC = "${dashboardStatic}";
         UPDATES_INVENTORY = "${inventory}";
@@ -381,7 +366,6 @@ in
         # Scan/PR queue files must remain readable by the separate reporter.
         # AuthStore enforces 0600 inside its private StateDirectory.
         UMask = "0027";
-        LoadCredential = [ "enrollment:${enrollmentFile}" ];
         Restart = "on-failure";
         RestartSec = 2;
         NoNewPrivileges = true;

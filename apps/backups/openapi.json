@@ -163,6 +163,100 @@
         }
       }
     },
+    "/api/auth/methods": {
+      "get": {
+        "summary": "Methods",
+        "operationId": "methods_api_auth_methods_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMethods"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password/enroll": {
+      "post": {
+        "summary": "Enroll",
+        "operationId": "enroll_api_auth_password_enroll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordEnrollment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_api_auth_password_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -228,6 +322,29 @@
           "message"
         ],
         "title": "Alert"
+      },
+      "AuthMethods": {
+        "properties": {
+          "password": {
+            "type": "boolean",
+            "title": "Password"
+          },
+          "passkey": {
+            "type": "boolean",
+            "title": "Passkey"
+          },
+          "setup": {
+            "type": "boolean",
+            "title": "Setup"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "passkey",
+          "setup"
+        ],
+        "title": "AuthMethods"
       },
       "Ceremony": {
         "properties": {
@@ -386,6 +503,57 @@
         },
         "type": "object",
         "title": "Healthy"
+      },
+      "PasswordEnrollment": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 15,
+            "title": "Password"
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "password",
+          "token"
+        ],
+        "title": "PasswordEnrollment"
+      },
+      "PasswordLogin": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "PasswordLogin"
+      },
+      "PasswordStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "PasswordStatus"
       },
       "Pool": {
         "properties": {

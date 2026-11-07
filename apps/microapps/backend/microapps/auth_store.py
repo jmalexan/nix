@@ -26,6 +26,10 @@ class AuthStore:
                     id TEXT PRIMARY KEY, kind TEXT NOT NULL, value TEXT NOT NULL, expires REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY, csrf TEXT NOT NULL, expires REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS passwords (
+                    owner INTEGER PRIMARY KEY CHECK(owner = 1),
+                    salt BLOB NOT NULL, hash BLOB NOT NULL);
+                CREATE TABLE IF NOT EXISTS password_attempts (created REAL NOT NULL);
             """)
         os.chmod(path, 0o600)
 

@@ -5,8 +5,23 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, Request, Response
 
 
-def create_service(title: str, origin: str) -> FastAPI:
+def create_service(title: str, origin: str, aliases: tuple[str, ...] = ()) -> FastAPI:
     app = FastAPI(title=title, version="0.1.0")
+    app.state.origins = {urlparse(origin).netloc: origin}
+    for alias in aliases:
+        url = urlparse(alias)
+        if (
+            url.scheme != "https"
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.path
+            or url.query
+            or url.fragment
+            or url.netloc in app.state.origins
+        ):
+            raise ValueError("Aliases must be distinct HTTPS origins")
+        app.state.origins[url.netloc] = alias
 
     @app.middleware("http")
     async def boundary(request: Request, call_next):
@@ -15,7 +30,7 @@ def create_service(title: str, origin: str) -> FastAPI:
             or request.headers.get("transfer-encoding")
         ):
             return Response("Content-Length required", status_code=411)
-        if request.headers.get("host") != urlparse(origin).netloc:
+        if request.headers.get("host") not in app.state.origins:
             return Response("Unexpected host", status_code=400)
         if (
             request.headers.get("content-length", "0").isdigit()

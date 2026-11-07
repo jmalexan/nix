@@ -59,9 +59,18 @@ in
     '';
 
     virtualHosts = {
+      # The broker has no interactive login; its short URL can point to the
+      # machine API's configured origin. Human apps below serve both names.
+      git-broker = lib.mkIf config.services.gitBroker.enable {
+        addSSL = true;
+        inherit (ssl) sslCertificate sslCertificateKey;
+        globalRedirect = internalHost "git-broker";
+        redirectCode = 308;
+      };
       "${internalHost "approve"}" = lib.mkIf config.services.approvals.enable (
         ssl
         // {
+          serverAliases = [ "approve" ];
           extraConfig = ''
             allow ${vars.nasa.lanSubnet};
             allow 100.64.0.0/10;

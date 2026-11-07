@@ -82,21 +82,62 @@ def test_unsafe_files_and_symlinks_are_rejected(tmp_path):
         run(registry, publisher)
 
 
+def test_explicit_short_origin_migration_keeps_credentials_and_other_services(tmp_path):
+    registry, publisher = paths(tmp_path)
+    run(registry, publisher)
+    token = publisher.read_text()
+    provision(
+        registry,
+        publisher,
+        "https://approve.example.com",
+        additional_origin="https://approve",
+    )
+    expected = json.loads(registry.read_text())["approve"]
+    assert expected["origins"] == ["https://approve.example.com", "https://approve"]
+    assert publisher.read_text() == token
+    provision(
+        registry,
+        publisher,
+        "https://approve.example.com",
+        additional_origin="https://approve",
+    )
+    assert json.loads(registry.read_text())["approve"] == expected
+    with pytest.raises(ValueError, match="refusing to replace"):
+        provision(
+            registry,
+            publisher,
+            "https://approve.example.com",
+            additional_origin="https://unrelated",
+        )
+    assert json.loads(registry.read_text())["approve"] == expected
+
+
 def test_independent_backups_publisher_and_scope(tmp_path):
     registry, publisher = paths(tmp_path)
     run(registry, publisher)
     original = json.loads(registry.read_text())["approve"]
     backup_publisher = tmp_path / "backups/publisher"
     provision(
-        registry, backup_publisher, "https://backups.example.com", service="backups"
+        registry,
+        backup_publisher,
+        "https://backups.example.com",
+        service="backups",
+        additional_origin="https://backups",
     )
     provision(
-        registry, backup_publisher, "https://backups.example.com", service="backups"
+        registry,
+        backup_publisher,
+        "https://backups.example.com",
+        service="backups",
+        additional_origin="https://backups",
     )
     entries = json.loads(registry.read_text())
     assert entries["approve"] == original
     assert entries["backups"]["token"] != original["token"]
-    assert entries["backups"]["origins"] == ["https://backups.example.com"]
+    assert entries["backups"]["origins"] == [
+        "https://backups.example.com",
+        "https://backups",
+    ]
     assert entries["backups"]["recipients"] == ["owner"]
     with pytest.raises(ValueError, match="refusing to replace"):
         provision(
