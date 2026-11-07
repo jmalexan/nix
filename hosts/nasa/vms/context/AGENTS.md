@@ -46,7 +46,8 @@ Broker access is a capability, not permission for unrelated work or pushes.
 Do not fall back to personal GitHub/SSH credentials, forward an SSH agent, or
 assume another repo is authorized because its URL is known.
 
-Use app APIs for app operations. Host operations require the phone-approved
+Use app APIs for app operations and `nasa-journalctl` for read-only NASA logs.
+Other host operations require the phone-approved
 `nasa-approved-access` flow: explain the need and supply a concrete reason. Its
 approval is connection permission; do not ask for duplicate chat confirmation.
 The session has no sudo and expires. Do not bypass the network boundary.

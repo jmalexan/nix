@@ -20,7 +20,10 @@ separate clones and Git branches to move changes between environments.
   It does not provide more physical RAM or guarantee sustained workloads fit.
 - `robot` account, no sudo, no trusted Nix daemon access. Shared development
   packages and Home Manager styling; a bot Git author identity.
-- No host directory, host Nix daemon, Docker socket, journal directory, private
+- The only host directory share is NASA’s persistent journal at
+  `/var/log/nasa-journal`, enforced read-only by QEMU and mounted read-only.
+  `robot` can read it through `nasa-journalctl` without sudo or SSH.
+- No host Nix daemon, Docker socket, private
   SSH key, personal GitHub login, or personal Tailscale state is mounted/copied.
 - Owner public SSH keys permit inbound ordinary SSH as `robot`. Agent forwarding
   is disabled. Rex accepts the owner's existing Tailscale user and opens only
@@ -116,7 +119,7 @@ The deployment framework and VM went live through owner-merged PR #57. Its
 [production run](https://github.com/jmalexan/nix/actions/runs/42166728888) succeeded.
 The enrollment cleanup targets NASA and restarts `robots`, preserving its disk
 and Tailscale identity. It does not restart `home`.
-Future guest configuration changes restart the VM, so save agent work before
+Guest runtime changes restart the VM, so save agent work before
 merging a guest update. Removing the VM declaration does not erase its disk.
 
 ## Migration and verification
@@ -197,3 +200,23 @@ VM disk backups or replicate personal home directories.
 References: [microvm host](https://microvm-nix.github.io/microvm.nix/host.html),
 [systemd credentials](https://systemd.io/CREDENTIALS/),
 [Tailscale selectors](https://tailscale.com/docs/reference/targets-and-selectors).
+
+## Deployment restarts and journal access
+
+The microvm service keeps its restart trigger tied to the guest system closure.
+Host-only changes do not restart robots. The Git broker and approved-access
+clients package only their runtime Python files, so changes to server handlers,
+tests, or packaging defaults do not change the guest image. Client code, guest
+packages, mounts, boot settings, and credential-delivery configuration still
+apply through a VM restart; deployments do not silently leave an old guest running.
+
+`nasa-journalctl` accepts ordinary journalctl filters, including `-u`, `--since`,
+`-n`, and `-f`. It reads the live persistent journal, including rotated files;
+it cannot change host logs. Log files can contain operationally sensitive data,
+so treat their contents as private and avoid copying secrets into chat or commits.
+The QEMU service has journal read permission; no host control socket is shared.
+
+The personal home container no longer mounts NASA’s journal or installs the
+wrapper, Codex, or Claude Code through the shared development module. Its shell,
+Rex access, development tools, personal files, credentials, and repositories stay
+in place. Existing user-installed software and login state are not deleted.

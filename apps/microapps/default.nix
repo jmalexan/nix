@@ -54,14 +54,22 @@ let
       exec uvicorn microapps.api:from_environment --factory --host 127.0.0.1 --port "''${PORT:-8092}"
     '';
   };
+  accessSource = pkgs.lib.fileset.toSource {
+    root = ./backend;
+    fileset = pkgs.lib.fileset.unions [
+      ./backend/microapps/__init__.py
+      ./backend/microapps/access.py
+      ./backend/microapps/http.py
+    ];
+  };
   access = pkgs.writeShellApplication {
     name = "nasa-approved-access";
     runtimeInputs = [
-      python
+      pkgs.python3
       pkgs.openssh
     ];
     text = ''
-      export PYTHONPATH=${./backend}
+      export PYTHONPATH=${accessSource}
       exec python -m microapps.access "$@"
     '';
   };

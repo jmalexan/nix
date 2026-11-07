@@ -12,10 +12,12 @@
 {
   imports = [ ../../../modules/agent-network.nix ];
   services.agentNetwork.enable = true;
+  services.journald.extraConfig = "Storage=persistent";
   microvm.vms.robots = {
     pkgs = null;
     specialArgs = {
       gitBrokerEnabled = config.services.gitBroker.enable;
+      nasaJournalSource = "/var/log/journal";
       inherit
         pkgs-unstable
         claude-code-pkg
@@ -54,6 +56,8 @@
       "agent-tap-address.service"
     ]
     ++ lib.optional config.services.gitBroker.enable "git-broker-client-credential.service";
+    # QEMU needs read permission for the single read-only journal export.
+    serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
     serviceConfig.LoadCredential = [
       "agent-github:${config.age.secrets.agent-github.path}"
       "agent-requester:/var/lib/microapp-secrets/approvals/requester"

@@ -33,29 +33,18 @@
     # Attach the container's veth to br0, putting it on the same LAN segment.
     hostBridge = "br0";
 
-    # Expose nasa's persistent journal read-only. This lets development tools
-    # in the home container inspect host/service logs without giving the
-    # container an SSH credential or write access to the host.
-    bindMounts."/var/log/nasa-journal" = {
-      hostPath = "/var/log/journal";
-      isReadOnly = true;
-    };
-
     config = { pkgs, ... }: {
       imports = [
-        (
-          { pkgs, ... }:
-          import ../../../modules/dev-environment.nix {
-            inherit pkgs pkgs-unstable claude-code-pkg;
-          }
-        )
+        ../../../modules/dev-environment.nix
         ../../../modules/linux-server.nix
         (import ../../../modules/rex.nix { inherit rex vars; })
         ../../../modules/trust-private-ca.nix
         home-manager-stable.nixosModules.home-manager
       ];
 
+      _module.args = { inherit pkgs-unstable claude-code-pkg; };
       networking.hostName = "home";
+      programs.agentTools.enable = false;
 
       # Serve Rex without a TUN device or extra container device permissions.
       services.tailscale.interfaceName = "userspace-networking";
@@ -80,12 +69,6 @@
         shell = pkgs.fish;
         openssh.authorizedKeys.keys = import ../../../users/authorized-keys.nix;
       };
-
-      environment.systemPackages = [
-        (pkgs.writeShellScriptBin "nasa-journalctl" ''
-          exec ${pkgs.systemd}/bin/journalctl --directory=/var/log/nasa-journal "$@"
-        '')
-      ];
 
       home-manager = {
         useGlobalPkgs = true;
@@ -123,9 +106,4 @@
       fi
     '';
   };
-
-  # Ensure the directory shared above exists and survives reboots.
-  services.journald.extraConfig = ''
-    Storage=persistent
-  '';
 }

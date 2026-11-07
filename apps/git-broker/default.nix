@@ -9,14 +9,23 @@ let
       cryptography
     ]
   );
+  # Keep server, tests, and packaging edits out of the VM closure.
+  clientSource = pkgs.lib.fileset.toSource {
+    root = ./.;
+    fileset = pkgs.lib.fileset.unions [
+      ./git_broker/__init__.py
+      ./git_broker/client.py
+      ./git_broker/request.py
+    ];
+  };
   client = pkgs.writeShellApplication {
     name = "git-broker";
     runtimeInputs = [
-      python
+      pkgs.python3
       pkgs.git
     ];
     text = ''
-      export PYTHONPATH=${./.}
+      export PYTHONPATH=${clientSource}
       exec python -m git_broker.client "$@"
     '';
   };
@@ -45,6 +54,7 @@ in
         ];
       }
       ''
+        export GIT_BROKER_TEST_CLIENT=${client}/bin/git-broker
         export PYTHONPATH=${./.}
         export PYTHONDONTWRITEBYTECODE=1
         export HOME="$TMPDIR/home"
