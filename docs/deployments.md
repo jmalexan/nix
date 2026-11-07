@@ -121,6 +121,17 @@ With verified PR reuse, main still compares only validated derivation metadata.
 
 ### Local production build reuse
 
+After successful NASA activation and health checks, CI queues a fresh container
+release/digest scan with `systemctl --no-block restart`. This refreshes installed
+versions and clears completed update PRs from the dashboard without waiting for
+registry polling in the deployment job. Restarting ensures an already-running
+scan cannot leave only pre-activation results. Queue failures fail the step;
+scan completion and errors remain visible through the reporter's journal and
+dashboard. The scan is no longer wanted by `multi-user.target`, so NixOS switches
+do not synchronously start it. Daily and manual refresh remain available.
+This automatic post-activation refresh applies to the CI deployment workflow;
+an out-of-band manual switch can request the same scan explicitly.
+
 NASA continues to build and activate the exact main revision locally. Its
 persistent Nix store already reuses unchanged build outputs between deployments.
 Changed guest closures require a new isolated EROFS image, so robots now uses

@@ -222,6 +222,15 @@ jobs:
               'set -e; for unit in microapp-approvals.service microapp-notifications.service microapp-notifications-delivery.service updates-dashboard.service git-broker.service agent-boundary.service microvm@robots.service; do systemctl is-active "$unit"; done; sudo robots-health'
           fi
 
+      - name: Queue post-activation container update scan
+        if: matrix.host == 'nasa'
+        run: |
+          # Refresh installed versions so completed update PRs clear in the UI.
+          # Restart also guarantees a fresh scan if a daily/manual scan was
+          # already running against the pre-activation configuration.
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 deploy@nasa \
+            'sudo systemctl --no-block restart updates-dashboard-containers-report.service'
+
       - name: Return deployment-woken HTPC to sleep
         if: always() && matrix.host == 'htpc' && steps.wake_htpc.outputs.was_asleep == 'true'
         env:
