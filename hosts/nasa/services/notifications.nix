@@ -11,13 +11,43 @@ let
 in
 {
   imports = [ ../../../modules/notification-bridge.nix ];
-  # Enable only after Apple identifiers and root-only credentials are provisioned.
   config = lib.mkIf cfg.enable {
+    age.secrets.notifications-apns.file = ../../../secrets/notifications-apns.age;
+    systemd.services.notification-publisher-credentials = {
+      description = "Provision the local notification publisher credential";
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        UMask = "0077";
+      };
+      environment.PYTHONPATH = "${../../../apps/notifications/backend}";
+      script = ''
+        ${platform.python}/bin/python -m notifications.bootstrap \
+          --registry ${lib.escapeShellArg cfg.servicesFile} \
+          --publisher ${lib.escapeShellArg config.services.approvals.notifications.tokenFile} \
+          --origin ${lib.escapeShellArg "https://approve.${vars.nasa.domain}"}
+      '';
+    };
+    systemd.services.microapp-notifications = {
+      requires = [ "notification-publisher-credentials.service" ];
+      after = [ "notification-publisher-credentials.service" ];
+    };
+    systemd.services.microapp-approvals-bridge-notify =
+      lib.mkIf config.services.approvals.notifications.enable
+        {
+          requires = [ "notification-publisher-credentials.service" ];
+          after = [ "notification-publisher-credentials.service" ];
+        };
+    services.restic.backups.backblaze.paths = [
+      cfg.servicesFile
+      config.services.approvals.notifications.tokenFile
+    ];
     services.nginx.virtualHosts."notifications.${vars.nasa.domain}" = {
       forceSSL = true;
       sslCertificate = "/var/lib/nginx/certs/server.crt";
       sslCertificateKey = "/var/lib/nginx/certs/server.key";
       extraConfig = ''
+        allow 10.200.201.2;
         allow ${vars.nasa.lanSubnet};
         allow 100.64.0.0/10;
         allow 127.0.0.1;
