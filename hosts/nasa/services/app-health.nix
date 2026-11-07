@@ -7,7 +7,7 @@
       text = ''
         # Probe nginx, TLS, the short Host, and the current authentication API.
         # An active systemd unit alone can still be running an old backend.
-        for app in approve updates notifications; do
+        for app in approve updates notifications backups; do
           endpoint=/api/auth/methods
           if [[ "$app" == notifications ]]; then endpoint=/health; fi
           curl --fail --silent --show-error --output /dev/null \

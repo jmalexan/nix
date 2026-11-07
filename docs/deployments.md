@@ -25,7 +25,7 @@ code review. No routine SSH agent forwarding is needed.
    result in GitHub's production deployment history.
 
 NASA also runs `nasa-apps-health` after activation. It checks the short HTTPS
-routes for Approve, Updates, and Notifications, including the password API.
+routes for Approve, Updates, Backups, and Notifications, including the password API.
 The independent micro apps restart after the new unit definitions are installed;
 otherwise notification timers can start the old executable during the switch's
 stop phase and leave an active but outdated app running. The `microapp-upgrade`

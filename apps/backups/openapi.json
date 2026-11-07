@@ -1,0 +1,928 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Backups",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/auth/enroll/options": {
+      "post": {
+        "summary": "Enroll Options",
+        "operationId": "enroll_options_api_auth_enroll_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Enrollment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/enroll/verify": {
+      "post": {
+        "summary": "Enroll Verify",
+        "operationId": "enroll_verify_api_auth_enroll_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Ceremony"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login/options": {
+      "post": {
+        "summary": "Login Options",
+        "operationId": "login_options_api_auth_login_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login/verify": {
+      "post": {
+        "summary": "Login Verify",
+        "operationId": "login_verify_api_auth_login_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Ceremony"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/session": {
+      "get": {
+        "summary": "Session",
+        "operationId": "session_api_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "summary": "Logout",
+        "operationId": "logout_api_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/methods": {
+      "get": {
+        "summary": "Methods",
+        "operationId": "methods_api_auth_methods_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMethods"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password/enroll": {
+      "post": {
+        "summary": "Enroll",
+        "operationId": "enroll_api_auth_password_enroll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordEnrollment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_api_auth_password_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Healthy"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "Status",
+        "operationId": "status_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Alert": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "error"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "severity",
+          "message"
+        ],
+        "title": "Alert"
+      },
+      "AuthMethods": {
+        "properties": {
+          "password": {
+            "type": "boolean",
+            "title": "Password"
+          },
+          "passkey": {
+            "type": "boolean",
+            "title": "Passkey"
+          },
+          "setup": {
+            "type": "boolean",
+            "title": "Setup"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "passkey",
+          "setup"
+        ],
+        "title": "AuthMethods"
+      },
+      "Ceremony": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "maxLength": 128,
+            "title": "Challenge Id"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "credential"
+        ],
+        "title": "Ceremony"
+      },
+      "Dataset": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "available": {
+            "type": "integer",
+            "title": "Available"
+          },
+          "mountpoint": {
+            "type": "string",
+            "title": "Mountpoint"
+          },
+          "snapshots_enabled": {
+            "type": "boolean",
+            "title": "Snapshots Enabled"
+          },
+          "snapshot_count": {
+            "type": "integer",
+            "title": "Snapshot Count"
+          },
+          "latest_snapshot": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Snapshot"
+          },
+          "latest_automatic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Automatic"
+          },
+          "offsite": {
+            "type": "string",
+            "title": "Offsite"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "used",
+          "available",
+          "mountpoint",
+          "snapshots_enabled",
+          "snapshot_count",
+          "offsite"
+        ],
+        "title": "Dataset"
+      },
+      "Disk": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "read": {
+            "type": "integer",
+            "title": "Read"
+          },
+          "write": {
+            "type": "integer",
+            "title": "Write"
+          },
+          "checksum": {
+            "type": "integer",
+            "title": "Checksum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "state",
+          "read",
+          "write",
+          "checksum"
+        ],
+        "title": "Disk"
+      },
+      "Enrollment": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "Enrollment"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Healthy": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "Healthy"
+      },
+      "PasswordEnrollment": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 15,
+            "title": "Password"
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "password",
+          "token"
+        ],
+        "title": "PasswordEnrollment"
+      },
+      "PasswordLogin": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "PasswordLogin"
+      },
+      "PasswordStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "PasswordStatus"
+      },
+      "Pool": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "health": {
+            "type": "string",
+            "title": "Health"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "allocated": {
+            "type": "integer",
+            "title": "Allocated"
+          },
+          "free": {
+            "type": "integer",
+            "title": "Free"
+          },
+          "capacity": {
+            "type": "number",
+            "title": "Capacity"
+          },
+          "scan": {
+            "type": "string",
+            "title": "Scan"
+          },
+          "scrub_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scrub At"
+          },
+          "disks": {
+            "items": {
+              "$ref": "#/components/schemas/Disk"
+            },
+            "type": "array",
+            "title": "Disks"
+          },
+          "data_errors": {
+            "type": "string",
+            "title": "Data Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "health",
+          "size",
+          "allocated",
+          "free",
+          "capacity",
+          "scan",
+          "data_errors"
+        ],
+        "title": "Pool"
+      },
+      "Report": {
+        "properties": {
+          "collected_at": {
+            "type": "number",
+            "title": "Collected At"
+          },
+          "pools": {
+            "items": {
+              "$ref": "#/components/schemas/Pool"
+            },
+            "type": "array",
+            "title": "Pools"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/Dataset"
+            },
+            "type": "array",
+            "title": "Datasets"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/Snapshot"
+            },
+            "type": "array",
+            "title": "Snapshots"
+          },
+          "retained_snapshots": {
+            "type": "integer",
+            "title": "Retained Snapshots",
+            "default": 0
+          },
+          "backup": {
+            "$ref": "#/components/schemas/Run"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/Run"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "backup_state": {
+            "type": "string",
+            "title": "Backup State",
+            "default": "unknown"
+          },
+          "database_state": {
+            "type": "string",
+            "title": "Database State",
+            "default": "unknown"
+          },
+          "next_backup": {
+            "type": "string",
+            "title": "Next Backup",
+            "default": "Unknown"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paths"
+          },
+          "exclusions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Exclusions"
+          },
+          "retention": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Retention"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "collected_at",
+          "repository",
+          "paths",
+          "exclusions",
+          "retention"
+        ],
+        "title": "Report"
+      },
+      "Run": {
+        "properties": {
+          "started": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started"
+          },
+          "finished": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished"
+          },
+          "result": {
+            "type": "string",
+            "title": "Result",
+            "default": "unknown"
+          },
+          "exit_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Status"
+          },
+          "last_success": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success"
+          }
+        },
+        "type": "object",
+        "title": "Run"
+      },
+      "SessionView": {
+        "properties": {
+          "csrf": {
+            "type": "string",
+            "title": "Csrf"
+          }
+        },
+        "type": "object",
+        "required": [
+          "csrf"
+        ],
+        "title": "SessionView"
+      },
+      "Snapshot": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "time": {
+            "type": "number",
+            "title": "Time"
+          },
+          "hostname": {
+            "type": "string",
+            "title": "Hostname"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paths"
+          },
+          "bytes_processed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes Processed"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "hostname",
+          "paths"
+        ],
+        "title": "Snapshot"
+      },
+      "Status": {
+        "properties": {
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/Alert"
+            },
+            "type": "array",
+            "title": "Alerts"
+          },
+          "checked_at": {
+            "type": "number",
+            "title": "Checked At"
+          },
+          "verification": {
+            "type": "string",
+            "title": "Verification",
+            "default": "No repository verification recorded"
+          },
+          "restore_test": {
+            "type": "string",
+            "title": "Restore Test",
+            "default": "No restore test recorded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "alerts",
+          "checked_at"
+        ],
+        "title": "Status"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

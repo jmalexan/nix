@@ -11,11 +11,19 @@ export default defineConfig({
       args: [
         "--no-sandbox",
         "--no-proxy-server",
-        "--host-resolver-rules=MAP approve 127.0.0.1, MAP approve.example.test 127.0.0.1, MAP updates 127.0.0.1, MAP updates.example.test 127.0.0.1",
+        "--host-resolver-rules=MAP approve 127.0.0.1, MAP approve.example.test 127.0.0.1, MAP updates 127.0.0.1, MAP updates.example.test 127.0.0.1, MAP backups 127.0.0.1, MAP backups.example.test 127.0.0.1",
       ],
     },
   },
   webServer: [
+    {
+      command: "python ../../backups/tests/serve.py",
+      env: {
+        PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
+      },
+      port: 5177,
+      reuseExistingServer: false,
+    },
     {
       command: "python ../backend/tests/serve_password.py",
       env: {

@@ -110,3 +110,37 @@ def test_explicit_short_origin_migration_keeps_credentials_and_other_services(tm
             additional_origin="https://unrelated",
         )
     assert json.loads(registry.read_text())["approve"] == expected
+
+
+def test_independent_backups_publisher_and_scope(tmp_path):
+    registry, publisher = paths(tmp_path)
+    run(registry, publisher)
+    original = json.loads(registry.read_text())["approve"]
+    backup_publisher = tmp_path / "backups/publisher"
+    provision(
+        registry,
+        backup_publisher,
+        "https://backups.example.com",
+        service="backups",
+        additional_origin="https://backups",
+    )
+    provision(
+        registry,
+        backup_publisher,
+        "https://backups.example.com",
+        service="backups",
+        additional_origin="https://backups",
+    )
+    entries = json.loads(registry.read_text())
+    assert entries["approve"] == original
+    assert entries["backups"]["token"] != original["token"]
+    assert entries["backups"]["origins"] == [
+        "https://backups.example.com",
+        "https://backups",
+    ]
+    assert entries["backups"]["recipients"] == ["owner"]
+    with pytest.raises(ValueError, match="refusing to replace"):
+        provision(
+            registry, backup_publisher, "https://other.example.com", service="backups"
+        )
+    assert json.loads(registry.read_text()) == entries
