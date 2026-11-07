@@ -12,6 +12,25 @@ let
     sslCertificateKey = "/var/lib/nginx/certs/server.key";
   };
 
+  # DHCP search domains resolve short names, but leave the HTTP Host and TLS
+  # SNI unchanged. Canonicalize custom apps before proxying: their passkeys,
+  # host-only sessions, and origin checks require the full HTTPS hostname.
+  shortAppHosts = lib.filterAttrs (_: enabled: enabled) {
+    approve = config.services.approvals.enable;
+    notifications = config.services.notificationBridge.enable;
+    git-broker = config.services.gitBroker.enable;
+    updates = true;
+  };
+  shortAppRedirects = lib.mapAttrs' (
+    name: _:
+    lib.nameValuePair name {
+      addSSL = true;
+      inherit (ssl) sslCertificate sslCertificateKey;
+      globalRedirect = internalHost name;
+      redirectCode = 308;
+    }
+  ) shortAppHosts;
+
   # Streaming LLM responses need buffering off and long timeouts so tokens
   # reach the client live instead of being held by nginx.
   streamingProxy = ''
@@ -58,7 +77,7 @@ in
       }
     '';
 
-    virtualHosts = {
+    virtualHosts = shortAppRedirects // {
       "${internalHost "approve"}" = lib.mkIf config.services.approvals.enable (
         ssl
         // {
@@ -230,7 +249,6 @@ in
       };
 
       "${internalHost "updates"}" = ssl // {
-        serverAliases = [ "updates" ];
         # The dashboard exposes infrastructure inventory and can queue scans
         # and update PRs. Keep it private to the LAN, tailnet, and this host.
         extraConfig = ''
