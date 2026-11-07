@@ -19,7 +19,7 @@ pkgs.testers.runNixOSTest {
     boot.zfs.devNodes = "/dev/disk/by-uuid";
     services.restic.backups.backblaze = {
       repository = "/backup-repository";
-      passwordFile = toString (pkgs.writeText "test-restic-password" "test-only");
+      passwordFile = "/run/test-restic-password";
       initialize = true;
       timerConfig = null;
     };
@@ -33,6 +33,7 @@ pkgs.testers.runNixOSTest {
   testScript = ''
     machine.start()
     machine.wait_for_unit("multi-user.target")
+    machine.succeed("printf test-only > /run/test-restic-password; chmod 600 /run/test-restic-password")
     machine.succeed("zpool create -f -m none testpool /dev/vdb; zfs create -o mountpoint=/vm-data testpool/vms")
     machine.succeed("mkdir -p /vm-data/robots /mnt/disk; truncate -s 64M /vm-data/robots/root.img; mkfs.ext4 -q -F /vm-data/robots/root.img; mount -o loop /vm-data/robots/root.img /mnt/disk", timeout=60)
     machine.succeed("echo persisted-agent-work > /mnt/disk/work.txt; sync", timeout=60)
@@ -44,7 +45,7 @@ pkgs.testers.runNixOSTest {
     machine.fail("zfs list -t snapshot testpool/vms@restic-robots")
     # Change the live image, then recover the earlier ext4 image from Restic.
     machine.succeed("echo later-work > /mnt/disk/work.txt; sync", timeout=60)
-    restic = "restic -r /backup-repository --password-file=${pkgs.writeText "test-restic-password" "test-only"}"
+    restic = "restic -r /backup-repository --password-file=/run/test-restic-password"
     machine.succeed(restic + " restore latest --sparse --target /restore", timeout=180)
     restored = "/restore/vm-data/.zfs/snapshot/restic-robots/robots"
     machine.succeed("jq -r .consistency " + restored + "/backup-metadata.json | grep -Fx power-loss")
@@ -54,7 +55,7 @@ pkgs.testers.runNixOSTest {
     # Never publish a successful backup with a missing disk.
     before = machine.succeed(restic + " snapshots --json")
     machine.succeed("mv /vm-data/robots/root.img /vm-data/robots/saved.img")
-    machine.fail("systemctl start restic-backups-backblaze")
+    machine.fail("systemctl start restic-backups-backblaze", timeout=60)
     assert machine.succeed(restic + " snapshots --json") == before
     machine.fail("zfs list -t snapshot testpool/vms@restic-robots")
     machine.succeed("mv /vm-data/robots/saved.img /vm-data/robots/root.img")
@@ -62,11 +63,11 @@ pkgs.testers.runNixOSTest {
     machine.succeed("zfs snapshot -o org.jmalexan:backup=robots-restic testpool/vms@restic-robots; systemctl start restic-backups-backblaze", timeout=180)
     machine.fail("zfs list -t snapshot testpool/vms@restic-robots")
     machine.succeed("zfs snapshot testpool/vms@restic-robots")
-    machine.fail("systemctl start restic-backups-backblaze")
+    machine.fail("systemctl start restic-backups-backblaze", timeout=60)
     machine.succeed("zfs list -t snapshot testpool/vms@restic-robots; zfs destroy testpool/vms@restic-robots")
     # ExecStopPost cleans the snapshot even if Restic fails after preparation.
-    machine.succeed("mv /backup-repository /saved-repository; touch /backup-repository")
-    machine.fail("systemctl start restic-backups-backblaze")
+    machine.succeed("printf incorrect-password > /run/test-restic-password")
+    machine.fail("systemctl start restic-backups-backblaze", timeout=60)
     machine.fail("zfs list -t snapshot testpool/vms@restic-robots")
   '';
 }
