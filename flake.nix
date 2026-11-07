@@ -149,6 +149,7 @@
           platform = import ./apps/microapps { pkgs = stablePkgs system; };
         in
         {
+          git-broker = (import ./apps/git-broker { pkgs = stablePkgs system; }).client;
           github-bot = import ./tools/github-bot.nix { pkgs = stablePkgs system; };
           approvals = platform.server;
           approvals-web = platform.frontend;
@@ -158,6 +159,7 @@
         }
       );
 
+      nixosModules.git-broker = import ./modules/git-broker.nix;
       nixosModules.microapps = import ./modules/microapps.nix;
       nixosModules.approval-ssh-gate = import ./modules/approval-ssh-gate.nix;
       nixosModules.notification-bridge = import ./modules/notification-bridge.nix;
@@ -171,6 +173,7 @@
           microapps = (import ./apps/microapps { inherit pkgs; }).tests;
           microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
           notifications = (import ./apps/notifications { inherit pkgs; }).tests;
+          git-broker = (import ./apps/git-broker { inherit pkgs; }).tests;
           lint =
             pkgs.runCommand "nix-config-lint"
               {
@@ -205,6 +208,8 @@
                 ruff check --select E4,E7,E9,F,I apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py apps/notifications/ios/Tests
                 ruff format --check apps/notifications/backend apps/notifications/export_api.py apps/notifications/ios/signing.py apps/notifications/ios/Tests
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s apps/notifications/ios/Tests -p 'test_*.py'
+                ruff check --select E4,E7,E9,F,I apps/git-broker
+                ruff format --check apps/git-broker
                 node --check apps/notifications/web/settings.js
                 touch "$out"
               '';

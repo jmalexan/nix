@@ -273,7 +273,7 @@ def test_upgrade_preserves_existing_requests(tmp_path):
             db.execute("SELECT state FROM requests WHERE id='old'").fetchone()[0]
             == "completed"
         )
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 4
 
 
 def test_request_key_cannot_be_replaced_at_decision(env, key):

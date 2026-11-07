@@ -32,7 +32,9 @@ class Store(AuthStore):
                     recipient TEXT NOT NULL, expires REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS notification_bridge_responses (
                     id TEXT PRIMARY KEY, request_id TEXT NOT NULL);
-                PRAGMA user_version = 3;
+                CREATE TABLE IF NOT EXISTS pushes (
+                    request_id TEXT PRIMARY KEY, scope TEXT NOT NULL, deadline REAL);
+                PRAGMA user_version = 4;
             """)
 
     @staticmethod
@@ -48,8 +50,10 @@ class Store(AuthStore):
             """SELECT id FROM requests WHERE
             (state IN ('pending','approved') AND expires <= ?) OR
             (state='claimed' AND id IN
-                (SELECT request_id FROM connections WHERE deadline <= ?))""",
-            (time.time(), time.time()),
+                (SELECT request_id FROM connections WHERE deadline <= ?)) OR
+            (state='claimed' AND id IN
+                (SELECT request_id FROM pushes WHERE deadline <= ?))""",
+            (time.time(), time.time(), time.time()),
         ).fetchall()
         for row in rows:
             db.execute("UPDATE requests SET state='expired' WHERE id=?", (row["id"],))

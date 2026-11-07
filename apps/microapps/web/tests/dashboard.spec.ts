@@ -110,6 +110,23 @@ test("shared dashboard components, responsive tables, filters, and scan confirma
       ]);
       return route.fulfill({ contentType: "text/css", body: parts.join("\n") });
     }
+    if (
+      [
+        "/icon.svg",
+        "/icon-192.png",
+        "/icon-512.png",
+        "/manifest.webmanifest",
+      ].includes(pathname)
+    ) {
+      return route.fulfill({
+        contentType: pathname.endsWith(".svg")
+          ? "image/svg+xml"
+          : pathname.endsWith(".png")
+            ? "image/png"
+            : "application/manifest+json",
+        body: await readFile(new URL("public" + pathname, dashboardRoot)),
+      });
+    }
     const file = pathname === "/" ? "index.html" : pathname.slice(1);
     if (!["index.html", "app.js", "components.js"].includes(file))
       return route.abort();

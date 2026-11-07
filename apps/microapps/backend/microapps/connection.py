@@ -6,6 +6,8 @@ from typing import Literal
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .push import PushScope
+
 
 class ConnectionScope(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -39,4 +41,11 @@ def request_view(db, row):
         else None
     )
     result["connection_deadline"] = connection["deadline"] if connection else None
+    push = db.execute(
+        "SELECT scope,deadline FROM pushes WHERE request_id=?", (row["id"],)
+    ).fetchone()
+    result["push"] = (
+        PushScope.model_validate_json(push["scope"]).model_dump() if push else None
+    )
+    result["push_deadline"] = push["deadline"] if push else None
     return result

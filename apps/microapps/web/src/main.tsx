@@ -104,7 +104,11 @@ function App() {
     history.replaceState(null, "", url);
   }
   const requestTitle = (r: Approval) =>
-    r.operation === "ssh.connect" ? "NASA connection" : "Permission check";
+    r.operation === "ssh.connect"
+      ? "NASA connection"
+      : r.operation === "git.push"
+        ? "Git push"
+        : "Permission check";
   const shortDate = (seconds: number) =>
     new Intl.DateTimeFormat(undefined, {
       month: "short",
@@ -274,7 +278,38 @@ function App() {
                           <Status state={active.state} />
                         </div>
                         <p className="reason">{active.reason}</p>
-                        {active.connection ? (
+                        {active.push ? (
+                          <dl className="scope">
+                            <div>
+                              <dt>Repository</dt>
+                              <dd>{active.push.repository}</dd>
+                            </div>
+                            <div>
+                              <dt>Branch</dt>
+                              <dd>{active.push.branch}</dd>
+                            </div>
+                            <div>
+                              <dt>Commit</dt>
+                              <dd>
+                                <code>{active.push.commit}</code>
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Expected tip</dt>
+                              <dd>
+                                <code>
+                                  {active.push.expected === "0".repeat(40)
+                                    ? "New branch"
+                                    : active.push.expected}
+                                </code>
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Limit</dt>
+                              <dd>One exact push · No history rewrite</dd>
+                            </div>
+                          </dl>
+                        ) : active.connection ? (
                           <dl className="scope">
                             <div>
                               <dt>Access</dt>
@@ -301,14 +336,18 @@ function App() {
                             active.state,
                           ) && (
                             <span>
-                              {active.connection_deadline
+                              {active.push_deadline ||
+                              active.connection_deadline
                                 ? "Ends by"
                                 : active.state === "approved"
-                                  ? "Connect by"
+                                  ? active.push
+                                    ? "Push by"
+                                    : "Connect by"
                                   : "Expires"}{" "}
                               <time
                                 dateTime={new Date(
-                                  (active.connection_deadline ??
+                                  (active.push_deadline ??
+                                    active.connection_deadline ??
                                     active.expires) * 1000,
                                 ).toISOString()}
                               >
@@ -317,7 +356,8 @@ function App() {
                                   minute: "2-digit",
                                 }).format(
                                   new Date(
-                                    (active.connection_deadline ??
+                                    (active.push_deadline ??
+                                      active.connection_deadline ??
                                       active.expires) * 1000,
                                   ),
                                 )}
@@ -357,6 +397,7 @@ function App() {
                                     {
                                       decision: "approve",
                                       connection: active.connection,
+                                      push: active.push,
                                     },
                                     session.csrf,
                                   );

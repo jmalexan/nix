@@ -75,6 +75,10 @@ in
       requires = [ "microapp-approvals-backup.service" ];
       after = [ "microapp-approvals-backup.service" ];
     };
+    systemd.services.microapp-approvals = lib.mkIf config.services.gitBroker.enable {
+      requires = [ "git-broker-client-credential.service" ];
+      after = [ "git-broker-client-credential.service" ];
+    };
     services.microapps.apps.approvals = {
       enable = true;
       package = platform.server;
@@ -86,6 +90,9 @@ in
       }
       // lib.optionalAttrs cfg.sshGate.enable {
         gate = "/var/lib/microapp-secrets/approvals/gate";
+      }
+      // lib.optionalAttrs config.services.gitBroker.enable {
+        git-broker = config.services.gitBroker.approvalTokenFile;
       };
       environment = {
         MICROAPP_ORIGIN = "https://approve.${vars.nasa.domain}";
@@ -98,6 +105,9 @@ in
       }
       // lib.optionalAttrs cfg.sshGate.enable {
         MICROAPP_GATE_FILE = "%d/gate";
+      }
+      // lib.optionalAttrs config.services.gitBroker.enable {
+        MICROAPP_GIT_BROKER_FILE = "%d/git-broker";
       };
     };
     systemd.services.microapp-approvals-notify = lib.mkIf (cfg.vapidPublicKey != "") {

@@ -23,6 +23,8 @@ let
 in
 {
   "secrets/agent-github.age".publicKeys = allKeys;
+  "secrets/git-broker-repositories.age".publicKeys = allKeys;
+  "secrets/git-broker-upstream.age".publicKeys = allKeys;
   "secrets/notifications-apns.age".publicKeys = allKeys;
   "secrets/cloudflare-token.age".publicKeys = allKeys;
   # Legacy ACME environment file. It is not deployed anymore, but remains in

@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .auth import install_auth
 from .auth_store import digest
 from .connection import ConnectionScope, request_view
+from .push import PushOutcome, PushScope
 from .runtime import create_service
 from .store import Store
 
@@ -28,6 +29,7 @@ class Settings:
     vapid_public: str = ""
     gate_token: str = ""
     notification_bridge: bool = False
+    git_broker_token: str = ""
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -40,6 +42,8 @@ class Settings:
         values = [self.requester_token, self.worker_token, self.enrollment_token]
         if self.gate_token:
             values.append(self.gate_token)
+        if self.git_broker_token:
+            values.append(self.git_broker_token)
         if any(len(value) < 32 for value in values) or len(set(values)) != len(values):
             raise ValueError("Distinct credentials of at least 32 characters required")
 
@@ -49,9 +53,10 @@ class Input(BaseModel):
 
 
 class NewRequest(Input):
-    operation: Literal["demo.verify", "ssh.connect"]
+    operation: Literal["demo.verify", "ssh.connect", "git.push"]
     reason: str = Field(min_length=1, max_length=1000)
     connection: ConnectionScope | None = None
+    push: PushScope | None = None
 
     @model_validator(mode="after")
     def scope_matches_operation(self):
@@ -59,12 +64,15 @@ class NewRequest(Input):
             raise ValueError(
                 "SSH requests require a connection scope; demos cannot have one"
             )
+        if (self.operation == "git.push") != (self.push is not None):
+            raise ValueError("Git pushes require an exact push scope")
         return self
 
 
 class Decision(Input):
     decision: Literal["approve", "deny"]
     connection: ConnectionScope | None = None
+    push: PushScope | None = None
 
 
 class RequestView(BaseModel):
@@ -78,6 +86,8 @@ class RequestView(BaseModel):
     result: str | None
     connection: ConnectionScope | None = None
     connection_deadline: float | None = None
+    push: PushScope | None = None
+    push_deadline: float | None = None
 
 
 class ConnectionResult(Input):
@@ -117,6 +127,11 @@ def create_app(settings: Settings):
             raise HTTPException(503, "Connection gate is disabled")
         machine(settings.gate_token)(request)
 
+    def broker(request: Request):
+        if not settings.git_broker_token:
+            raise HTTPException(503, "Git broker approvals are disabled")
+        machine(settings.git_broker_token)(request)
+
     @app.get("/health")
     def health():
         return {"status": "ok", "app": "approvals", "capability": "demo.verify"}
@@ -139,6 +154,8 @@ def create_app(settings: Settings):
     def submit(body: NewRequest):
         if body.operation == "ssh.connect" and not settings.gate_token:
             raise HTTPException(503, "Connection gate is disabled")
+        if body.operation == "git.push" and not settings.git_broker_token:
+            raise HTTPException(503, "Git broker approvals are disabled")
         if not body.reason.strip():
             raise HTTPException(422, "A reason is required")
         with store.transaction() as db:
@@ -169,6 +186,11 @@ def create_app(settings: Settings):
                 db.execute(
                     "INSERT INTO connections(request_id,scope) VALUES(?,?)",
                     (rid, body.connection.model_dump_json()),
+                )
+            if body.push:
+                db.execute(
+                    "INSERT INTO pushes(request_id,scope) VALUES(?,?)",
+                    (rid, body.push.model_dump_json()),
                 )
             db.execute(
                 "INSERT INTO outbox(request_id,subscription_id) SELECT ?,id FROM subscriptions",
@@ -226,6 +248,12 @@ def create_app(settings: Settings):
                     raise HTTPException(
                         409, "Reload this app and review the connection details"
                     )
+            if row and row["operation"] == "git.push" and body.decision == "approve":
+                expected = request_view(db, row)["push"]
+                if body.push is None or body.push.model_dump() != expected:
+                    raise HTTPException(
+                        409, "Reload this app and review the push details"
+                    )
             state = "approved" if body.decision == "approve" else "denied"
             changed = db.execute(
                 "UPDATE requests SET state=?,expires=min(expires,?) WHERE id=? AND state='pending'",
@@ -257,6 +285,55 @@ def create_app(settings: Settings):
                 (rid,),
             )
             Store.event(db, rid, "demo-worker", "completed")
+            return request_view(
+                db, db.execute("SELECT * FROM requests WHERE id=?", (rid,)).fetchone()
+            )
+
+    @app.post(
+        "/api/git-broker/{rid}/claim",
+        response_model=RequestView,
+        dependencies=[Depends(broker)],
+    )
+    def claim_push(rid: str, scope: PushScope):
+        with store.transaction() as db:
+            Store.expire(db)
+            row = db.execute("SELECT * FROM requests WHERE id=?", (rid,)).fetchone()
+            if (
+                not row
+                or row["operation"] != "git.push"
+                or row["state"] != "approved"
+                or request_view(db, row)["push"] != scope.model_dump()
+            ):
+                raise HTTPException(409, "No unused approval for this exact push")
+            db.execute("UPDATE requests SET state='claimed' WHERE id=?", (rid,))
+            db.execute(
+                "UPDATE pushes SET deadline=? WHERE request_id=?",
+                (time.time() + 180, rid),
+            )
+            Store.event(db, rid, "git-broker", "claimed")
+            return request_view(
+                db, db.execute("SELECT * FROM requests WHERE id=?", (rid,)).fetchone()
+            )
+
+    @app.post(
+        "/api/git-broker/{rid}/finish",
+        response_model=RequestView,
+        dependencies=[Depends(broker)],
+    )
+    def finish_push(rid: str, body: PushOutcome):
+        with store.transaction() as db:
+            Store.expire(db)
+            result = (
+                "Approved commit pushed"
+                if body.outcome == "completed"
+                else "Push failed; fetch before retrying"
+            )
+            if not db.execute(
+                "UPDATE requests SET state=?,result=? WHERE id=? AND state='claimed' AND operation='git.push'",
+                (body.outcome, result, rid),
+            ).rowcount:
+                raise HTTPException(409, "No active push approval")
+            Store.event(db, rid, "git-broker", body.outcome)
             return request_view(
                 db, db.execute("SELECT * FROM requests WHERE id=?", (rid,)).fetchone()
             )
@@ -355,6 +432,11 @@ def from_environment():
 
     return create_app(
         Settings(
+            git_broker_token=Path(os.environ["MICROAPP_GIT_BROKER_FILE"])
+            .read_text()
+            .strip()
+            if os.environ.get("MICROAPP_GIT_BROKER_FILE")
+            else "",
             origin=os.environ["MICROAPP_ORIGIN"],
             database=os.environ["MICROAPP_DATABASE"],
             requester_token=secret("MICROAPP_REQUESTER_FILE"),
