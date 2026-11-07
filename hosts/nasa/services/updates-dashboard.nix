@@ -158,6 +158,7 @@ let
 
   dashboardStatic = pkgs.runCommand "update-dashboard-static" { } ''
     mkdir -p "$out"
+    cp ${./updates-dashboard/public}/* "$out/"
     cp ${./updates-dashboard/index.html} "$out/index.html"
     cp ${./updates-dashboard/app.js} "$out/app.js"
     cp ${platform.frontend}/auth.js "$out/auth.js"
