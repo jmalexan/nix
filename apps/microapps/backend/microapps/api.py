@@ -30,6 +30,7 @@ class Settings:
     gate_token: str = ""
     notification_bridge: bool = False
     git_broker_token: str = ""
+    aliases: tuple[str, ...] = ()
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -107,7 +108,7 @@ class Subscription(Input):
 
 def create_app(settings: Settings):
     store = Store(settings.database)
-    app = create_service("Approvals", settings.origin)
+    app = create_service("Approvals", settings.origin, settings.aliases)
     app.state.store = store
 
     def machine(expected):
@@ -438,6 +439,7 @@ def from_environment():
             if os.environ.get("MICROAPP_GIT_BROKER_FILE")
             else "",
             origin=os.environ["MICROAPP_ORIGIN"],
+            aliases=tuple(os.environ.get("MICROAPP_ALIASES", "").split()),
             database=os.environ["MICROAPP_DATABASE"],
             requester_token=secret("MICROAPP_REQUESTER_FILE"),
             worker_token=secret("MICROAPP_WORKER_FILE"),

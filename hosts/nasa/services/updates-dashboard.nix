@@ -363,6 +363,7 @@ in
       requires = [ "updates-dashboard-auth-credentials.service" ];
       environment = {
         UPDATES_ORIGIN = "https://updates.${vars.nasa.domain}";
+        UPDATES_ALIASES = "https://updates";
         UPDATES_DATABASE = "${authState}/state.sqlite";
         UPDATES_ENROLLMENT_FILE = "%d/enrollment";
         UPDATES_DATA = reportState;

@@ -178,7 +178,8 @@ def test_logout_revokes_session(env):
     assert client.get("/api/session").status_code == 401
 
 
-def test_push_outbox_and_expiry(env):
+@pytest.mark.parametrize("link_origin", [None, "https://approve"])
+def test_push_outbox_and_expiry(env, link_origin):
     app, client = env
     with app.state.store.transaction() as db:
         db.execute(
@@ -195,6 +196,7 @@ def test_push_outbox_and_expiry(env):
         "unused",
         "mailto:test@example.test",
         send=lambda **kw: sent.append(kw),
+        app_origin=link_origin,
     )
     deliver(
         app.state.store,
@@ -202,7 +204,10 @@ def test_push_outbox_and_expiry(env):
         "mailto:test@example.test",
         send=lambda **kw: sent.append(kw),
     )
-    assert len(sent) == 1 and json.loads(sent[0]["data"]) == {"request_id": rid}
+    expected = {"request_id": rid}
+    if link_origin:
+        expected["url"] = "https://approve/?request=" + rid
+    assert len(sent) == 1 and json.loads(sent[0]["data"]) == expected
     rid = submit(client)
     with app.state.store.transaction() as db:
         db.execute("UPDATE requests SET expires=0 WHERE id=?", (rid,))

@@ -80,3 +80,33 @@ def test_unsafe_files_and_symlinks_are_rejected(tmp_path):
     publisher.symlink_to(registry)
     with pytest.raises(OSError):
         run(registry, publisher)
+
+
+def test_explicit_short_origin_migration_keeps_credentials_and_other_services(tmp_path):
+    registry, publisher = paths(tmp_path)
+    run(registry, publisher)
+    token = publisher.read_text()
+    provision(
+        registry,
+        publisher,
+        "https://approve.example.com",
+        additional_origin="https://approve",
+    )
+    expected = json.loads(registry.read_text())["approve"]
+    assert expected["origins"] == ["https://approve.example.com", "https://approve"]
+    assert publisher.read_text() == token
+    provision(
+        registry,
+        publisher,
+        "https://approve.example.com",
+        additional_origin="https://approve",
+    )
+    assert json.loads(registry.read_text())["approve"] == expected
+    with pytest.raises(ValueError, match="refusing to replace"):
+        provision(
+            registry,
+            publisher,
+            "https://approve.example.com",
+            additional_origin="https://unrelated",
+        )
+    assert json.loads(registry.read_text())["approve"] == expected

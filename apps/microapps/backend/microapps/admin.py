@@ -32,7 +32,14 @@ def main():
                 "--confirm-reset required; stop the app and gate socket and rotate the enrollment credential first"
             )
         with Store(args.database).transaction() as db:
-            for table in ["credentials", "sessions", "challenges", "subscriptions"]:
+            for table in [
+                "credentials",
+                "sessions",
+                "challenges",
+                "subscriptions",
+                "passwords",
+                "password_attempts",
+            ]:
                 db.execute(f"DELETE FROM {table}")
             db.execute(
                 "UPDATE requests SET state='expired' WHERE state IN ('pending','approved','claimed')"

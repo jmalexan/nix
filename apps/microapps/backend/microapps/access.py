@@ -158,7 +158,7 @@ def main():
         )
         rid = result["id"]
         print(
-            f"Approve on your phone: {ORIGIN}/?request={rid}",
+            f"Approve on your phone: https://approve/?request={rid}",
             file=sys.stderr,
             flush=True,
         )

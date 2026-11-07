@@ -29,6 +29,7 @@ class Settings:
     inventory: str | None = None
     systemctl: str = "systemctl"
     token: str | None = None
+    aliases: tuple[str, ...] = ()
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -86,7 +87,7 @@ class Healthy(BaseModel):
 
 def create_app(settings):
     store = AuthStore(settings.database)
-    app = create_service("System updates", settings.origin)
+    app = create_service("System updates", settings.origin, settings.aliases)
     app.state.store = store
     human, _ = install_auth(app, store, settings, "System updates")
     dashboard = DashboardHandler()
@@ -181,6 +182,7 @@ def from_environment():
     return create_app(
         Settings(
             origin=os.environ["UPDATES_ORIGIN"],
+            aliases=tuple(os.environ.get("UPDATES_ALIASES", "").split()),
             database=os.environ["UPDATES_DATABASE"],
             enrollment_token=Path(os.environ["UPDATES_ENROLLMENT_FILE"])
             .read_text()

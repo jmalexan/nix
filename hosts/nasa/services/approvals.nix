@@ -96,6 +96,7 @@ in
       };
       environment = {
         MICROAPP_ORIGIN = "https://approve.${vars.nasa.domain}";
+        MICROAPP_ALIASES = "https://approve";
         MICROAPP_DATABASE = "/var/lib/microapp-approvals/state.sqlite";
         MICROAPP_REQUESTER_FILE = "%d/requester";
         MICROAPP_WORKER_FILE = "%d/worker";
@@ -119,6 +120,7 @@ in
         MICROAPP_DATABASE = "/var/lib/microapp-approvals/state.sqlite";
         MICROAPP_VAPID_PRIVATE_FILE = "%d/vapid";
         MICROAPP_PUSH_SUBJECT = "mailto:${vars.user.email}";
+        MICROAPP_LINK_ORIGIN = "https://approve";
       };
       serviceConfig = {
         Type = "oneshot";
@@ -151,6 +153,7 @@ in
         MICROAPP_DATABASE = "/var/lib/microapp-approvals/state.sqlite";
         MICROAPP_ORIGIN = "https://approve.${vars.nasa.domain}";
         NOTIFICATIONS_ORIGIN = cfg.notifications.origin;
+        MICROAPP_LINK_ORIGIN = "https://approve";
         NOTIFICATIONS_RECIPIENT = cfg.notifications.recipient;
         NOTIFICATIONS_TOKEN_FILE = "%d/notifications";
       };

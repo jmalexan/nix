@@ -41,6 +41,13 @@ If a permitted legacy maintenance task has no forwarded agent available, finish
 independent work and request the missing connection. See `docs/nasa-access.md`
 for setup and examples.
 
+# Internal app links
+
+Prefer short HTTPS URLs in human-facing links, such as `https://approve`,
+`https://updates`, and `https://notifications`, including notification links.
+Clients use the DHCP search domain; machine API endpoints can retain their
+configured fully qualified addresses.
+
 # Routine deployments
 
 Use the GitHub PR release workflow in `docs/deployments.md`. Prepare a branch,

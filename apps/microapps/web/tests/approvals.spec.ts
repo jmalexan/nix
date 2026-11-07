@@ -1,29 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { generateKeyPairSync } from "node:crypto";
-test("passkey enrollment, remembered login, mobile resize, and one execution", async ({
+test("password enrollment, remembered login, mobile resize, and one execution", async ({
   page,
-  context,
   request,
 }) => {
-  const cdp = await context.newCDPSession(page);
-  await cdp.send("WebAuthn.enable");
-  await cdp.send("WebAuthn.addVirtualAuthenticator", {
-    options: {
-      protocol: "ctap2",
-      transport: "internal",
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Set up this app" }).click();
   await page.getByLabel("Setup code").fill("e".repeat(32));
-  await page.getByRole("button", { name: "Create passkey" }).click();
-  await expect(page.getByRole("status")).toContainText("Passkey created");
-  await page.getByRole("button", { name: "Sign in with passkey" }).click();
+  await page
+    .getByLabel("New password", { exact: true })
+    .fill("a long password saved in Bitwarden");
+  await page
+    .getByLabel("Confirm password")
+    .fill("a long password saved in Bitwarden");
+  await page.getByRole("button", { name: "Create password" }).click();
   await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   const response = await request.post("/api/requests", {
     headers: { Authorization: "Bearer " + "r".repeat(32) },
@@ -195,6 +186,6 @@ test("passkey enrollment, remembered login, mobile resize, and one execution", a
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
-    page.getByRole("button", { name: "Sign in with passkey" }),
+    page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
 });

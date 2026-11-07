@@ -3,7 +3,7 @@
 ## Forecast dashboard
 
 The NAS hosts the internal **System updates** dashboard at
-`https://updates.nasa.jmalexan.com`. The nginx vhost admits only clients on the
+`https://updates` (also available at `https://updates.nasa.jmalexan.com`). The nginx vhost admits only clients on the
 LAN or Tailscale. It presents update information as a service inventory rather
 than exposing Updatecli's source/target/action execution model.
 
