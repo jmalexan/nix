@@ -29,6 +29,57 @@ commits, not a hand-maintained list of filename prefixes. NASA-only changes do
 not wake HTPC. Shared changes can deploy both. Docs-only changes deploy neither.
 The selected host's whole NixOS configuration is activated, including its apps.
 
+### Validation reuse
+
+PR validation records its actual tested merge commit and source tree in a small
+`validated-tree-ATTEMPT` artifact, retained for 14 days. On main, the Check and
+Notification iOS workflows can reuse a successful run of the corresponding PR
+workflow. The lookup requires a merged, same-repository PR associated with the
+current main commit, the same PR-head source tree (including workflow and helper
+code), and the same tested merge tree. It verifies the recorded merge commit and
+its PR-head parent through GitHub's API. A new commit ID after merging is fine;
+changed source files are not. This assumes validation depends on source content,
+not the commit ID or timestamp; revisit reuse if checks start using Git metadata.
+
+Missing/expired artifacts, unavailable APIs, forks, changed trees, and runs outside
+the latest 50 successful PR runs all fall back to full validation. Runs from before
+this feature have no artifact and cannot be reused. The Actions summary links the
+reused run or states that full validation is running. PR jobs always validate;
+only superseded PR validation jobs are canceled. Main and manual runs are never
+canceled by this optimization.
+Select `full_validation` on a manual workflow dispatch to force fresh checks.
+
+Main always computes its own deployment plan against the push's previous commit.
+PR records can also supply the evaluated new host derivation paths, under the same
+verified-run and source-tree requirements. These are comparison metadata; no host
+selection, build outputs, or executable code is taken from a PR artifact. The
+required `nix` job, production branch restrictions, exact main deployment revision,
+and per-host activation serialization remain in place.
+Manual TestFlight runs may reuse simulator validation but always create and upload
+a fresh signed device archive.
+
+### Deployment planning cache
+
+Successful main validation saves a small JSON record of NASA/HTPC derivation
+paths through Actions cache. Subsequent runs restore the entry for their exact
+base source tree. Only main saves shared entries; PRs can read them but write
+their new-tree result only into the verified validation artifact. The planner
+checks source tree, planner-code hash, Nix version, platform, schema, both host
+names, and derivation-path syntax before accepting a record. Cache keys include
+the same evaluation context and source tree, with no broad restore-key fallback.
+Changing the planner, evaluation environment, or source invalidates the result.
+The first main run after rollout evaluates its uncached base and seeds the next
+run's entry; fully cached planning is available after that.
+
+With a cached base and verified PR head, planning compares two maps without Nix
+evaluation. Missing, malformed, or incompatible records trigger normal evaluation;
+cache service failures do not block a release. Each cold revision evaluates both
+hosts together in one Nix process. Identical source trees are evaluated at most
+once per invocation, and forced reconciliations omit the unused base evaluation.
+`full_validation` bypasses both cached maps and PR derivation reuse. The planner
+logs reuse and evaluation timings. This caches metadata only, not the Nix store;
+it retains the source-content assumption above and does not change protections.
+
 If a deployment fails, resolve or retry it before merging the next release.
 Host selection describes changes between commits, not proof of the host's live
 state. An owner can retry/reconcile `nasa`, `htpc`, or `all` through **Actions →
