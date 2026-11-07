@@ -12,6 +12,14 @@ export default defineConfig({
   },
   webServer: [
     {
+      command: "python ../../backups/tests/serve.py",
+      env: {
+        PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
+      },
+      url: "http://localhost:5175/health",
+      reuseExistingServer: false,
+    },
+    {
       command: "python ../backend/tests/serve.py",
       env: {
         PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),

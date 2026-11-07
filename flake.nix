@@ -171,6 +171,7 @@
         in
         {
           microapps = (import ./apps/microapps { inherit pkgs; }).tests;
+          backups = (import ./apps/backups { inherit pkgs; }).tests;
           microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
           notifications = (import ./apps/notifications { inherit pkgs; }).tests;
           git-broker = (import ./apps/git-broker { inherit pkgs; }).tests;
@@ -202,6 +203,9 @@
                 ruff check --select E4,E7,E9,F,I tests/agent_network.py
                 ruff format --check tests/agent_network.py
                 node --check hosts/nasa/services/updates-dashboard/app.js
+                node --check apps/backups/web/app.js
+                ruff check --select E4,E7,E9,F,I apps/backups
+                ruff format --check apps/backups
                 ruff check --select E4,E7,E9,F,I apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 ruff format --check apps/microapps/backend apps/microapps/tests apps/microapps/export_api.py tools/nasa-access.py tools/test_nasa_access.py
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_nasa_access.py

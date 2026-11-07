@@ -80,3 +80,26 @@ def test_unsafe_files_and_symlinks_are_rejected(tmp_path):
     publisher.symlink_to(registry)
     with pytest.raises(OSError):
         run(registry, publisher)
+
+
+def test_independent_backups_publisher_and_scope(tmp_path):
+    registry, publisher = paths(tmp_path)
+    run(registry, publisher)
+    original = json.loads(registry.read_text())["approve"]
+    backup_publisher = tmp_path / "backups/publisher"
+    provision(
+        registry, backup_publisher, "https://backups.example.com", service="backups"
+    )
+    provision(
+        registry, backup_publisher, "https://backups.example.com", service="backups"
+    )
+    entries = json.loads(registry.read_text())
+    assert entries["approve"] == original
+    assert entries["backups"]["token"] != original["token"]
+    assert entries["backups"]["origins"] == ["https://backups.example.com"]
+    assert entries["backups"]["recipients"] == ["owner"]
+    with pytest.raises(ValueError, match="refusing to replace"):
+        provision(
+            registry, backup_publisher, "https://other.example.com", service="backups"
+        )
+    assert json.loads(registry.read_text()) == entries

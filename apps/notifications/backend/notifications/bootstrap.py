@@ -43,7 +43,7 @@ def read_private(path):
         return source.read()
 
 
-def provision(registry, publisher, origin, recipient="owner"):
+def provision(registry, publisher, origin, recipient="owner", service="approve"):
     registry, publisher = Path(registry), Path(publisher)
     private_directory(registry.parent)
     private_directory(publisher.parent)
@@ -64,7 +64,11 @@ def provision(registry, publisher, origin, recipient="owner"):
         except (ValueError, TypeError):
             raise ValueError("Invalid notification service registry") from None
         saved = read_private(publisher)
-        existing = entries.get("approve")
+        if not service or any(
+            c not in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in service
+        ):
+            raise ValueError("Invalid notification service name")
+        existing = entries.get(service)
         token = (
             saved.strip()
             if saved is not None
@@ -80,10 +84,10 @@ def provision(registry, publisher, origin, recipient="owner"):
             raise ValueError("Invalid publisher configuration") from None
         if existing is not None and existing != expected:
             raise ValueError(
-                "Existing approval notification credentials or scope do not match; refusing to replace them"
+                "Existing notification credentials or scope do not match; refusing to replace them"
             )
         if any(
-            name != "approve" and entry["token"] == token
+            name != service and entry["token"] == token
             for name, entry in entries.items()
         ):
             raise ValueError("Publisher credentials must be distinct across services")
@@ -96,7 +100,7 @@ def provision(registry, publisher, origin, recipient="owner"):
                 destination.flush()
                 os.fsync(destination.fileno())
         if existing is None:
-            entries["approve"] = expected
+            entries[service] = expected
             fd, temporary = tempfile.mkstemp(dir=registry.parent, prefix=".services-")
             try:
                 with os.fdopen(fd, "w") as destination:
@@ -114,10 +118,11 @@ def main():
     parser.add_argument("--registry", required=True)
     parser.add_argument("--publisher", required=True)
     parser.add_argument("--origin", required=True)
+    parser.add_argument("--service", default="approve")
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise SystemExit("Credential provisioning requires the host operator")
-    provision(args.registry, args.publisher, args.origin)
+    provision(args.registry, args.publisher, args.origin, service=args.service)
     print("Notification publisher credentials are ready")
 
 

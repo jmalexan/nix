@@ -21,6 +21,7 @@
     # Storage, access, and lifecycle
     ./zfs.nix
     ./backup.nix
+    ./backups.nix
     ./cert-renew.nix
     ./ddns.nix
     ./tailscale.nix

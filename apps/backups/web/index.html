@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="theme-color"
+      content="#101e30"
+      media="(prefers-color-scheme: dark)"
+    />
+    <meta
+      name="theme-color"
+      content="#f5f7fa"
+      media="(prefers-color-scheme: light)"
+    />
+    <link rel="icon" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>Backups</title>
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <app-toolbar heading="Backups"
+      ><button id="sign-out" class="ui-button ui-button--quiet" hidden>
+        Sign out
+      </button></app-toolbar
+    >
+    <main>
+      <p id="connection" role="alert" hidden></p>
+      <div id="content"><app-empty>Loading…</app-empty></div>
+    </main>
+  </body>
+</html>

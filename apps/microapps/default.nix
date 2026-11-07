@@ -38,6 +38,11 @@ let
       npx --no-install prettier --write updates-api.d.ts
       diff updates-api.d.ts ${../../hosts/nasa/services/updates-dashboard/api.d.ts}
       rm updates-api.d.ts updates-openapi.json
+      cp ${../backups/openapi.json} backups-openapi.json
+      npx --no-install openapi-typescript backups-openapi.json -o backups-api.d.ts
+      npx --no-install prettier --write backups-api.d.ts
+      diff backups-api.d.ts ${../backups/web/api.d.ts}
+      rm backups-api.d.ts backups-openapi.json
     '';
     installPhase = ''
       mkdir -p "$out"

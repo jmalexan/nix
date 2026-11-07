@@ -1,0 +1,166 @@
+:root {
+  font-family: var(--app-font);
+  color: var(--app-text);
+  background: var(--app-background);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  line-height: 1.5;
+}
+main {
+  max-width: var(--app-width);
+  margin: auto;
+  padding: 16px max(20px, env(safe-area-inset-right))
+    max(32px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+#content,
+.grid,
+.stack {
+  display: grid;
+  gap: 20px;
+}
+.grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+}
+.ui-panel {
+  padding: 20px;
+  min-width: 0;
+}
+h2,
+h3,
+p {
+  margin: 0 0 12px;
+}
+h2 {
+  font-size: 1.15rem;
+}
+h3 {
+  font-size: 1rem;
+}
+.muted,
+dt {
+  color: var(--app-muted);
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.big {
+  font-size: 1.7rem;
+  font-weight: 650;
+}
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+progress {
+  width: 100%;
+  height: 10px;
+  accent-color: var(--app-accent);
+}
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+li + li {
+  margin-top: 8px;
+}
+.alerts {
+  border-left: 4px solid var(--app-warning);
+}
+.alerts.error {
+  border-left-color: var(--app-danger);
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid var(--app-line);
+  vertical-align: top;
+}
+th {
+  color: var(--app-muted);
+  font-weight: 500;
+}
+code {
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+details > :not(summary) {
+  margin-top: 12px;
+}
+.path {
+  overflow-wrap: anywhere;
+}
+#connection {
+  color: var(--app-danger);
+}
+@media (max-width: 500px) {
+  .ui-panel {
+    padding: 16px;
+  }
+  dl {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  dd {
+    text-align: left;
+    margin-bottom: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .table-scroll {
+    overflow: visible;
+  }
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+  }
+  thead {
+    display: none;
+  }
+  td {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    border: 0;
+    padding: 6px 0;
+    overflow-wrap: anywhere;
+  }
+  td::before {
+    content: attr(data-label);
+    color: var(--app-muted);
+  }
+  tr + tr {
+    border-top: 1px solid var(--app-line);
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+}
