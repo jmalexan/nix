@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { IonApp, IonContent, IonPage, setupIonicReact } from "@ionic/react";
-import {
-  startAuthentication,
-  startRegistration,
-} from "@simplewebauthn/browser";
+import { signIn, createPasskey } from "./shared/passkeys";
 import "@ionic/react/css/core.css";
 import "@ionic/react/css/normalize.css";
 import "@ionic/react/css/structure.css";
@@ -73,34 +70,14 @@ function App() {
   }
   async function login() {
     await run(async () => {
-      const ceremony = await api<{
-        challenge_id: string;
-        options: Parameters<typeof startAuthentication>[0]["optionsJSON"];
-      }>("/auth/login/options", {});
-      const credential = await startAuthentication({
-        optionsJSON: ceremony.options,
-      });
-      await api("/auth/login/verify", {
-        challenge_id: ceremony.challenge_id,
-        credential,
-      });
+      await signIn(api);
       setSession(await api<Session>("/session"));
       setNotice("");
     });
   }
   async function enroll() {
     await run(async () => {
-      const ceremony = await api<{
-        challenge_id: string;
-        options: Parameters<typeof startRegistration>[0]["optionsJSON"];
-      }>("/auth/enroll/options", { token });
-      const credential = await startRegistration({
-        optionsJSON: ceremony.options,
-      });
-      await api("/auth/enroll/verify", {
-        challenge_id: ceremony.challenge_id,
-        credential,
-      });
+      await createPasskey(api, token);
       setToken("");
       setEnrolling(false);
       setNotice("Passkey created. Sign in to continue.");

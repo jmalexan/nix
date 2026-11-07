@@ -7,6 +7,9 @@
   ...
 }:
 let
+  platform = import ../../../apps/microapps { inherit pkgs; };
+  authState = "/var/lib/updates-dashboard-auth";
+  enrollmentFile = "/var/lib/microapp-secrets/updates/enrollment";
   reportState = "/var/lib/updates-dashboard-reporter";
   triggerState = "${reportState}/triggers";
   prQueue = "${reportState}/pr-queue";
@@ -144,13 +147,12 @@ let
     '';
   };
 
-  dashboardServer = pkgs.writeTextFile {
+  dashboardServer = pkgs.writeShellApplication {
     name = "update-dashboard-server";
-    destination = "/bin/update-dashboard-server";
-    executable = true;
+    runtimeInputs = [ platform.python ];
     text = ''
-      #!${pkgs.python3}/bin/python3
-      ${builtins.readFile ./updates-dashboard/server.py}
+      export PYTHONPATH=${./updates-dashboard}:${../../../apps/microapps/backend}
+      exec uvicorn updates_api:from_environment --factory --host 127.0.0.1 --port 8091 --no-access-log
     '';
   };
 
@@ -158,6 +160,7 @@ let
     mkdir -p "$out"
     cp ${./updates-dashboard/index.html} "$out/index.html"
     cp ${./updates-dashboard/app.js} "$out/app.js"
+    cp ${platform.frontend}/auth.js "$out/auth.js"
     cp ${../../../apps/microapps/web/src/shared/components.js} "$out/components.js"
     cp ${../../../apps/microapps/web/src/shared/component-shadow.css} "$out/component-shadow.css"
     cat ${../../../apps/microapps/web/src/shared/tokens.css} ${../../../apps/microapps/web/src/shared/components.css} ${./updates-dashboard/styles.css} > "$out/styles.css"
@@ -307,32 +310,77 @@ in
     "d ${prResults} 0770 updates-dashboard-reporter updates-dashboard-reporter -"
   ];
 
+  services.restic.backups.backblaze.paths = [ enrollmentFile ];
+  environment.systemPackages = [ platform.authAdmin ];
+  systemd.services.database-backup = {
+    requires = [ "updates-dashboard-auth-backup.service" ];
+    after = [ "updates-dashboard-auth-backup.service" ];
+  };
   systemd.services = {
+    updates-dashboard-auth-credentials = {
+      description = "Provision Updates passkey setup credential";
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        UMask = "0077";
+      };
+      environment.PYTHONPATH = "${../../../apps/microapps/backend}";
+      script = "${platform.python}/bin/python -m microapps.auth_admin provision --token-file ${enrollmentFile}";
+    };
+    updates-dashboard-auth-backup = {
+      description = "Consistent Updates authentication database backup";
+      after = [ "updates-dashboard.service" ];
+      requires = [ "updates-dashboard.service" ];
+      serviceConfig.Type = "oneshot";
+      unitConfig.AssertPathIsMountPoint = "/Data/smb";
+      script = ''
+        install -d -m 0700 /Data/smb/Internal/Backups/microapps
+        ${platform.python}/bin/python - <<'PYTHON'
+        import os, sqlite3, tempfile
+        from pathlib import Path
+        destination = Path('/Data/smb/Internal/Backups/microapps/updates-auth.sqlite')
+        fd, temporary = tempfile.mkstemp(dir=destination.parent, prefix='.updates-auth-')
+        os.close(fd)
+        try:
+            with sqlite3.connect('${authState}/state.sqlite') as source:
+                with sqlite3.connect(temporary) as target:
+                    source.backup(target)
+            os.replace(temporary, destination)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        PYTHON
+      '';
+    };
     updates-dashboard = {
       description = "System updates dashboard";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      after = [
+        "network.target"
+        "updates-dashboard-auth-credentials.service"
+      ];
+      requires = [ "updates-dashboard-auth-credentials.service" ];
+      environment = {
+        UPDATES_ORIGIN = "https://updates.${vars.nasa.domain}";
+        UPDATES_DATABASE = "${authState}/state.sqlite";
+        UPDATES_ENROLLMENT_FILE = "%d/enrollment";
+        UPDATES_DATA = reportState;
+        UPDATES_STATIC = "${dashboardStatic}";
+        UPDATES_INVENTORY = "${inventory}";
+        UPDATES_SYSTEMCTL = "${pkgs.systemd}/bin/systemctl";
+        UPDATES_GITHUB_TOKEN_FILE = githubToken;
+      };
       serviceConfig = {
         Type = "simple";
         User = "updates-dashboard-server";
         Group = "updates-dashboard-reporter";
-        ExecStart = lib.escapeShellArgs [
-          "${dashboardServer}/bin/update-dashboard-server"
-          "--listen"
-          "127.0.0.1"
-          "--port"
-          "8091"
-          "--static"
-          dashboardStatic
-          "--data"
-          reportState
-          "--inventory"
-          inventory
-          "--systemctl"
-          "${pkgs.systemd}/bin/systemctl"
-          "--token"
-          githubToken
-        ];
+        ExecStart = "${dashboardServer}/bin/update-dashboard-server";
+        StateDirectory = "updates-dashboard-auth";
+        StateDirectoryMode = "0700";
+        # Scan/PR queue files must remain readable by the separate reporter.
+        # AuthStore enforces 0600 inside its private StateDirectory.
+        UMask = "0027";
+        LoadCredential = [ "enrollment:${enrollmentFile}" ];
         Restart = "on-failure";
         RestartSec = 2;
         NoNewPrivileges = true;

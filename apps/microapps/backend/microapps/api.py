@@ -1,4 +1,3 @@
-import json
 import os
 import secrets
 import time
@@ -7,26 +6,15 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
-from fastapi import Depends, HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from webauthn import (
-    generate_authentication_options,
-    generate_registration_options,
-    options_to_json,
-    verify_authentication_response,
-    verify_registration_response,
-)
-from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
-from webauthn.helpers.structs import (
-    AuthenticatorSelectionCriteria,
-    ResidentKeyRequirement,
-    UserVerificationRequirement,
-)
 
+from .auth import install_auth
+from .auth_store import digest
 from .connection import ConnectionScope, request_view
 from .runtime import create_service
-from .store import Store, digest
+from .store import Store
 
 
 @dataclass(frozen=True)
@@ -79,15 +67,6 @@ class Decision(Input):
     connection: ConnectionScope | None = None
 
 
-class Ceremony(Input):
-    challenge_id: str = Field(max_length=128)
-    credential: dict
-
-
-class Enrollment(Input):
-    token: str = Field(max_length=256)
-
-
 class RequestView(BaseModel):
     id: str
     requester: str
@@ -120,30 +99,6 @@ def create_app(settings: Settings):
     store = Store(settings.database)
     app = create_service("Approvals", settings.origin)
     app.state.store = store
-    cookie = (
-        "__Host-microapp" if settings.origin.startswith("https:") else "microapp-dev"
-    )
-    rp_id = urlparse(settings.origin).hostname
-
-    def origin(request: Request):
-        if request.headers.get("origin") != settings.origin:
-            raise HTTPException(403, "Request must come from this app")
-
-    def human(request: Request):
-        with store.transaction() as db:
-            row = db.execute(
-                "SELECT * FROM sessions WHERE id=? AND expires>?",
-                (digest(request.cookies.get(cookie, "")), time.time()),
-            ).fetchone()
-        if not row:
-            raise HTTPException(401, "Sign in with your passkey")
-        if request.method != "GET":
-            origin(request)
-            if not secrets.compare_digest(
-                request.headers.get("x-csrf-token", ""), row["csrf"]
-            ):
-                raise HTTPException(403, "Reload the app before trying again")
-        return row
 
     def machine(expected):
         def check(request: Request):
@@ -166,122 +121,14 @@ def create_app(settings: Settings):
     def health():
         return {"status": "ok", "app": "approvals", "capability": "demo.verify"}
 
-    @app.post("/api/auth/enroll/options", dependencies=[Depends(origin)])
-    def enroll_options(body: Enrollment):
-        with store.transaction() as db:
-            enrolled = db.execute("SELECT 1 FROM credentials").fetchone()
-        if enrolled or not secrets.compare_digest(
-            body.token, settings.enrollment_token
-        ):
-            raise HTTPException(403, "Enrollment unavailable")
-        options = generate_registration_options(
-            rp_id=rp_id,
-            rp_name="Approvals",
-            user_name="owner",
-            user_id=b"owner",
-            authenticator_selection=AuthenticatorSelectionCriteria(
-                resident_key=ResidentKeyRequirement.REQUIRED,
-                user_verification=UserVerificationRequirement.REQUIRED,
-            ),
-        )
-        data = json.loads(options_to_json(options))
-        return {
-            "challenge_id": store.challenge("enroll", data["challenge"]),
-            "options": data,
-        }
-
-    @app.post("/api/auth/enroll/verify", dependencies=[Depends(origin)])
-    def enroll_verify(body: Ceremony):
-        try:
-            challenge = store.consume_challenge(body.challenge_id, "enroll")
-            verified = verify_registration_response(
-                credential=body.credential,
-                expected_challenge=base64url_to_bytes(challenge),
-                expected_rp_id=rp_id,
-                expected_origin=settings.origin,
-                require_user_verification=True,
-            )
-        except Exception:
-            raise HTTPException(400, "Could not verify passkey") from None
-        with store.transaction() as db:
-            if db.execute("SELECT 1 FROM credentials").fetchone():
-                raise HTTPException(409, "Already enrolled")
-            db.execute(
-                "INSERT INTO credentials VALUES(?,?,?)",
-                (
-                    bytes_to_base64url(verified.credential_id),
-                    bytes_to_base64url(verified.credential_public_key),
-                    verified.sign_count,
-                ),
-            )
-        return {"status": "enrolled"}
-
-    @app.post("/api/auth/login/options", dependencies=[Depends(origin)])
-    def login_options():
-        data = json.loads(
-            options_to_json(
-                generate_authentication_options(
-                    rp_id=rp_id, user_verification=UserVerificationRequirement.REQUIRED
-                )
-            )
-        )
-        return {
-            "challenge_id": store.challenge("login", data["challenge"]),
-            "options": data,
-        }
-
-    @app.post("/api/auth/login/verify", dependencies=[Depends(origin)])
-    def login_verify(body: Ceremony, response: Response):
-        try:
-            challenge = store.consume_challenge(body.challenge_id, "login")
-            with store.transaction() as db:
-                row = db.execute(
-                    "SELECT * FROM credentials WHERE id=?", (body.credential.get("id"),)
-                ).fetchone()
-                if not row:
-                    raise ValueError("Unknown credential")
-                verified = verify_authentication_response(
-                    credential=body.credential,
-                    expected_challenge=base64url_to_bytes(challenge),
-                    expected_rp_id=rp_id,
-                    expected_origin=settings.origin,
-                    credential_public_key=base64url_to_bytes(row["public_key"]),
-                    credential_current_sign_count=row["counter"],
-                    require_user_verification=True,
-                )
-                db.execute(
-                    "UPDATE credentials SET counter=? WHERE id=?",
-                    (verified.new_sign_count, row["id"]),
-                )
-                token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-                db.execute("DELETE FROM sessions WHERE expires<?", (time.time(),))
-                db.execute(
-                    "INSERT INTO sessions VALUES(?,?,?)",
-                    (digest(token), csrf, time.time() + 30 * 86400),
-                )
-        except Exception:
-            raise HTTPException(400, "Could not verify passkey") from None
-        response.set_cookie(
-            cookie,
-            token,
-            secure=settings.origin.startswith("https:"),
-            httponly=True,
-            samesite="strict",
-            max_age=30 * 86400,
-            path="/",
-        )
-        return {"status": "signed-in"}
-
-    @app.get("/api/session", response_model=SessionView)
-    def session(row=Depends(human)):
-        return {"csrf": row["csrf"], "vapid_public": settings.vapid_public}
-
-    @app.post("/api/logout")
-    def logout(response: Response, row=Depends(human)):
-        with store.transaction() as db:
-            db.execute("DELETE FROM sessions WHERE id=?", (row["id"],))
-        response.delete_cookie(cookie, path="/")
-        return {"status": "signed-out"}
+    human, _ = install_auth(
+        app,
+        store,
+        settings,
+        "Approvals",
+        SessionView,
+        {"vapid_public": settings.vapid_public},
+    )
 
     @app.post(
         "/api/requests",
