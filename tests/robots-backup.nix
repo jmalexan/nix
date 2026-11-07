@@ -34,8 +34,8 @@ pkgs.testers.runNixOSTest {
     machine.start()
     machine.wait_for_unit("multi-user.target")
     machine.succeed("zpool create -f -m none testpool /dev/vdb; zfs create -o mountpoint=/vm-data testpool/vms")
-    machine.succeed("mkdir -p /vm-data/robots /mnt/disk; truncate -s 64M /vm-data/robots/root.img; mkfs.ext4 -q -F /vm-data/robots/root.img; mount -o loop /vm-data/robots/root.img /mnt/disk")
-    machine.succeed("echo persisted-agent-work > /mnt/disk/work.txt; sync")
+    machine.succeed("mkdir -p /vm-data/robots /mnt/disk; truncate -s 64M /vm-data/robots/root.img; mkfs.ext4 -q -F /vm-data/robots/root.img; mount -o loop /vm-data/robots/root.img /mnt/disk", timeout=60)
+    machine.succeed("echo persisted-agent-work > /mnt/disk/work.txt; sync", timeout=60)
     machine.succeed("systemctl start microvm@robots")
     invocation = machine.succeed("systemctl show microvm@robots -p InvocationID --value")
     machine.succeed("systemctl start restic-backups-backblaze", timeout=180)
@@ -43,12 +43,12 @@ pkgs.testers.runNixOSTest {
     machine.succeed("systemctl is-active microvm@robots")
     machine.fail("zfs list -t snapshot testpool/vms@restic-robots")
     # Change the live image, then recover the earlier ext4 image from Restic.
-    machine.succeed("echo later-work > /mnt/disk/work.txt; sync")
+    machine.succeed("echo later-work > /mnt/disk/work.txt; sync", timeout=60)
     restic = "restic -r /backup-repository --password-file=${pkgs.writeText "test-restic-password" "test-only"}"
     machine.succeed(restic + " restore latest --sparse --target /restore", timeout=180)
     restored = "/restore/vm-data/.zfs/snapshot/restic-robots/robots"
     machine.succeed("jq -r .consistency " + restored + "/backup-metadata.json | grep -Fx power-loss")
-    machine.succeed("status=0; e2fsck -p " + restored + "/root.img || status=$?; test $status -le 1")
+    machine.succeed("status=0; e2fsck -p " + restored + "/root.img || status=$?; test $status -le 1", timeout=60)
     machine.succeed("mkdir /mnt/restored; mount -o loop,ro " + restored + "/root.img /mnt/restored; grep -Fx persisted-agent-work /mnt/restored/work.txt")
     machine.succeed("umount /mnt/restored /mnt/disk")
     # Never publish a successful backup with a missing disk.
