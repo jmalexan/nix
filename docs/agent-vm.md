@@ -81,9 +81,10 @@ The repository catalog distinguishes access from delivery: `jmalexan/nix` uses
 the scoped bot and owner-approved PR releases; ordinary projects follow the user's
 request, including branch-only work. Public cloning works now. Other private
 repos or push targets need deliberately provisioned access. A trusted Git broker
-for private repos owned by another person is planned, not implemented here; it
-would retain the user's credential outside the VM and perform allowlisted Git
-operations itself. Do not fall back to forwarding the owner's agent or handing
+for private repos owned by another person is prepared but disabled; see
+[Git broker](git-broker.md). It retains the upstream credential outside the VM
+and performs only allowlisted Git operations. Activation still needs an explicit
+repository policy and separately provisioned credentials. Do not fall back to forwarding the owner's agent or handing
 the VM a broad token. GitHub currently does not support fine-grained PATs for
 outside/repository collaborators.
 
