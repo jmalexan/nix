@@ -22,6 +22,7 @@ from webauthn.helpers.structs import (
 )
 
 from .auth_store import digest
+from .passwords import install_passwords
 
 
 class Input(BaseModel):
@@ -50,18 +51,54 @@ def install_auth(
     )
     rp_id = urlparse(settings.origin).hostname
 
+    def request_origin(request):
+        return app.state.origins[request.headers["host"]]
+
     def origin(request: Request):
-        if request.headers.get("origin") != settings.origin:
+        if request.headers.get("origin") != request_origin(request):
             raise HTTPException(403, "Request must come from this app")
+
+    def canonical(request: Request):
+        origin(request)
+        if request_origin(request) != settings.origin:
+            raise HTTPException(403, "Use the full hostname for passkeys")
+
+    def session_id(token, request):
+        host_origin = request_origin(request)
+        # Retain existing canonical sessions, but bind new alias sessions to
+        # their own origin even if a cookie is manually copied between hosts.
+        return digest(
+            token if host_origin == settings.origin else host_origin + "\0" + token
+        )
+
+    def new_session(request, response, db=None):
+        if db is None:
+            with store.transaction() as transaction:
+                return new_session(request, response, transaction)
+        token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+        db.execute("DELETE FROM sessions WHERE expires<?", (time.time(),))
+        db.execute(
+            "INSERT INTO sessions VALUES(?,?,?)",
+            (session_id(token, request), csrf, time.time() + 30 * 86400),
+        )
+        response.set_cookie(
+            cookie,
+            token,
+            secure=settings.origin.startswith("https:"),
+            httponly=True,
+            samesite="strict",
+            max_age=30 * 86400,
+            path="/",
+        )
 
     def human(request: Request):
         with store.transaction() as db:
             row = db.execute(
                 "SELECT * FROM sessions WHERE id=? AND expires>?",
-                (digest(request.cookies.get(cookie, "")), time.time()),
+                (session_id(request.cookies.get(cookie, ""), request), time.time()),
             ).fetchone()
         if not row:
-            raise HTTPException(401, "Sign in with your passkey")
+            raise HTTPException(401, "Sign in to continue")
         if request.method not in ("GET", "HEAD"):
             origin(request)
             if not secrets.compare_digest(
@@ -70,10 +107,13 @@ def install_auth(
                 raise HTTPException(403, "Reload the app before trying again")
         return row
 
-    @app.post("/api/auth/enroll/options", dependencies=[Depends(origin)])
+    @app.post("/api/auth/enroll/options", dependencies=[Depends(canonical)])
     def enroll_options(body: Enrollment):
         with store.transaction() as db:
-            enrolled = db.execute("SELECT 1 FROM credentials").fetchone()
+            enrolled = (
+                db.execute("SELECT 1 FROM credentials").fetchone()
+                or db.execute("SELECT 1 FROM passwords").fetchone()
+            )
         if enrolled or not secrets.compare_digest(
             body.token, settings.enrollment_token
         ):
@@ -94,7 +134,7 @@ def install_auth(
             "options": data,
         }
 
-    @app.post("/api/auth/enroll/verify", dependencies=[Depends(origin)])
+    @app.post("/api/auth/enroll/verify", dependencies=[Depends(canonical)])
     def enroll_verify(body: Ceremony):
         try:
             challenge = store.consume_challenge(body.challenge_id, "enroll")
@@ -108,7 +148,10 @@ def install_auth(
         except Exception:
             raise HTTPException(400, "Could not verify passkey") from None
         with store.transaction() as db:
-            if db.execute("SELECT 1 FROM credentials").fetchone():
+            if (
+                db.execute("SELECT 1 FROM credentials").fetchone()
+                or db.execute("SELECT 1 FROM passwords").fetchone()
+            ):
                 raise HTTPException(409, "Already enrolled")
             db.execute(
                 "INSERT INTO credentials VALUES(?,?,?)",
@@ -120,7 +163,7 @@ def install_auth(
             )
         return {"status": "enrolled"}
 
-    @app.post("/api/auth/login/options", dependencies=[Depends(origin)])
+    @app.post("/api/auth/login/options", dependencies=[Depends(canonical)])
     def login_options():
         data = json.loads(
             options_to_json(
@@ -134,8 +177,8 @@ def install_auth(
             "options": data,
         }
 
-    @app.post("/api/auth/login/verify", dependencies=[Depends(origin)])
-    def login_verify(body: Ceremony, response: Response):
+    @app.post("/api/auth/login/verify", dependencies=[Depends(canonical)])
+    def login_verify(body: Ceremony, request: Request, response: Response):
         try:
             challenge = store.consume_challenge(body.challenge_id, "login")
             with store.transaction() as db:
@@ -157,23 +200,9 @@ def install_auth(
                     "UPDATE credentials SET counter=? WHERE id=?",
                     (verified.new_sign_count, row["id"]),
                 )
-                token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-                db.execute("DELETE FROM sessions WHERE expires<?", (time.time(),))
-                db.execute(
-                    "INSERT INTO sessions VALUES(?,?,?)",
-                    (digest(token), csrf, time.time() + 30 * 86400),
-                )
+                new_session(request, response, db)
         except Exception:
             raise HTTPException(400, "Could not verify passkey") from None
-        response.set_cookie(
-            cookie,
-            token,
-            secure=settings.origin.startswith("https:"),
-            httponly=True,
-            samesite="strict",
-            max_age=30 * 86400,
-            path="/",
-        )
         return {"status": "signed-in"}
 
     @app.get("/api/session", response_model=session_model)
@@ -193,4 +222,5 @@ def install_auth(
         )
         return {"status": "signed-out"}
 
+    install_passwords(app, store, settings, human, origin, new_session)
     return human, origin

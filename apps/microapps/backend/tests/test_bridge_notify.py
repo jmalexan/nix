@@ -6,7 +6,10 @@ from microapps.api import Settings, create_app
 from microapps.bridge_notify import deliver_bridge
 
 
-def test_bridge_adapter_is_transactional_and_publishes_choices(tmp_path):
+@pytest.mark.parametrize(
+    "link_origin", ["https://approve.example.com", "https://approve"]
+)
+def test_bridge_adapter_is_transactional_and_publishes_choices(tmp_path, link_origin):
     settings = Settings(
         "https://approve.example.com",
         str(tmp_path / "state.sqlite"),
@@ -38,7 +41,7 @@ def test_bridge_adapter_is_transactional_and_publishes_choices(tmp_path):
             "https://notifications.example.com",
             "secret",
             "owner",
-            settings.origin,
+            link_origin,
             send=send,
         )
 
@@ -46,7 +49,7 @@ def test_bridge_adapter_is_transactional_and_publishes_choices(tmp_path):
     run()
     assert len(sent) == 1
     assert sent[0]["key"] == rid
-    assert sent[0]["url"] == settings.origin + "/?request=" + rid
+    assert sent[0]["url"] == link_origin + "/?request=" + rid
     assert sent[0]["expires_at"] == result.json()["expires"]
     assert "secret" not in str(sent)
     with app.state.store.transaction() as db:

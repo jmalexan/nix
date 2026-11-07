@@ -182,7 +182,7 @@ if __name__ == "__main__":
         os.environ["NOTIFICATIONS_ORIGIN"],
         Path(os.environ["NOTIFICATIONS_TOKEN_FILE"]).read_text().strip(),
         os.environ["NOTIFICATIONS_RECIPIENT"],
-        os.environ["MICROAPP_ORIGIN"],
+        os.environ.get("MICROAPP_LINK_ORIGIN", os.environ["MICROAPP_ORIGIN"]),
     )
     deliver_bridge(*arguments)
     receive_bridge(*arguments[:4])

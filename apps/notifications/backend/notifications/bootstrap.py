@@ -43,7 +43,7 @@ def read_private(path):
         return source.read()
 
 
-def provision(registry, publisher, origin, recipient="owner"):
+def provision(registry, publisher, origin, recipient="owner", additional_origin=None):
     registry, publisher = Path(registry), Path(publisher)
     private_directory(registry.parent)
     private_directory(publisher.parent)
@@ -74,11 +74,20 @@ def provision(registry, publisher, origin, recipient="owner"):
         )
         try:
             expected = Service(
-                token=token, origins=[origin], recipients=[recipient]
+                token=token,
+                origins=[origin] + ([additional_origin] if additional_origin else []),
+                recipients=[recipient],
             ).model_dump()
         except ValueError:
             raise ValueError("Invalid publisher configuration") from None
-        if existing is not None and existing != expected:
+        # Explicitly permit adding the configured short origin to the previous
+        # exact scope. Never rotate credentials or accept unrelated scope drift.
+        previous = {**expected, "origins": [origin]}
+        if (
+            existing is not None
+            and existing != expected
+            and not (additional_origin and existing == previous)
+        ):
             raise ValueError(
                 "Existing approval notification credentials or scope do not match; refusing to replace them"
             )
@@ -95,7 +104,7 @@ def provision(registry, publisher, origin, recipient="owner"):
                 destination.write(token + "\n")
                 destination.flush()
                 os.fsync(destination.fileno())
-        if existing is None:
+        if existing != expected:
             entries["approve"] = expected
             fd, temporary = tempfile.mkstemp(dir=registry.parent, prefix=".services-")
             try:
@@ -114,10 +123,16 @@ def main():
     parser.add_argument("--registry", required=True)
     parser.add_argument("--publisher", required=True)
     parser.add_argument("--origin", required=True)
+    parser.add_argument("--additional-origin")
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise SystemExit("Credential provisioning requires the host operator")
-    provision(args.registry, args.publisher, args.origin)
+    provision(
+        args.registry,
+        args.publisher,
+        args.origin,
+        additional_origin=args.additional_origin,
+    )
     print("Notification publisher credentials are ready")
 
 

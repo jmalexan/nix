@@ -38,10 +38,19 @@ class Settings:
     database: str
     services: dict[str, Service]
     static: str | None = None
+    aliases: tuple[str, ...] = ()
+    link_origin: str | None = None
 
     def __post_init__(self):
         if https_url(self.origin) != self.origin:
             raise ValueError("An HTTPS origin is required")
+        if any(https_url(alias) != alias for alias in self.aliases):
+            raise ValueError("Aliases must be HTTPS origins")
+        if self.link_origin is not None and self.link_origin not in (
+            self.origin,
+            *self.aliases,
+        ):
+            raise ValueError("Link origin must be an allowed origin")
         tokens = [s.token for s in self.services.values()]
         if len(set(tokens)) != len(tokens):
             raise ValueError("Service credentials must be distinct")
@@ -56,10 +65,13 @@ def create_app(settings):
     app = FastAPI(title="Notifications", version="1.0.0")
     app.state.store = store
     cookie = "__Host-notifications"
+    origins = {
+        urlsplit(value).netloc: value for value in (settings.origin, *settings.aliases)
+    }
 
     @app.middleware("http")
     async def boundary(request, call_next):
-        if request.headers.get("host") != urlsplit(settings.origin).netloc:
+        if request.headers.get("host") not in origins:
             return Response("Unexpected host", status_code=400)
         length = request.headers.get("content-length", "0")
         if not length.isdigit() or int(length) > 16384:
@@ -99,7 +111,7 @@ def create_app(settings):
         return row
 
     def origin(request: Request):
-        if request.headers.get("origin") != settings.origin:
+        if request.headers.get("origin") != origins[request.headers["host"]]:
             raise HTTPException(403, "Open settings from the companion")
 
     def web_device(request: Request):
@@ -325,7 +337,7 @@ def create_app(settings):
                 "INSERT INTO tickets VALUES(?,?,?)",
                 (digest(ticket), owner["id"], time.time() + 60),
             )
-        return {"url": settings.origin + "/#" + ticket}
+        return {"url": (settings.link_origin or settings.origin) + "/#" + ticket}
 
     @app.post("/v1/device/revoke", response_model=Status)
     def revoke_native(owner=Depends(device)):
@@ -414,6 +426,8 @@ def from_environment():
     return create_app(
         Settings(
             origin=os.environ["NOTIFICATIONS_ORIGIN"],
+            aliases=tuple(os.environ.get("NOTIFICATIONS_ALIASES", "").split()),
+            link_origin=os.environ.get("NOTIFICATIONS_LINK_ORIGIN"),
             database=os.environ["NOTIFICATIONS_DATABASE"],
             services={
                 name: Service.model_validate(value) for name, value in services.items()

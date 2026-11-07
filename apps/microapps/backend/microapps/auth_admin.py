@@ -56,7 +56,13 @@ def main():
         provision(args.token_file)
     else:
         with AuthStore(args.database).transaction() as db:
-            for table in ("credentials", "sessions", "challenges"):
+            for table in (
+                "credentials",
+                "sessions",
+                "challenges",
+                "passwords",
+                "password_attempts",
+            ):
                 db.execute(f"DELETE FROM {table}")
 
 

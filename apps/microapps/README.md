@@ -1,6 +1,6 @@
 # Independent micro apps
 
-The first executable slice is an approval PWA with passkey sign-in, remembered
+The first executable slice is an approval PWA with password sign-in (and existing full-hostname passkeys), remembered
 sessions, a request-only API, atomic single-use decisions, a harmless verification
 worker, and a Web Push outbox. An optional, separately deployed
 [connection gate](../../docs/approval-ssh-gate.md) adds phone-approved SSH to a
@@ -28,8 +28,8 @@ python ../backend/tests/serve.py
 Visit `http://localhost:5173`. This **disposable local test server** uses known test
 credentials (`e` repeated 32 times for enrollment, `r` repeated 32 times for the
 requester, `w` repeated 32 times for the worker). It deletes its database on exit.
-Choose **Set up this app**, enroll a passkey using the test setup code, then sign
-in. It is bound to loopback and is not a phone-accessible deployment.
+Choose **Set up this app**, enter the test setup code, and create a password of
+at least 15 characters. This signs in immediately. The username is `owner`. It is bound to loopback and is not a phone-accessible deployment.
 
 Submit a harmless request from another local terminal:
 
@@ -61,8 +61,8 @@ npm run build
 CHROMIUM_PATH=/path/to/chromium npm run test:browser
 ```
 
-The browser test starts its own disposable backend. It uses Chromium's virtual
-WebAuthn authenticator to exercise real registration and verification, then tests
+The browser tests start disposable backends, including an HTTPS server for short
+hostnames. They exercise password setup, login, password changes, and
 remembered login, CSRF-protected decisions, one-time execution, and compact to
 expanded resizing. It does not prove iPhone push delivery or Duo hardware behavior.
 
@@ -95,7 +95,7 @@ shared authentication should be extracted along that real boundary.
 The prototype was deployed to NASA on 2026-11-05. The host inventory enables
 `hosts/nasa/services/approvals.nix` with its public VAPID key.
 `services.approvals.enable = true` enables the demo service on localhost:8092 and
-`https://approve.nasa.jmalexan.com` through the existing private nginx listener.
+`https://approve` (also `https://approve.nasa.jmalexan.com`) through the existing private nginx listener.
 It uses its own DynamicUser and state directory. The inventory also enables
 `services.approvals.sshGate.enable`, deployed and verified on 2026-11-06. This adds
 the dedicated gate account/listener and denies that account through ordinary SSH.
@@ -120,11 +120,17 @@ it cannot approve requests or claim grants. Worker, gate, and enrollment
 credentials remain on the host. The gate uses a fourth distinct credential at
 `/var/lib/microapp-secrets/approvals/gate` with the same root-only protections.
 
-Enrollment is accepted only while the credential table is empty and consumes a
-short-lived challenge. A second concurrent enrollment cannot replace the owner.
-The first version supports one owner passkey. Login cookies are HttpOnly, Secure,
+Password setup is accepted only before either authentication method is enrolled.
+A concurrent setup cannot replace the owner. Existing passkeys and sessions
+remain usable at the full hostname; choose **Set password** while signed in to
+enable password login at either hostname. There is no passkey hand-off. New
+passwords must have at least 15 characters; username/password fields support
+Bitwarden autofill. See [shared authentication](../../docs/updates-auth.md) for
+hashing, throttling, password changes, and recovery. Human-facing links, including
+notifications, prefer short HTTPS names; machine APIs can retain full addresses.
+Login cookies are HttpOnly, Secure,
 SameSite=Strict, host-only, and expire after 30 days. Signing out revokes the
-server-side session. Verify HTTPS trust, DNS, and passkey use on the actual iPhone.
+server-side session. Verify HTTPS trust, DNS, and password-manager use on the actual client.
 
 For push, provision a VAPID private PEM key at
 `/var/lib/microapp-secrets/approvals/vapid.pem`, with the same file protections.

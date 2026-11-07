@@ -36,7 +36,9 @@ def call(origin, token, path, body=None):
         return json.loads(response.read(65536))
 
 
-def request_approval(origin, token, scope, reason, send=call, pause=time.sleep):
+def request_approval(
+    origin, token, scope, reason, send=call, pause=time.sleep, link_origin=None
+):
     result = send(
         origin,
         token,
@@ -47,7 +49,10 @@ def request_approval(origin, token, scope, reason, send=call, pause=time.sleep):
     if not ID.fullmatch(rid):
         raise ValueError("Invalid approval request")
     print(
-        "Approve this exact push on your phone: " + origin + "/?request=" + rid,
+        "Approve this exact push on your phone: "
+        + (link_origin or origin)
+        + "/?request="
+        + rid,
         file=sys.stderr,
         flush=True,
     )
