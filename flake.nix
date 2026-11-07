@@ -172,6 +172,7 @@
         {
           microapps = (import ./apps/microapps { inherit pkgs; }).tests;
           microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
+          microapp-upgrade = import ./apps/microapps/tests/upgrade-vm.nix { inherit pkgs; };
           notifications = (import ./apps/notifications { inherit pkgs; }).tests;
           git-broker = (import ./apps/git-broker { inherit pkgs; }).tests;
           lint =

@@ -24,6 +24,13 @@ code review. No routine SSH agent forwarding is needed.
 6. Monitor the Actions run. Its deployment jobs verify activation and report the
    result in GitHub's production deployment history.
 
+NASA also runs `nasa-apps-health` after activation. It checks the short HTTPS
+routes for Approve, Updates, and Notifications, including the password API.
+The independent micro apps restart after the new unit definitions are installed;
+otherwise notification timers can start the old executable during the switch's
+stop phase and leave an active but outdated app running. The `microapp-upgrade`
+VM check exercises a real configuration switch with a frequent dependent timer.
+
 Host selection compares evaluated NixOS system derivations for the base and new
 commits, not a hand-maintained list of filename prefixes. NASA-only changes do
 not wake HTPC. Shared changes can deploy both. Docs-only changes deploy neither.
@@ -111,7 +118,7 @@ With verified PR reuse, main still compares only validated derivation metadata.
 
 On PRs, each VM check runs only when its derivation differs from the exact base's
 successful main-validation record. This covers `approval-ssh-gate`, `agent-network`,
-`agent-guest`, and `robots-backup` independently. Nix captures their transitive source and package
+`agent-guest`, `robots-backup`, and `microapp-upgrade` independently. Nix captures their transitive source and package
 dependencies, so this does not rely on filename filters. The same evaluation
 records all Linux check derivations for possible future selection, but lint,
 backend tests, and frontend checks still run on every PR. The required `nix` job

@@ -6,6 +6,11 @@ let
     description = "Internal micro app: ${name}";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
+    # Timed workers can pull their required app back up during activation's
+    # stop phase. Restart after installing the new units so that an early
+    # activation cannot leave the old executable running. These services have
+    # no version-dependent ExecStop command.
+    stopIfChanged = false;
     environment = app.environment // {
       PORT = toString app.port;
     };

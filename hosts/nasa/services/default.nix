@@ -25,6 +25,7 @@
     ./ddns.nix
     ./tailscale.nix
     ./nginx.nix
+    ./app-health.nix
     ./samba.nix
     ./radicale.nix
 
