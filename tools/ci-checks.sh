@@ -7,7 +7,7 @@ import json
 import os
 
 light = ["lint", "microapps", "microapps-web", "notifications", "git-broker"]
-vms = ["approval-ssh-gate", "agent-network", "agent-guest", "robots-backup"]
+vms = ["approval-ssh-gate", "agent-network", "agent-guest", "robots-backup", "microapp-upgrade"]
 selected = json.loads(os.environ.get("CI_VM_CHECKS") or json.dumps(vms))
 if (not isinstance(selected, list)
     or any(not isinstance(name, str) or name not in vms for name in selected)

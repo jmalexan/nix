@@ -14,7 +14,13 @@ import time
 from pathlib import Path
 
 HOSTS = ("nasa", "htpc")
-VM_CHECKS = ("approval-ssh-gate", "agent-network", "agent-guest", "robots-backup")
+VM_CHECKS = (
+    "approval-ssh-gate",
+    "agent-network",
+    "agent-guest",
+    "robots-backup",
+    "microapp-upgrade",
+)
 CHECK_NAME = re.compile(r"[a-zA-Z0-9_-]+")
 REVISION = re.compile(r"[0-9a-f]{40}")
 DRV = re.compile(r"/nix/store/[0-9abcdfghijklmnpqrsvwxyz]{32}-[^/\n]+\.drv")
