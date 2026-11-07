@@ -10,10 +10,22 @@ export default defineConfig({
       args: ["--no-sandbox"],
     },
   },
-  webServer: {
-    command: "python ../backend/tests/serve.py",
-    env: { PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)) },
-    url: "http://localhost:5173/health",
-    reuseExistingServer: false,
-  },
+  webServer: [
+    {
+      command: "python ../backend/tests/serve.py",
+      env: {
+        PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
+      },
+      url: "http://localhost:5173/health",
+      reuseExistingServer: false,
+    },
+    {
+      command: "python ../backend/tests/serve_updates.py",
+      env: {
+        PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
+      },
+      url: "http://localhost:5174/health",
+      reuseExistingServer: false,
+    },
+  ],
 });

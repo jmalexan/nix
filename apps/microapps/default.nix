@@ -20,6 +20,7 @@ let
         !(builtins.elem (builtins.baseNameOf path) [
           "node_modules"
           "dist"
+          "dist-auth"
           "test-results"
           "playwright-report"
         ]);
@@ -32,10 +33,16 @@ let
       npx --no-install prettier --write src/api.d.ts
       diff expected-api.d.ts src/api.d.ts
       rm expected-api.d.ts
+      cp ${../../hosts/nasa/services/updates-dashboard/openapi.json} updates-openapi.json
+      npx --no-install openapi-typescript updates-openapi.json -o updates-api.d.ts
+      npx --no-install prettier --write updates-api.d.ts
+      diff updates-api.d.ts ${../../hosts/nasa/services/updates-dashboard/api.d.ts}
+      rm updates-api.d.ts updates-openapi.json
     '';
     installPhase = ''
       mkdir -p "$out"
       cp -r dist/. "$out/"
+      cp dist-auth/auth.js "$out/auth.js"
     '';
   };
   server = pkgs.writeShellApplication {
@@ -58,6 +65,14 @@ let
       exec python -m microapps.access "$@"
     '';
   };
+  authAdmin = pkgs.writeShellApplication {
+    name = "microapp-auth-admin";
+    runtimeInputs = [ python ];
+    text = ''
+      export PYTHONPATH=${./backend}
+      exec python -m microapps.auth_admin "$@"
+    '';
+  };
 in
 {
   inherit
@@ -65,16 +80,19 @@ in
     frontend
     server
     access
+    authAdmin
     ;
   tests = pkgs.runCommand "microapps-tests" { nativeBuildInputs = [ python ]; } ''
     cp -R ${./backend} backend
     cp ${./export_api.py} export_api.py
     chmod -R u+w backend
-    export PYTHONPATH=$PWD/backend
+    export PYTHONPATH=$PWD/backend:${../../hosts/nasa/services/updates-dashboard}
     export PYTHONDONTWRITEBYTECODE=1
     pytest -q -p no:cacheprovider ${./backend/tests}
     python export_api.py
     diff openapi.json ${./openapi.json}
+    python ${../../hosts/nasa/services/updates-dashboard/export_api.py} > updates-openapi.json
+    diff updates-openapi.json ${../../hosts/nasa/services/updates-dashboard/openapi.json}
     touch "$out"
   '';
 }

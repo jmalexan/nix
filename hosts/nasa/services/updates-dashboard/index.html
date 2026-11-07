@@ -22,7 +22,11 @@
     <script src="/app.js" type="module"></script>
   </head>
   <body>
-    <app-toolbar heading="System updates"></app-toolbar>
+    <app-toolbar heading="System updates">
+      <button id="sign-out" class="ui-button ui-button--quiet" hidden>
+        Sign out
+      </button>
+    </app-toolbar>
 
     <main id="content" aria-live="polite">
       <app-empty>Loading…</app-empty>

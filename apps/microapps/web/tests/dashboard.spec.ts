@@ -78,9 +78,19 @@ test("shared dashboard components, responsive tables, filters, and scan confirma
   });
   await page.route("http://dashboard.test/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/session")
+      return route.fulfill({ json: { csrf: "test-csrf" } });
+    if (pathname === "/auth.js")
+      return route.fulfill({
+        contentType: "text/javascript",
+        body: await readFile(
+          new URL("../dist-auth/auth.js", import.meta.url),
+          "utf8",
+        ),
+      });
     if (pathname === "/api/status") return route.fulfill({ json: status });
     if (pathname === "/api/actions") {
-      expect(route.request().headers()["x-update-csrf"]).toBe("test-csrf");
+      expect(route.request().headers()["x-csrf-token"]).toBe("test-csrf");
       posts.push(route.request().postDataJSON());
       return route.fulfill({ json: { ok: true } });
     }

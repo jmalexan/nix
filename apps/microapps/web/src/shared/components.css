@@ -136,3 +136,34 @@
     transition: none;
   }
 }
+
+.signin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+  margin: 48px auto;
+  padding: 28px;
+}
+.signin-icon {
+  color: var(--app-accent);
+  text-align: center;
+  padding: 8px 0 16px;
+}
+.signin-icon app-icon {
+  transform: scale(1.5);
+}
+.signin label {
+  font-size: 0.88rem;
+}
+.signin input {
+  display: block;
+  margin: 8px 0 12px;
+}
+.signin form .ui-button {
+  width: 100%;
+}
+
+[hidden] {
+  display: none !important;
+}
