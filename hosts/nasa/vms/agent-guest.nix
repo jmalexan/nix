@@ -31,7 +31,11 @@ in
   microvm = {
     hypervisor = "qemu";
     vcpu = 2;
-    mem = 4096;
+    # Higher guest ceiling, with unused pages returned to NASA by the balloon
+    # driver's free-page reporting. No inflated balloon or scaling controller:
+    # the guest sees 8 GiB throughout, while host residency follows page use.
+    mem = 8192;
+    balloon = true;
     shares = [ ];
     devices = [ ];
     interfaces = [
@@ -56,6 +60,14 @@ in
   };
   # QEMU fw_cfg credentials arrive in PID 1, never in the Nix store.
   boot.initrd.kernelModules = [ "qemu_fw_cfg" ];
+  # Concurrent agents and builds share the guest RAM. Give short memory spikes a
+  # compressed buffer instead of immediately reclaiming working sets or killing
+  # sessions. The compressed contents still consume guest RAM.
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+    memoryMax = 2 * 1024 * 1024 * 1024;
+  };
   networking.hostName = "robots";
   networking.useDHCP = false;
   systemd.network.enable = true;
