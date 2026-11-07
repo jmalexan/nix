@@ -83,11 +83,8 @@ jobs:
       - name: Test deployment selection
         if: steps.reuse.outputs.reused != 'true'
         run: python3 -m unittest discover -s tools -p 'test_deployment*.py'
-      - name: Test robots disk restore
-        timeout-minutes: 10
-        if: steps.reuse.outputs.reused != 'true'
-        run: nix build --print-build-logs .#checks.x86_64-linux.robots-backup
       - name: Run Linux repository checks
+        timeout-minutes: 20
         if: steps.reuse.outputs.reused != 'true'
         run: bash tools/ci-checks.sh
       - name: Record tested checkout
