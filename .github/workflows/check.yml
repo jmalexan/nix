@@ -54,9 +54,9 @@ jobs:
         continue-on-error: true
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
         with:
-          # Large cache archives take ~100s to create. Keep uploads off PRs;
+          # Large cache archives take ~100s to create. Keep uploads off validation;
           # the independent main job supplies the shared cache for future PRs.
-          save: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+          save: false
           primary-key: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ github.sha }}
           restore-prefixes-first-match: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
       - name: Identify derivation cache entries
