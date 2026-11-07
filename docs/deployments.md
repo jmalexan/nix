@@ -90,6 +90,60 @@ Keep one release in flight at a time. Deployment jobs serialize per host and
 never cancel an activation already running; GitHub may replace an older pending
 job if several releases are queued.
 
+### Check build cache and single host evaluation
+
+PRs restore the Nix store with `cache-nix-action`, pinned to a commit.
+Keys include a cache schema, runner OS/architecture, `flake.lock`, and revision;
+fallbacks are restricted to the same platform and lockfile. Nix still resolves
+every requested check and rebuilds outputs whose inputs changed. Cache failures
+fall back to ordinary builds. No production identity or credentials enter this
+job or its cache. PRs do not save binary caches: archiving the first 9.2 GB store
+took about 100 seconds, so only main pays that cost. The resulting cache was
+3.7 GB. Cache size and restore overhead should be monitored as dependencies grow.
+
+GitHub scopes PR caches to their merge ref. The independent **Warm PR check
+cache** job builds the same check targets on main, making them available to
+future PRs. It runs alongside deployment, is safe to cancel when superseded,
+and is not a prerequisite for production activation. It never builds a production
+host closure. A successful PR's cache is not promoted to main or used by NASA.
+Post-merge validation reuse remains fast; warming and uploads run separately.
+Cache restore time is part of PR completion and must be included in comparisons.
+
+On a full validation, `deployment-plan.py --validate` archives the exact head,
+checks its non-host flake outputs on every system through a temporary wrapper,
+then evaluates and type-checks both NixOS toplevel derivations together. The
+wrapper forwards the original outputs and their original `self`; it omits only
+`nixosConfigurations`, whose validation belongs to the planner. Unexpected or
+missing host names fail validation. This avoids repeating host evaluation;
+`nix flake check` itself does not use Nix's evaluation cache. Valid cached metadata
+never bypasses a requested validation. Failed validation publishes no new record.
+With verified PR reuse, main still compares only validated derivation metadata.
+
+### Local production build reuse
+
+NASA continues to build and activate the exact main revision locally. Its
+persistent Nix store already reuses unchanged build outputs between deployments.
+Changed guest closures require a new isolated EROFS image, so robots now uses
+ordinary LZ4 instead of LZ4 high compression, with workers bounded by
+`NIX_BUILD_CORES`. The guest keeps its private store and existing readiness checks.
+Changing compression rebuilds the image and restarts robots once on rollout;
+subsequent host-only changes can reuse the image when the guest closure is stable.
+
+A local benchmark on robots (2026-11-07), using the installed guest's 891 store
+paths, two compression workers, and the production tail-packing/fragment flags,
+ran LZ4 HC, LZ4, LZ4, then LZ4 HC against the same read-only bind-mounted closure:
+
+| Compression | First run | Second run | Image bytes |
+| --- | ---: | ---: | ---: |
+| LZ4 HC | 53.18 s | 52.63 s | 1,501,843,456 |
+| LZ4 | 13.37 s | 14.64 s | 1,629,032,448 |
+
+This reduces image creation time by roughly 74% for an 8.5% larger image. It is
+an image-generation benchmark on the VM, not a measured end-to-end deployment
+speedup on NASA. Dependency resolution, changed derivation builds, activation,
+and guest readiness still take time. NASA's memory-protecting build concurrency
+limits remain in place.
+
 ## Bot identity
 
 The private GitHub App is installed on **only `jmalexan/nix`**. Permissions:

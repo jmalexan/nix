@@ -38,6 +38,15 @@ in
     # the guest sees 8 GiB throughout, while host residency follows page use.
     mem = 8192;
     balloon = true;
+    # Repack changed guest closures quickly while preserving the isolated store.
+    # See docs/deployments.md for the measured compression/size tradeoff.
+    # Honor the builder's configured core limit.
+    storeDiskErofsFlags = [
+      "-zlz4"
+      "--workers=$NIX_BUILD_CORES"
+      "-Eztailpacking"
+      "-Efragments"
+    ];
     # The only host share is journal data, enforced read-only by QEMU.
     shares = [
       {

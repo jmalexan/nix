@@ -49,6 +49,16 @@ jobs:
           CI_DERIVATIONS_OUTPUT: ${{ runner.temp }}/pr-derivations.json
         run: python3 tools/ci-reuse.py --workflow check.yml
       - uses: cachix/install-nix-action@v31
+      - name: Restore Nix check builds
+        if: steps.reuse.outputs.reused != 'true'
+        continue-on-error: true
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          # Large cache archives take ~100s to create. Keep uploads off validation;
+          # the independent main job supplies the shared cache for future PRs.
+          save: false
+          primary-key: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ github.sha }}
+          restore-prefixes-first-match: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
       - name: Identify derivation cache entries
         id: plan_keys
         run: python3 tools/deployment-plan.py --base "$BASE_REVISION" --head "$HEAD_REVISION" --cache-keys
@@ -59,23 +69,23 @@ jobs:
         with:
           path: ${{ runner.temp }}/deployment-cache
           key: ${{ steps.plan_keys.outputs.base_key }}
-      - name: Evaluate every host
-        if: steps.reuse.outputs.reused != 'true'
-        run: nix flake check --no-build --all-systems
-      - name: Plan host deployments
+      - name: Validate and plan host deployments
         id: plan
+        env:
+          REUSED_VALIDATION: ${{ steps.reuse.outputs.reused }}
         run: |
           args=(--base "$BASE_REVISION" --head "$HEAD_REVISION"
                 --cache "$RUNNER_TEMP/deployment-cache/derivations.json"
                 --verified-head "$RUNNER_TEMP/pr-derivations.json")
           if [[ -n "$FORCE_HOST" ]]; then args+=(--force "$FORCE_HOST"); fi
+          if [[ "$REUSED_VALIDATION" != "true" ]]; then args+=(--validate); fi
           python3 tools/deployment-plan.py "${args[@]}"
       - name: Test deployment selection
         if: steps.reuse.outputs.reused != 'true'
         run: python3 -m unittest discover -s tools -p 'test_deployment*.py'
       - name: Run Linux repository checks
         if: steps.reuse.outputs.reused != 'true'
-        run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.notifications .#checks.x86_64-linux.git-broker .#checks.x86_64-linux.approval-ssh-gate .#checks.x86_64-linux.agent-network .#checks.x86_64-linux.agent-guest
+        run: bash tools/ci-checks.sh
       - name: Record tested checkout
         if: github.event_name == 'pull_request'
         run: |
@@ -96,6 +106,28 @@ jobs:
         with:
           path: ${{ runner.temp }}/deployment-cache
           key: ${{ steps.plan_keys.outputs.head_key }}
+
+  warm-check-cache:
+    name: Warm PR check cache
+    needs: nix
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # This is independent of production and never delays activation. PR caches
+    # are scoped to their merge ref; build on main to seed future PRs safely.
+    concurrency:
+      group: nix-check-cache-main
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+      - name: Restore and save Nix check builds
+        continue-on-error: true
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ github.sha }}
+          restore-prefixes-first-match: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
+      - name: Build check fixtures for subsequent PRs
+        run: bash tools/ci-checks.sh
 
   deploy:
     name: Deploy ${{ matrix.host }}

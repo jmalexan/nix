@@ -1,5 +1,9 @@
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -207,6 +211,173 @@ class DeploymentCacheTests(unittest.TestCase):
             self.assertIn(
                 "configs.htpc.config.system.build.toplevel.drvPath", command[-1]
             )
+
+    def test_validation_cannot_be_skipped_by_cached_head_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cache, verified = Path(temp) / "cache.json", Path(temp) / "verified.json"
+            cache.write_text(json.dumps(record(BASE_TREE)))
+            verified.write_text(json.dumps(record(HEAD_TREE)))
+            with (
+                patch.object(plan, "evaluation_context", return_value=CONTEXT),
+                patch.object(plan, "source_tree", side_effect=[HEAD_TREE, BASE_TREE]),
+                patch.object(
+                    plan, "derivations", return_value=paths(nasa="c")
+                ) as evaluate,
+            ):
+                self.assertEqual(
+                    plan.plan(
+                        Path(temp),
+                        BASE,
+                        HEAD,
+                        cache=cache,
+                        verified_head=verified,
+                        validate=True,
+                    ),
+                    ["nasa"],
+                )
+                evaluate.assert_called_once()
+                self.assertEqual(evaluate.call_args.args[1], HEAD)
+                self.assertEqual(evaluate.call_args.kwargs, {"validate": True})
+
+    def test_identical_trees_are_validated_once(self):
+        with (
+            patch.object(plan, "evaluation_context", return_value=CONTEXT),
+            patch.object(plan, "source_tree", return_value=HEAD_TREE),
+            patch.object(plan, "derivations", return_value=paths()) as evaluate,
+        ):
+            self.assertEqual(plan.plan(Path.cwd(), BASE, HEAD, validate=True), [])
+            evaluate.assert_called_once()
+
+    def test_flake_validation_failure_cannot_publish_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "head"
+            source.mkdir()
+            with (
+                patch.object(plan.subprocess, "run") as run,
+                patch.object(plan.subprocess, "check_output") as evaluate,
+            ):
+                run.return_value.stdout = b"archive"
+                run.side_effect = [
+                    run.return_value,
+                    run.return_value,
+                    RuntimeError("invalid flake"),
+                ]
+                with self.assertRaisesRegex(RuntimeError, "invalid flake"):
+                    plan.derivations(Path("/repo"), HEAD, source, validate=True)
+                evaluate.assert_not_called()
+            wrapper = (Path(temp) / "validation" / "flake.nix").read_text()
+            self.assertIn(
+                'builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]', wrapper
+            )
+            self.assertIn(f"path:{source}", wrapper)
+
+
+@unittest.skipUnless(shutil.which("nix"), "requires the Nix CLI")
+class DeploymentValidationTests(unittest.TestCase):
+    def validate_fixture(self, hosts, checks='mk "check"'):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            (repo / "flake.nix").write_text(
+                "{ outputs = { self }: let mk = name: builtins.derivation { "
+                'inherit name; system = "x86_64-linux"; builder = "/bin/sh"; }; '
+                "in { nixosConfigurations = { " + hosts + " }; "
+                "checks.x86_64-linux.example = " + checks + "; }; }"
+            )
+            subprocess.run(["git", "init", "-q", temp], check=True)
+            subprocess.run(["git", "-C", temp, "add", "."], check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    temp,
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-qm",
+                    "fixture",
+                ],
+                check=True,
+            )
+            head = subprocess.check_output(
+                ["git", "-C", temp, "rev-parse", "HEAD"], text=True
+            ).strip()
+            cache = repo / "result.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(plan.__file__).resolve()),
+                    "--base",
+                    "0" * 40,
+                    "--head",
+                    head,
+                    "--validate",
+                    "--cache",
+                    str(cache),
+                ],
+                cwd=repo,
+                env={
+                    key: value
+                    for key, value in os.environ.items()
+                    if key not in ("GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY")
+                },
+                capture_output=True,
+                text=True,
+            )
+            return result, cache.exists()
+
+    def test_real_flake_validates_both_hosts(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc";'
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), ["nasa", "htpc"])
+        self.assertTrue(recorded)
+
+    def test_invalid_non_host_output_fails_without_record(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc";',
+            checks="1",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
+    def test_unexpected_host_cannot_escape_validation(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc"; extra = {};'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
+    def test_missing_host_fails_without_record(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
+    def test_drv_path_without_derivation_type_is_rejected(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = { type = "invalid"; '
+            f'drvPath = "{paths()["nasa"]}"; }}; '
+            'htpc.config.system.build.toplevel = mk "htpc";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
+    def test_host_validation_does_not_allow_import_from_derivation(self):
+        result, recorded = self.validate_fixture(
+            "nasa.config.system.build.toplevel = "
+            'builtins.seq (builtins.readFile (mk "ifd")) (mk "nasa"); '
+            'htpc.config.system.build.toplevel = mk "htpc";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("allow-import-from-derivation", result.stderr)
+        self.assertFalse(recorded)
 
 
 if __name__ == "__main__":
