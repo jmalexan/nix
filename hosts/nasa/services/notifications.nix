@@ -12,6 +12,12 @@ in
 {
   imports = [ ../../../modules/notification-bridge.nix ];
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = !config.services.open-webui.enable || cfg.port != config.services.open-webui.port;
+        message = "Notification bridge and Open WebUI must use different listening ports";
+      }
+    ];
     age.secrets.notifications-apns.file = ../../../secrets/notifications-apns.age;
     systemd.services.notification-publisher-credentials = {
       description = "Provision the local notification publisher credential";
