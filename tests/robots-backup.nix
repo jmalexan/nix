@@ -34,7 +34,7 @@ pkgs.testers.runNixOSTest {
     machine.start()
     machine.wait_for_unit("multi-user.target")
     machine.succeed("zpool create -f -m none testpool /dev/vdb; zfs create -o mountpoint=/vm-data testpool/vms")
-    machine.succeed("mkdir /vm-data/robots /mnt/disk; truncate -s 64M /vm-data/robots/root.img; mkfs.ext4 -q -F /vm-data/robots/root.img; mount -o loop /vm-data/robots/root.img /mnt/disk")
+    machine.succeed("mkdir -p /vm-data/robots /mnt/disk; truncate -s 64M /vm-data/robots/root.img; mkfs.ext4 -q -F /vm-data/robots/root.img; mount -o loop /vm-data/robots/root.img /mnt/disk")
     machine.succeed("echo persisted-agent-work > /mnt/disk/work.txt; sync")
     machine.succeed("systemctl start microvm@robots")
     invocation = machine.succeed("systemctl show microvm@robots -p InvocationID --value")
