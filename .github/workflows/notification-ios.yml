@@ -5,12 +5,21 @@ on:
     paths:
       - apps/notifications/ios/**
       - .github/workflows/notification-ios.yml
+      - tools/ci-reuse.py
+      - tools/test_ci_reuse.py
   push:
     branches: [main]
     paths:
       - apps/notifications/ios/**
       - .github/workflows/notification-ios.yml
+      - tools/ci-reuse.py
+      - tools/test_ci_reuse.py
   workflow_dispatch:
+    inputs:
+      full_validation:
+        description: Run simulator checks even when verified PR validation exists
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,27 +31,55 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    concurrency:
+      group: ios-validation-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
+      - name: Find verified PR validation
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FORCE_VALIDATION: ${{ inputs.full_validation || false }}
+        run: python3 tools/ci-reuse.py --workflow notification-ios.yml
       - name: Generate Xcode project
+        if: steps.reuse.outputs.reused != 'true'
         working-directory: apps/notifications/ios
         run: |
           brew install xcodegen
           xcodegen generate
           xcodebuild -version
       - name: Compile app and notification extension
+        if: steps.reuse.outputs.reused != 'true'
         working-directory: apps/notifications/ios
         run: |
           xcodebuild -project NotificationBridge.xcodeproj -scheme NotificationBridge \
             -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build
       - name: Test notification protocol
+        if: steps.reuse.outputs.reused != 'true'
         working-directory: apps/notifications/ios
         run: |
           swiftc Shared/Protocol.swift Tests/ProtocolTests.swift -o "$RUNNER_TEMP/protocol-tests"
           "$RUNNER_TEMP/protocol-tests"
       - name: Test signing validation
+        if: steps.reuse.outputs.reused != 'true'
         run: python3 -m unittest discover -s apps/notifications/ios/Tests -p 'test_*.py'
+      - name: Record tested checkout
+        if: github.event_name == 'pull_request'
+        run: python3 tools/ci-reuse.py --record "$RUNNER_TEMP/validation.json"
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'pull_request'
+        with:
+          name: validated-tree-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/validation.json
+          if-no-files-found: error
+          retention-days: 14
+          archive: true
 
   testflight:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'

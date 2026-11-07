@@ -193,9 +193,9 @@
                 ruff format --check hosts/nasa/services/updates-dashboard/*.py
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
                   hosts/nasa/services/updates-dashboard/test_dashboard.py
-                ruff check --select E4,E7,E9,F,I tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py
-                ruff format --check tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py
-                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_deployment_plan.py tools/test_github_bot.py
+                ruff check --select E4,E7,E9,F,I tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py tools/ci-reuse.py tools/test_ci_reuse.py
+                ruff format --check tools/deployment-plan.py tools/test_deployment_plan.py tools/github-bot.py tools/test_github_bot.py tools/ci-reuse.py tools/test_ci_reuse.py
+                PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_deployment_plan.py tools/test_github_bot.py tools/test_ci_reuse.py
                 ruff check --select E4,E7,E9,F,I tests/agent_network.py
                 ruff format --check tests/agent_network.py
                 node --check hosts/nasa/services/updates-dashboard/app.js
