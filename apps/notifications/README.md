@@ -83,9 +83,10 @@ access. Device-unlock options are enforced by the native UI, not independently
 attested to the server. High-stakes actions should open the service's authenticated
 web flow unless that service explicitly implements a suitable native trust model.
 
-The Approve adapter offers **Approve**, **Reject**, and **Review** for requests
-whose full reason and operation scope fit in the notification. Longer requests
-offer Review only, opening the passkey-authenticated web page. SSH notifications
+The Approve adapter offers **Approve** and **Reject** for requests whose full
+reason and operation scope fit in the notification. Tapping the notification
+opens the request's passkey-authenticated web page. Longer requests have no
+choice buttons and must be opened to review the full details. SSH notifications
 include the account, target, maximum duration, and temporary public key. Expand
 and read the notification before approving. Request details now appear in native
 notification content; iOS preview settings control lock-screen visibility.
@@ -270,7 +271,7 @@ Verify enrollment/code replay rejection, TestFlight production APNs delivery,
 tap-to-open with broker unavailable, dynamically changed button labels without
 reinstalling, response unlock, text reply, image fallback, LAN/Tailscale reachability,
 expiry, duplicate responses across devices, preferences, revocation, token renewal,
-and a real Approve Review link followed by the existing passkey decision flow.
+and a real Approve notification tap followed by the existing passkey decision flow.
 
 References: [APNs requests](https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns),
 [action categories](https://developer.apple.com/documentation/usernotifications/declaring-your-actionable-notification-types),
