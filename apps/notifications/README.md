@@ -200,32 +200,26 @@ refreshes as the long-term distribution plan.
 
 ## NASA provisioning and activation
 
-The Nix module and private route are available but **disabled** until credentials
-and identifiers exist. No host access is needed to review/build this change.
+For NASA, the APNs key is encrypted on the owner's Mac for the existing recipients
+in `secrets.nix`, then deployed with agenix as `notifications-apns`. The private key
+never needs to pass through robots or a GitHub signing secret. The host provisions
+the matching broker/Approve publisher credentials locally through
+`notification-publisher-credentials.service`, before either dependent service starts.
+Provisioning preserves existing credentials, recovers incomplete setup, and refuses
+to replace mismatched credentials or scope. These generated files join the encrypted
+Restic backup; the encrypted APNs key is retained in Git.
 
-A trusted operator provisions root-only files (directories 0700, files 0600):
-
-- `/var/lib/microapp-secrets/notifications/services.json`: independently random
-  per-service tokens, origins, and recipient allowlists, for example:
-
-  ```json
-  {"approve":{"token":"REPLACE_WITH_RANDOM_32_PLUS_CHARACTERS","origins":["https://approve.nasa.jmalexan.com"],"recipients":["owner"]}}
-  ```
-
-- `/var/lib/microapp-secrets/notifications/apns.p8`: a dedicated APNs signing key
-  with the appropriate app/topic/environment access. Keep it separate from the
-  App Store Connect upload key. Its key ID and Apple team ID are public config.
-- `/var/lib/microapp-secrets/approvals/notifications`: the same Approve publishing
-  token as in services.json, readable by the approval adapter via LoadCredential.
-
-Then propose the activation configuration in a separate release:
+NASA enables the bridge and Approve adapter in its service inventory. The APNs
+key is dedicated to production push for the companion's topic, separate from
+the App Store Connect upload key. Only its public key ID and team ID are in
+configuration. Other hosts can reuse the module with their own credentials:
 
 ```nix
 services.notificationBridge = {
   enable = true;
   origin = "https://notifications.nasa.jmalexan.com";
   servicesFile = "/var/lib/microapp-secrets/notifications/services.json";
-  apnsKeyFile = "/var/lib/microapp-secrets/notifications/apns.p8";
+  apnsKeyFile = config.age.secrets.notifications-apns.path;
   apnsKeyId = "APPLE_KEY_ID";
   appleTeamId = "APPLE_TEAM_ID";
 };
