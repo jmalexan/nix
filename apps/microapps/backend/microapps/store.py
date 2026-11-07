@@ -42,7 +42,12 @@ class Store:
                 CREATE TABLE IF NOT EXISTS notification_bridge_outbox (
                     request_id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
                     next_attempt REAL NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0);
-                PRAGMA user_version = 2;
+                CREATE TABLE IF NOT EXISTS notification_bridge_messages (
+                    request_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL,
+                    recipient TEXT NOT NULL, expires REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS notification_bridge_responses (
+                    id TEXT PRIMARY KEY, request_id TEXT NOT NULL);
+                PRAGMA user_version = 3;
             """)
         os.chmod(path, 0o600)
 
