@@ -22,6 +22,7 @@ let
 in
 {
   imports = [
+    ./persistent-store.nix
     ../../../modules/dev-environment.nix
     (import ../../../modules/rex.nix {
       inherit rex;
