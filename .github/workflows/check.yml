@@ -49,11 +49,14 @@ jobs:
           CI_DERIVATIONS_OUTPUT: ${{ runner.temp }}/pr-derivations.json
         run: python3 tools/ci-reuse.py --workflow check.yml
       - uses: cachix/install-nix-action@v31
-      - name: Restore and save Nix check builds
+      - name: Restore Nix check builds
         if: steps.reuse.outputs.reused != 'true'
         continue-on-error: true
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
         with:
+          # Large cache archives take ~100s to create. Keep uploads off PRs;
+          # the independent main job supplies the shared cache for future PRs.
+          save: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
           primary-key: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ github.sha }}
           restore-prefixes-first-match: nix-checks-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
       - name: Identify derivation cache entries

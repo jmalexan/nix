@@ -353,6 +353,13 @@ class DeploymentValidationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(recorded)
 
+    def test_missing_host_fails_without_record(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
     def test_drv_path_without_derivation_type_is_rejected(self):
         result, recorded = self.validate_fixture(
             'nasa.config.system.build.toplevel = { type = "invalid"; '
