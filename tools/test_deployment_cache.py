@@ -17,7 +17,7 @@ spec.loader.exec_module(plan)
 
 BASE, HEAD = "a" * 40, "b" * 40
 BASE_TREE, HEAD_TREE = "c" * 40, "d" * 40
-CONTEXT = {"schema": 1, "planner": "code", "nix": "nix 1", "platform": "Linux-x86_64"}
+CONTEXT = {"schema": 2, "planner": "code", "nix": "nix 1", "platform": "Linux-x86_64"}
 
 
 def paths(nasa="a", htpc="b"):
@@ -27,11 +27,23 @@ def paths(nasa="a", htpc="b"):
     }
 
 
+def check_paths(**changes):
+    return {
+        name: changes.get(name, f"/nix/store/{'d' * 32}-{name}.drv")
+        for name in plan.VM_CHECKS
+    }
+
+
+def evaluation(nasa="a", htpc="b", checks=None):
+    return {"hosts": paths(nasa, htpc), "checks": checks or check_paths()}
+
+
 def record(tree, values=None, context=None):
     return {
         "tree": tree,
         "context": context or CONTEXT,
         "derivations": values or paths(),
+        "checks": check_paths(),
     }
 
 
@@ -61,7 +73,7 @@ class DeploymentCacheTests(unittest.TestCase):
             "malformed json",
             json.dumps([]),
             json.dumps(record(BASE_TREE)),
-            json.dumps(record(HEAD_TREE, context={**CONTEXT, "schema": 2})),
+            json.dumps(record(HEAD_TREE, context={**CONTEXT, "schema": 3})),
             json.dumps(record(HEAD_TREE, context={**CONTEXT, "nix": "different"})),
             json.dumps(record(HEAD_TREE, context={**CONTEXT, "planner": "different"})),
             json.dumps(record(HEAD_TREE, context={**CONTEXT, "platform": "different"})),
@@ -84,7 +96,7 @@ class DeploymentCacheTests(unittest.TestCase):
                         plan, "source_tree", side_effect=[BASE_TREE, HEAD_TREE]
                     ),
                     patch.object(
-                        plan, "derivations", return_value=paths(nasa="c")
+                        plan, "derivations", return_value=evaluation(nasa="c")
                     ) as evaluate,
                 ):
                     self.assertEqual(
@@ -100,7 +112,7 @@ class DeploymentCacheTests(unittest.TestCase):
             patch.object(plan, "evaluation_context", return_value=CONTEXT),
             patch.object(plan, "source_tree", side_effect=[BASE_TREE, HEAD_TREE]),
             patch.object(
-                plan, "derivations", side_effect=[paths(), paths(htpc="c")]
+                plan, "derivations", side_effect=[evaluation(), evaluation(htpc="c")]
             ) as evaluate,
         ):
             self.assertEqual(plan.plan(Path.cwd(), BASE, HEAD), ["htpc"])
@@ -112,7 +124,7 @@ class DeploymentCacheTests(unittest.TestCase):
         with (
             patch.object(plan, "evaluation_context", return_value=CONTEXT),
             patch.object(plan, "source_tree", return_value=HEAD_TREE),
-            patch.object(plan, "derivations", return_value=paths()) as evaluate,
+            patch.object(plan, "derivations", return_value=evaluation()) as evaluate,
         ):
             self.assertEqual(plan.plan(Path.cwd(), BASE, HEAD), [])
             evaluate.assert_called_once()
@@ -127,7 +139,9 @@ class DeploymentCacheTests(unittest.TestCase):
                 self.subTest(force=force),
                 patch.object(plan, "evaluation_context", return_value=CONTEXT),
                 patch.object(plan, "source_tree", return_value=HEAD_TREE),
-                patch.object(plan, "derivations", return_value=paths()) as evaluate,
+                patch.object(
+                    plan, "derivations", return_value=evaluation()
+                ) as evaluate,
             ):
                 self.assertEqual(plan.plan(Path.cwd(), base, HEAD, force=force), hosts)
                 self.assertEqual(evaluate.call_args.args[1], HEAD)
@@ -142,7 +156,9 @@ class DeploymentCacheTests(unittest.TestCase):
                 patch.object(plan, "evaluation_context", return_value=CONTEXT),
                 patch.object(plan, "source_tree", side_effect=[BASE_TREE, HEAD_TREE]),
                 patch.object(
-                    plan, "derivations", side_effect=[paths(), paths(nasa="c")]
+                    plan,
+                    "derivations",
+                    side_effect=[evaluation(), evaluation(nasa="c")],
                 ) as evaluate,
             ):
                 self.assertEqual(
@@ -189,28 +205,31 @@ class DeploymentCacheTests(unittest.TestCase):
             path.write_text("x" * 4097)
             self.assertIsNone(plan.read_record(path))
 
-    def test_evaluation_batches_both_hosts_into_one_nix_process(self):
-        with (
-            patch.object(plan.subprocess, "run") as run,
-            patch.object(
-                plan.subprocess, "check_output", return_value=json.dumps(paths())
-            ) as evaluate,
-        ):
-            run.return_value.stdout = b"archive"
-            self.assertEqual(
-                plan.derivations(Path("/repo"), HEAD, Path("/source")), paths()
-            )
-            evaluate.assert_called_once()
-            command = evaluate.call_args.args[0]
-            self.assertIn("--json", command)
-            self.assertIn("--no-write-lock-file", command)
-            self.assertIn("path:/source#nixosConfigurations", command)
-            self.assertIn(
-                "configs.nasa.config.system.build.toplevel.drvPath", command[-1]
-            )
-            self.assertIn(
-                "configs.htpc.config.system.build.toplevel.drvPath", command[-1]
-            )
+    def test_evaluation_batches_hosts_and_check_paths_into_one_nix_process(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "head"
+            source.mkdir()
+            with (
+                patch.object(plan.subprocess, "run") as run,
+                patch.object(
+                    plan.subprocess,
+                    "check_output",
+                    return_value=json.dumps(evaluation()),
+                ) as evaluate,
+            ):
+                run.return_value.stdout = b"archive"
+                self.assertEqual(
+                    plan.derivations(Path("/repo"), HEAD, source), evaluation()
+                )
+                evaluate.assert_called_once()
+                self.assertIn(
+                    f"path:{source.parent}/head-validation#lib.ciDerivations",
+                    evaluate.call_args.args[0],
+                )
+            wrapper = (source.parent / "head-validation" / "flake.nix").read_text()
+            self.assertIn("configs.nasa.config.system.build.toplevel.drvPath", wrapper)
+            self.assertIn("configs.htpc.config.system.build.toplevel.drvPath", wrapper)
+            self.assertIn("flake.checks.x86_64-linux", wrapper)
 
     def test_validation_cannot_be_skipped_by_cached_head_metadata(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -221,7 +240,7 @@ class DeploymentCacheTests(unittest.TestCase):
                 patch.object(plan, "evaluation_context", return_value=CONTEXT),
                 patch.object(plan, "source_tree", side_effect=[HEAD_TREE, BASE_TREE]),
                 patch.object(
-                    plan, "derivations", return_value=paths(nasa="c")
+                    plan, "derivations", return_value=evaluation(nasa="c")
                 ) as evaluate,
             ):
                 self.assertEqual(
@@ -243,7 +262,7 @@ class DeploymentCacheTests(unittest.TestCase):
         with (
             patch.object(plan, "evaluation_context", return_value=CONTEXT),
             patch.object(plan, "source_tree", return_value=HEAD_TREE),
-            patch.object(plan, "derivations", return_value=paths()) as evaluate,
+            patch.object(plan, "derivations", return_value=evaluation()) as evaluate,
         ):
             self.assertEqual(plan.plan(Path.cwd(), BASE, HEAD, validate=True), [])
             evaluate.assert_called_once()
@@ -265,11 +284,164 @@ class DeploymentCacheTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "invalid flake"):
                     plan.derivations(Path("/repo"), HEAD, source, validate=True)
                 evaluate.assert_not_called()
-            wrapper = (Path(temp) / "validation" / "flake.nix").read_text()
+            wrapper = (Path(temp) / "head-validation" / "flake.nix").read_text()
             self.assertIn(
                 'builtins.removeAttrs repo.outputs [ "nixosConfigurations" ]', wrapper
             )
             self.assertIn(f"path:{source}", wrapper)
+
+
+class VMSelectionTests(unittest.TestCase):
+    def select(
+        self,
+        cached=True,
+        changes=None,
+        fresh=False,
+        enabled=True,
+        force=None,
+        invalid=None,
+    ):
+        with tempfile.TemporaryDirectory() as temp:
+            cache = Path(temp) / "record.json"
+            if cached:
+                cache.write_text(
+                    json.dumps(invalid if invalid is not None else record(BASE_TREE))
+                )
+            selected = []
+            with (
+                patch.object(plan, "evaluation_context", return_value=CONTEXT),
+                patch.object(
+                    plan,
+                    "source_tree",
+                    side_effect=[BASE_TREE, HEAD_TREE] if not force else [HEAD_TREE],
+                ),
+                patch.object(
+                    plan,
+                    "derivations",
+                    side_effect=(
+                        [evaluation(checks=check_paths(**(changes or {})))]
+                        if cached and invalid is None and not fresh or force
+                        else [
+                            evaluation(),
+                            evaluation(checks=check_paths(**(changes or {}))),
+                        ]
+                    ),
+                ),
+            ):
+                plan.plan(
+                    Path(temp),
+                    BASE,
+                    HEAD,
+                    cache=cache,
+                    fresh=fresh,
+                    force=force,
+                    select_vm=enabled,
+                    vm_selection=selected,
+                )
+            return selected
+
+    def test_unchanged_vms_skip_with_successful_base_record(self):
+        self.assertEqual(self.select(), [])
+
+    def test_only_changed_fixture_runs(self):
+        for name in plan.VM_CHECKS:
+            with self.subTest(name=name):
+                self.assertEqual(
+                    self.select(changes={name: f"/nix/store/{'f' * 32}-changed.drv"}),
+                    [name],
+                )
+
+    def test_cold_base_runs_all_even_when_fresh_evaluation_matches(self):
+        self.assertEqual(self.select(cached=False), list(plan.VM_CHECKS))
+
+    def test_invalid_or_incompatible_base_runs_all(self):
+        for value in [
+            {},
+            record(HEAD_TREE),
+            record(BASE_TREE, context={**CONTEXT, "schema": 1}),
+            {**record(BASE_TREE), "checks": {}},
+            {
+                **record(BASE_TREE),
+                "checks": {**check_paths(), "agent-guest": "/tmp/bad.drv"},
+            },
+        ]:
+            with self.subTest(record=value):
+                self.assertEqual(self.select(invalid=value), list(plan.VM_CHECKS))
+
+    def test_full_validation_and_non_pr_runs_all(self):
+        self.assertEqual(self.select(fresh=True), list(plan.VM_CHECKS))
+        self.assertEqual(self.select(enabled=False), list(plan.VM_CHECKS))
+        self.assertEqual(self.select(force="nasa"), list(plan.VM_CHECKS))
+
+
+class CheckRunnerTests(unittest.TestCase):
+    def run_checks(self, selection=None):
+        with tempfile.TemporaryDirectory() as temp:
+            fake_nix = Path(temp) / "nix"
+            fake_nix.write_text(
+                f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
+            )
+            fake_nix.chmod(0o755)
+            env = {
+                **os.environ,
+                "PATH": f"{temp}:{Path(sys.executable).parent}:{os.environ.get('PATH', '')}",
+            }
+            env.pop("CI_VM_CHECKS", None)
+            if selection is not None:
+                env["CI_VM_CHECKS"] = selection
+            return subprocess.run(
+                ["bash", str(Path(plan.__file__).with_name("ci-checks.sh"))],
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+    def test_local_default_runs_all_checks(self):
+        result = self.run_checks()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(result.stdout.splitlines()[-1])
+        for name in plan.VM_CHECKS:
+            self.assertIn(f".#checks.x86_64-linux.{name}", args)
+
+    def test_empty_vm_selection_still_runs_all_light_checks(self):
+        result = self.run_checks("[]")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            json.loads(result.stdout.splitlines()[-1]),
+            ["build", "--no-link"]
+            + [
+                f".#checks.x86_64-linux.{name}"
+                for name in [
+                    "lint",
+                    "microapps",
+                    "microapps-web",
+                    "notifications",
+                    "git-broker",
+                ]
+            ],
+        )
+
+    def test_selects_one_vm_without_losing_light_checks(self):
+        result = self.run_checks('["agent-guest"]')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(len(args), 8)
+        self.assertIn(".#checks.x86_64-linux.agent-guest", args)
+        self.assertNotIn(".#checks.x86_64-linux.agent-network", args)
+
+    def test_invalid_selection_fails_before_nix_runs(self):
+        for value in [
+            "bad json",
+            "null",
+            "1",
+            '"agent-guest"',
+            '["other"]',
+            '["agent-guest", "agent-guest"]',
+        ]:
+            with self.subTest(value=value):
+                result = self.run_checks(value)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
 
 
 @unittest.skipUnless(shutil.which("nix"), "requires the Nix CLI")
@@ -281,7 +453,11 @@ class DeploymentValidationTests(unittest.TestCase):
                 "{ outputs = { self }: let mk = name: builtins.derivation { "
                 'inherit name; system = "x86_64-linux"; builder = "/bin/sh"; }; '
                 "in { nixosConfigurations = { " + hosts + " }; "
-                "checks.x86_64-linux.example = " + checks + "; }; }"
+                "checks.x86_64-linux = { example = "
+                + checks
+                + "; "
+                + " ".join(f'{name} = mk "{name}";' for name in plan.VM_CHECKS)
+                + " }; }; }"
             )
             subprocess.run(["git", "init", "-q", temp], check=True)
             subprocess.run(["git", "-C", temp, "add", "."], check=True)
