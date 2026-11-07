@@ -340,6 +340,53 @@ class VMSelectionTests(unittest.TestCase):
                 )
             return selected
 
+    def test_base_predating_new_vm_check_runs_all(self):
+        older_checks = check_paths()
+        del older_checks[plan.VM_CHECKS[-1]]
+        for cached in (False, True):
+            with self.subTest(cached=cached), tempfile.TemporaryDirectory() as temp:
+                cache = Path(temp) / "record.json"
+                if cached:
+                    cache.write_text(
+                        json.dumps({**record(BASE_TREE), "checks": older_checks})
+                    )
+                selected = []
+                with (
+                    patch.object(plan, "evaluation_context", return_value=CONTEXT),
+                    patch.object(
+                        plan, "source_tree", side_effect=[HEAD_TREE, BASE_TREE]
+                    ),
+                    patch.object(
+                        plan,
+                        "derivations",
+                        side_effect=[evaluation(), evaluation(checks=older_checks)],
+                    ),
+                ):
+                    plan.plan(
+                        Path(temp),
+                        BASE,
+                        HEAD,
+                        cache=cache,
+                        validate=True,
+                        select_vm=True,
+                        vm_selection=selected,
+                    )
+                self.assertEqual(selected, list(plan.VM_CHECKS))
+
+    def test_head_must_define_every_required_vm_check(self):
+        incomplete = check_paths()
+        del incomplete[plan.VM_CHECKS[-1]]
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            patch.object(plan, "evaluation_context", return_value=CONTEXT),
+            patch.object(plan, "source_tree", return_value=HEAD_TREE),
+            patch.object(
+                plan, "derivations", return_value=evaluation(checks=incomplete)
+            ),
+            self.assertRaisesRegex(ValueError, "invalid host/check derivations"),
+        ):
+            plan.plan(Path(temp), BASE, HEAD, validate=True)
+
     def test_unchanged_vms_skip_with_successful_base_record(self):
         self.assertEqual(self.select(), [])
 

@@ -117,7 +117,7 @@ def cache_key(tree, context):
     return f"deployment-derivations-{signature}-{tree}"
 
 
-def valid_record(record, tree, context):
+def valid_record(record, tree, context, require_vm_checks=True):
     if not isinstance(record, dict):
         return False
     values = record.get("derivations")
@@ -128,7 +128,7 @@ def valid_record(record, tree, context):
         and isinstance(values, dict)
         and set(values) == set(HOSTS)
         and isinstance(checks, dict)
-        and set(VM_CHECKS) <= set(checks)
+        and (not require_vm_checks or set(VM_CHECKS) <= set(checks))
         and all(isinstance(name, str) and CHECK_NAME.fullmatch(name) for name in checks)
         and all(
             isinstance(value, str) and DRV.fullmatch(value) for value in checks.values()
@@ -192,7 +192,11 @@ def plan(
                 "derivations": evaluated["hosts"],
                 "checks": evaluated["checks"],
             }
-            if not valid_record(record, tree, context):
+            # A historical base may predate a newly introduced VM check.
+            # Head and reusable records must still include every required check.
+            if not valid_record(
+                record, tree, context, require_vm_checks=label == "head"
+            ):
                 raise ValueError("Nix returned invalid host/check derivations")
             print(
                 f"{label}: evaluated in {time.monotonic() - started:.1f}s",
@@ -216,7 +220,11 @@ def plan(
     # justify skipping. A freshly evaluated base is not evidence its tests ran.
     cached_base = records[0] if records else None
     trusted_base = (
-        cached_base if before_record and cached_base == before_record else None
+        cached_base
+        if before_record
+        and cached_base == before_record
+        and valid_record(cached_base, before_record["tree"], context)
+        else None
     )
     selected = select_vm_checks(
         trusted_base, after, enabled=select_vm and not fresh and not force
