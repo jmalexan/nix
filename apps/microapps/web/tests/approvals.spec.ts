@@ -6,7 +6,7 @@ test("password enrollment, remembered login, mobile resize, and one execution", 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Set up this app" }).click();
+  await page.getByRole("button", { name: "Set up account" }).click();
   await page.getByLabel("Setup code").fill("e".repeat(32));
   await page
     .getByLabel("New password", { exact: true })
@@ -14,7 +14,7 @@ test("password enrollment, remembered login, mobile resize, and one execution", 
   await page
     .getByLabel("Confirm password")
     .fill("a long password saved in Bitwarden");
-  await page.getByRole("button", { name: "Create password" }).click();
+  await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   const response = await request.post("/api/requests", {
     headers: { Authorization: "Bearer " + "r".repeat(32) },

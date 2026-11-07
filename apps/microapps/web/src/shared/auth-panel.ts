@@ -36,12 +36,12 @@ export function showSignIn(
     <form id="password-login">${username}${password("Password", "password", "current-password")}
       <button class="ui-button ui-button--primary" type="submit">Sign in</button></form>
     <button class="ui-button ui-button--quiet" id="passkey-login" hidden>Sign in with passkey</button>
-    <button class="ui-button ui-button--quiet" id="password-setup" aria-expanded="false" hidden>Set up this app</button>
+    <button class="ui-button ui-button--quiet" id="password-setup" aria-expanded="false" hidden>Set up account</button>
     <form id="password-enroll" hidden>${username}
       <label>Setup code<input class="ui-input" name="token" type="password" autocomplete="off" maxlength="256" required></label>
       ${password("New password", "password", "new-password")}
       ${password("Confirm password", "confirm", "new-password")}
-      <button class="ui-button ui-button--primary" type="submit">Create password</button></form>
+      <button class="ui-button ui-button--primary" type="submit">Create account</button></form>
   </section>`;
   const run = actionRunner(root);
   const setup = root.querySelector<HTMLButtonElement>("#password-setup")!;
@@ -84,39 +84,6 @@ export function showSignIn(
       });
       enroll.reset();
       onSignedIn(await api<Session>("/session"));
-    });
-  };
-}
-
-export function showPasswordSettings(
-  root: HTMLElement,
-  session: Session,
-  onSaved: (session: Session) => void,
-  onCancel: () => void,
-) {
-  root.innerHTML = `<section class="signin ui-panel" aria-label="Set password">
-    <h2>Set password</h2><p role="alert" class="ui-message" hidden></p>
-    <form>${username}${password("New password", "password", "new-password")}
-      ${password("Confirm password", "confirm", "new-password")}
-      <button class="ui-button ui-button--primary" type="submit">Save password</button>
-      <button class="ui-button ui-button--quiet" type="button">Cancel</button></form>
-  </section>`;
-  const form = root.querySelector("form")!;
-  const run = actionRunner(root);
-  root.querySelector<HTMLButtonElement>('[type="button"]')!.onclick = onCancel;
-  form.onsubmit = (event) => {
-    event.preventDefault();
-    void run(async () => {
-      const data = new FormData(form);
-      if (data.get("password") !== data.get("confirm"))
-        throw new Error("Passwords do not match");
-      await api(
-        "/auth/password",
-        { password: data.get("password") },
-        session.csrf,
-      );
-      form.reset();
-      onSaved(await api<Session>("/session"));
     });
   };
 }

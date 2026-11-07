@@ -30,6 +30,7 @@ class Settings:
     systemctl: str = "systemctl"
     token: str | None = None
     aliases: tuple[str, ...] = ()
+    account_socket: str | None = None
 
     def __post_init__(self):
         url = urlparse(self.origin)
@@ -46,7 +47,7 @@ class Settings:
             )
         ):
             raise ValueError("An HTTPS origin is required")
-        if len(self.enrollment_token) < 32:
+        if not self.account_socket and len(self.enrollment_token) < 32:
             raise ValueError("Enrollment credential must have at least 32 characters")
 
 
@@ -182,11 +183,14 @@ def from_environment():
     return create_app(
         Settings(
             origin=os.environ["UPDATES_ORIGIN"],
+            account_socket=os.environ.get("MICROAPP_ACCOUNT_SOCKET"),
             aliases=tuple(os.environ.get("UPDATES_ALIASES", "").split()),
             database=os.environ["UPDATES_DATABASE"],
             enrollment_token=Path(os.environ["UPDATES_ENROLLMENT_FILE"])
             .read_text()
-            .strip(),
+            .strip()
+            if not os.environ.get("MICROAPP_ACCOUNT_SOCKET")
+            else "",
             data=os.environ["UPDATES_DATA"],
             static=os.environ["UPDATES_STATIC"],
             inventory=os.environ["UPDATES_INVENTORY"],

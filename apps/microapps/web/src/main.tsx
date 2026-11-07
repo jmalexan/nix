@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { IonApp, IonContent, IonPage, setupIonicReact } from "@ionic/react";
-import { showSignIn, showPasswordSettings } from "./shared/auth-panel";
+import { showSignIn } from "./shared/auth-panel";
 import "@ionic/react/css/core.css";
 import "@ionic/react/css/normalize.css";
 import "@ionic/react/css/structure.css";
@@ -29,26 +29,6 @@ function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void }) {
   }, []);
   return <div ref={root} />;
 }
-function PasswordSettings({
-  session,
-  onSaved,
-  onCancel,
-}: {
-  session: Session;
-  onSaved: (session: Session) => void;
-  onCancel: () => void;
-}) {
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    showPasswordSettings(
-      root.current!,
-      session,
-      (value) => onSaved(value as Session),
-      onCancel,
-    );
-  }, []);
-  return <div ref={root} />;
-}
 setupIonicReact();
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -59,8 +39,6 @@ function App() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [notice, setNotice] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   async function refresh() {
@@ -165,9 +143,6 @@ function App() {
                 <Icon name="more" />
               </summary>
               <div className="ui-menu-items ui-panel">
-                <Button variant="quiet" onClick={() => setPasswordOpen(true)}>
-                  Set password
-                </Button>
                 <Button
                   variant="quiet"
                   disabled={busy}
@@ -193,25 +168,10 @@ function App() {
                 {error}
               </p>
             )}
-            {notice && (
-              <p role="status" className="ui-message">
-                {notice}
-              </p>
-            )}
             {!ready ? (
               <Empty>Loading…</Empty>
             ) : !session ? (
               <SignIn onSignedIn={setSession} />
-            ) : passwordOpen ? (
-              <PasswordSettings
-                session={session}
-                onSaved={(value) => {
-                  setSession(value);
-                  setPasswordOpen(false);
-                  setNotice("Password saved.");
-                }}
-                onCancel={() => setPasswordOpen(false)}
-              />
             ) : (
               <>
                 <NotificationSetup

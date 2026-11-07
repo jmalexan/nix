@@ -1,4 +1,4 @@
-"""Local-only setup and recovery for apps using shared passkey authentication."""
+"""Local-only setup and recovery for owner accounts."""
 
 import argparse
 import os
@@ -6,6 +6,7 @@ import secrets
 import stat
 from pathlib import Path
 
+from .accounts import Account
 from .auth_store import AuthStore
 
 
@@ -55,15 +56,7 @@ def main():
     if args.command == "provision":
         provision(args.token_file)
     else:
-        with AuthStore(args.database).transaction() as db:
-            for table in (
-                "credentials",
-                "sessions",
-                "challenges",
-                "passwords",
-                "password_attempts",
-            ):
-                db.execute(f"DELETE FROM {table}")
+        Account(AuthStore(args.database), "local-reset-only").reset()
 
 
 if __name__ == "__main__":
