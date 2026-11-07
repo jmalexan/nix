@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Keep required PR checks and the independent main cache warmer identical.
+# Build the Linux repository checks.
 checks=(lint microapps microapps-web notifications git-broker approval-ssh-gate agent-network agent-guest)
 targets=()
 for check in "${checks[@]}"; do

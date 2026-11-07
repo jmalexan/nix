@@ -90,24 +90,12 @@ Keep one release in flight at a time. Deployment jobs serialize per host and
 never cancel an activation already running; GitHub may replace an older pending
 job if several releases are queued.
 
-### Check build cache and single host evaluation
+### Single host evaluation
 
-PRs restore the Nix store with `cache-nix-action`, pinned to a commit.
-Keys include a cache schema, runner OS/architecture, `flake.lock`, and revision;
-fallbacks are restricted to the same platform and lockfile. Nix still resolves
-every requested check and rebuilds outputs whose inputs changed. Cache failures
-fall back to ordinary builds. No production identity or credentials enter this
-job or its cache. PRs do not save binary caches: archiving the first 9.2 GB store
-took about 100 seconds, so only main pays that cost. The resulting cache was
-3.7 GB. Cache size and restore overhead should be monitored as dependencies grow.
-
-GitHub scopes PR caches to their merge ref. The independent **Warm PR check
-cache** job builds the same check targets on main, making them available to
-future PRs. It runs alongside deployment, is safe to cancel when superseded,
-and is not a prerequisite for production activation. It never builds a production
-host closure. A successful PR's cache is not promoted to main or used by NASA.
-Post-merge validation reuse remains fast; warming and uploads run separately.
-Cache restore time is part of PR completion and must be included in comparisons.
+Repository checks build on the runner without a persistent Nix store cache or a
+main-branch warming job. The measured net PR saving of roughly a minute did not
+justify restoring multi-gigabyte archives and rebuilding/uploading them on main.
+The small deployment-derivation cache and verified PR validation reuse remain.
 
 On a full validation, `deployment-plan.py --validate` archives the exact head,
 checks its non-host flake outputs on every system through a temporary wrapper,
