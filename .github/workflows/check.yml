@@ -23,6 +23,11 @@ permissions:
 jobs:
   nix:
     runs-on: ubuntu-latest
+    env:
+      BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+      HEAD_REVISION: ${{ github.sha }}
+      FORCE_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.host || '' }}
+      CI_FORCE_VALIDATION: ${{ inputs.full_validation || false }}
     permissions:
       contents: read
       actions: read
@@ -41,31 +46,41 @@ jobs:
         id: reuse
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FORCE_VALIDATION: ${{ inputs.full_validation || false }}
+          CI_DERIVATIONS_OUTPUT: ${{ runner.temp }}/pr-derivations.json
         run: python3 tools/ci-reuse.py --workflow check.yml
       - uses: cachix/install-nix-action@v31
+      - name: Identify derivation cache entries
+        id: plan_keys
+        run: python3 tools/deployment-plan.py --base "$BASE_REVISION" --head "$HEAD_REVISION" --cache-keys
+      - name: Restore base derivations
+        if: env.CI_FORCE_VALIDATION != 'true' && steps.plan_keys.outputs.base_key != ''
+        uses: actions/cache/restore@v6
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/deployment-cache
+          key: ${{ steps.plan_keys.outputs.base_key }}
       - name: Evaluate every host
         if: steps.reuse.outputs.reused != 'true'
         run: nix flake check --no-build --all-systems
       - name: Plan host deployments
         id: plan
-        env:
-          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
-          HEAD_REVISION: ${{ github.sha }}
-          FORCE_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.host || '' }}
         run: |
-          args=(--base "$BASE_REVISION" --head "$HEAD_REVISION")
+          args=(--base "$BASE_REVISION" --head "$HEAD_REVISION"
+                --cache "$RUNNER_TEMP/deployment-cache/derivations.json"
+                --verified-head "$RUNNER_TEMP/pr-derivations.json")
           if [[ -n "$FORCE_HOST" ]]; then args+=(--force "$FORCE_HOST"); fi
           python3 tools/deployment-plan.py "${args[@]}"
       - name: Test deployment selection
         if: steps.reuse.outputs.reused != 'true'
-        run: python3 -m unittest discover -s tools -p test_deployment_plan.py
+        run: python3 -m unittest discover -s tools -p 'test_deployment*.py'
       - name: Run Linux repository checks
         if: steps.reuse.outputs.reused != 'true'
         run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.notifications .#checks.x86_64-linux.approval-ssh-gate .#checks.x86_64-linux.agent-network .#checks.x86_64-linux.agent-guest
       - name: Record tested checkout
         if: github.event_name == 'pull_request'
-        run: python3 tools/ci-reuse.py --record "$RUNNER_TEMP/validation.json"
+        run: |
+          python3 tools/ci-reuse.py --record "$RUNNER_TEMP/validation.json" \
+            --derivations "$RUNNER_TEMP/deployment-cache/derivations.json"
       - uses: actions/upload-artifact@v7
         if: github.event_name == 'pull_request'
         with:
@@ -74,6 +89,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           archive: true
+      - name: Save main derivations
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/cache/save@v6
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/deployment-cache
+          key: ${{ steps.plan_keys.outputs.head_key }}
 
   deploy:
     name: Deploy ${{ matrix.host }}

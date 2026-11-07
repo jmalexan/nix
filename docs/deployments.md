@@ -49,14 +49,36 @@ only superseded PR validation jobs are canceled. Main and manual runs are never
 canceled by this optimization.
 Select `full_validation` on a manual workflow dispatch to force fresh checks.
 
-Main always evaluates its own deployment plan against the push's previous commit;
-PR artifacts supply no host selection, build outputs, or executable code. The
-planner also constructs the new host derivations, replacing the old duplicate
-construction step. The required `nix` job, production branch restrictions, exact
-main deployment revision, and per-host activation serialization remain in place.
+Main always computes its own deployment plan against the push's previous commit.
+PR records can also supply the evaluated new host derivation paths, under the same
+verified-run and source-tree requirements. These are comparison metadata; no host
+selection, build outputs, or executable code is taken from a PR artifact. The
+required `nix` job, production branch restrictions, exact main deployment revision,
+and per-host activation serialization remain in place.
 Manual TestFlight runs may reuse simulator validation but always create and upload
-a fresh signed device archive. No persistent Nix cache or protection changes are
-part of this optimization.
+a fresh signed device archive.
+
+### Deployment planning cache
+
+Successful main validation saves a small JSON record of NASA/HTPC derivation
+paths through Actions cache. Subsequent runs restore the entry for their exact
+base source tree. Only main saves shared entries; PRs can read them but write
+their new-tree result only into the verified validation artifact. The planner
+checks source tree, planner-code hash, Nix version, platform, schema, both host
+names, and derivation-path syntax before accepting a record. Cache keys include
+the same evaluation context and source tree, with no broad restore-key fallback.
+Changing the planner, evaluation environment, or source invalidates the result.
+The first main run after rollout evaluates its uncached base and seeds the next
+run's entry; fully cached planning is available after that.
+
+With a cached base and verified PR head, planning compares two maps without Nix
+evaluation. Missing, malformed, or incompatible records trigger normal evaluation;
+cache service failures do not block a release. Each cold revision evaluates both
+hosts together in one Nix process. Identical source trees are evaluated at most
+once per invocation, and forced reconciliations omit the unused base evaluation.
+`full_validation` bypasses both cached maps and PR derivation reuse. The planner
+logs reuse and evaluation timings. This caches metadata only, not the Nix store;
+it retains the source-content assumption above and does not change protections.
 
 If a deployment fails, resolve or retry it before merging the next release.
 Host selection describes changes between commits, not proof of the host's live
