@@ -71,6 +71,9 @@ changing API models. CI checks backend/schema consistency and compiles the front
 Browser tests run separately with Chromium. Keep package-lock.json and
 `npmDepsHash` in default.nix synchronized when dependencies change.
 
+See [Updates authentication](../../docs/updates-auth.md) for the second consumer
+of the shared passkey/session implementation.
+
 ## Reuse and ownership
 
 - `backend/microapps/runtime.py`: common HTTP origin/size/security defaults.

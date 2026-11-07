@@ -1,10 +1,37 @@
 import { buttonClass } from "./components.js";
+import { api, showSignIn } from "./auth.js";
 
 const content = document.querySelector("#content");
 const nixScanDialog = document.querySelector("#nix-scan-confirm");
 const confirmNixScan = document.querySelector("#confirm-nix-scan");
 
+/** @type {import("./api").components["schemas"]["DashboardStatus"] | null} */
 let dashboard = null;
+let session = null;
+const signOut = document.querySelector("#sign-out");
+
+function signedOut() {
+  session = null;
+  dashboard = null;
+  pendingActions.clear();
+  actionErrors.clear();
+  nixScanDialog.close();
+  signOut.hidden = true;
+  showSignIn(content, (value) => {
+    session = value;
+    signOut.hidden = false;
+    load();
+  });
+}
+
+signOut.onclick = async () => {
+  try {
+    await api("/logout", {}, session.csrf);
+    signedOut();
+  } catch (error) {
+    window.alert(error.message);
+  }
+};
 let containerFilter = "updates";
 let loadInProgress = false;
 const pendingActions = new Set();
@@ -106,8 +133,10 @@ function jobRunning(target) {
   );
 }
 
+/** @param {import("./api").components["schemas"]["Scan"] | import("./api").components["schemas"]["CreatePR"]} payload */
 async function requestAction(payload, pendingKey) {
-  if (pendingActions.has(pendingKey)) return;
+  if (!session || pendingActions.has(pendingKey)) return;
+  const currentSession = session;
   pendingActions.add(pendingKey);
   actionErrors.delete(pendingKey);
   render();
@@ -116,18 +145,27 @@ async function requestAction(payload, pendingKey) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Update-CSRF": actions().csrfToken,
+        "X-CSRF-Token": session.csrf,
       },
       body: JSON.stringify(payload),
     });
+    if (session !== currentSession) return;
+    if (response.status === 401) {
+      signedOut();
+      return;
+    }
     const result = await response.json();
     if (!response.ok)
-      throw new Error(result.error || `Action API returned ${response.status}`);
+      throw new Error(
+        typeof result.detail === "string"
+          ? result.detail
+          : `Action API returned ${response.status}`,
+      );
   } catch (error) {
     actionErrors.set(pendingKey, error.message);
     pendingActions.delete(pendingKey);
   }
-  render();
+  if (session === currentSession) render();
 }
 
 function scanButton(target, confirm = false) {
@@ -793,13 +831,20 @@ function render() {
 }
 
 async function load() {
-  if (loadInProgress) return;
+  if (loadInProgress || !session) return;
+  const currentSession = session;
   loadInProgress = true;
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
+    if (session !== currentSession) return;
+    if (response.status === 401) {
+      signedOut();
+      return;
+    }
     if (!response.ok)
       throw new Error(`Dashboard API returned ${response.status}`);
     const latest = await response.json();
+    if (session !== currentSession) return;
     const hadPendingAction = pendingActions.size > 0;
     pendingActions.clear();
     if (
@@ -811,6 +856,7 @@ async function load() {
       render();
     }
   } catch (error) {
+    if (session !== currentSession) return;
     if (!dashboard)
       content.replaceChildren(
         emptyState("Could not load reports", error.message),
@@ -829,4 +875,10 @@ document.addEventListener("visibilitychange", () => {
 confirmNixScan.addEventListener("click", () =>
   requestAction({ action: "scan", target: "nix" }, "scan:nix"),
 );
-load();
+api("/session")
+  .then((value) => {
+    session = value;
+    signOut.hidden = false;
+    load();
+  })
+  .catch(() => signedOut());
