@@ -7,7 +7,9 @@
 let
   guest = import "${nixpkgs}/nixos/lib/eval-config.nix" {
     system = "x86_64-linux";
-    inherit specialArgs;
+    specialArgs = specialArgs // {
+      gitBrokerEnabled = true;
+    };
     modules = [
       microvm.nixosModules.microvm
       ../hosts/nasa/vms/agent-guest.nix
@@ -25,6 +27,7 @@ let
             }
           ];
           credentialFiles = lib.mkForce {
+            agent-git-broker = pkgs.writeText "fake-broker-client" "test-only-broker-client";
             agent-requester = pkgs.writeText "fake-requester" "test-only-requester";
             agent-github = pkgs.writeText "fake-github-key" "test-only-github-key";
           };
@@ -96,6 +99,9 @@ let
             systemctl is-active --quiet tailscaled.service
             test "$(systemctl show tailscaled-set.service -p Result --value)" = success
             ssh-keygen -F 10.0.1.10 -f /etc/ssh/ssh_known_hosts | grep -F 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8xM12gVZXzdvRDHwXwP9kIxj5fecxG5gU39rSTxUXr'
+            test "$(cat /home/robot/.local/share/git-broker/token)" = test-only-broker-client
+            test "$(stat -c '%a:%U' /home/robot/.local/share/git-broker/token)" = 600:robot
+            runuser -u robot -- /run/current-system/sw/bin/git-broker --help >/dev/null
             test "$(cat /home/robot/.local/share/nasa-github-app/private-key.pem)" = test-only-github-key
             test "$(stat -c '%a:%U' /home/robot/.local/share/nasa-github-app/private-key.pem)" = 600:robot
             test "$(id -nG robot)" = users

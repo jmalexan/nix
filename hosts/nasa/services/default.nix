@@ -1,4 +1,5 @@
 { config, ... }: {
+  services.gitBroker.enable = true;
   services.approvals = {
     enable = true;
     sshGate.enable = true;
@@ -30,6 +31,7 @@
     # Container runtime and development infrastructure
     ./containers.nix
     ./gitlab-runner.nix
+    ./git-broker.nix
     ./updates-dashboard.nix
     ./approvals.nix
     ./notifications.nix

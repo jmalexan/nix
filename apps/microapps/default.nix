@@ -86,7 +86,7 @@ in
     cp -R ${./backend} backend
     cp ${./export_api.py} export_api.py
     chmod -R u+w backend
-    export PYTHONPATH=$PWD/backend:${../../hosts/nasa/services/updates-dashboard}
+    export PYTHONPATH=$PWD/backend:${../git-broker}:${../../hosts/nasa/services/updates-dashboard}
     export PYTHONDONTWRITEBYTECODE=1
     pytest -q -p no:cacheprovider ${./backend/tests}
     python export_api.py

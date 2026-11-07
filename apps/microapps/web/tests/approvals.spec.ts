@@ -145,6 +145,53 @@ test("passkey enrollment, remembered login, mobile resize, and one execution", a
     path: "/tmp/microapps-connection.png",
     fullPage: true,
   });
+  const pushScope = {
+    repository: "owner/project",
+    branch: "robot/browser-test",
+    commit: "a".repeat(40),
+    expected: "0".repeat(40),
+  };
+  const pushRequest = await request.post("/api/requests", {
+    headers: { Authorization: "Bearer " + "r".repeat(32) },
+    data: {
+      operation: "git.push",
+      reason: "Publish browser-tested change",
+      push: pushScope,
+    },
+  });
+  expect(pushRequest.status()).toBe(201);
+  const pushItem = await pushRequest.json();
+  await page.goto(`/?request=${pushItem.id}`);
+  await expect(
+    page.getByRole("heading", { name: "Git push", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("owner/project", { exact: true })).toBeVisible();
+  await expect(page.getByText(pushScope.commit, { exact: true })).toBeVisible();
+  await expect(page.getByText("New branch", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 740 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: "/tmp/approve-git-push.png", fullPage: true });
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Approve", exact: true }),
+  ).toHaveCount(0);
+  const pushClaim = await request.post(`/api/git-broker/${pushItem.id}/claim`, {
+    headers: { Authorization: "Bearer " + "b".repeat(32) },
+    data: pushScope,
+  });
+  expect(pushClaim.status()).toBe(200);
+  expect(
+    (
+      await request.post(`/api/git-broker/${pushItem.id}/claim`, {
+        headers: { Authorization: "Bearer " + "b".repeat(32) },
+        data: pushScope,
+      })
+    ).status(),
+  ).toBe(409);
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(

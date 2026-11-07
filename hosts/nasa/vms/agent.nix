@@ -15,6 +15,7 @@
   microvm.vms.robots = {
     pkgs = null;
     specialArgs = {
+      gitBrokerEnabled = config.services.gitBroker.enable;
       inherit
         pkgs-unstable
         claude-code-pkg
@@ -46,15 +47,18 @@
     requires = [
       "agent-boundary.service"
       "agent-tap-address.service"
-    ];
+    ]
+    ++ lib.optional config.services.gitBroker.enable "git-broker-client-credential.service";
     after = [
       "agent-boundary.service"
       "agent-tap-address.service"
-    ];
+    ]
+    ++ lib.optional config.services.gitBroker.enable "git-broker-client-credential.service";
     serviceConfig.LoadCredential = [
       "agent-github:${config.age.secrets.agent-github.path}"
       "agent-requester:/var/lib/microapp-secrets/approvals/requester"
-    ];
+    ]
+    ++ lib.optional config.services.gitBroker.enable "agent-git-broker:${config.services.gitBroker.clientTokenFile}";
   };
   age.secrets.agent-github.file = ../../../secrets/agent-github.age;
   systemd.services."microvm@robots".serviceConfig.UMask = "0077";

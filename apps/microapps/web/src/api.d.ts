@@ -192,6 +192,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/git-broker/{rid}/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Claim Push */
+    post: operations["claim_push_api_git_broker__rid__claim_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/git-broker/{rid}/finish": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Finish Push */
+    post: operations["finish_push_api_git_broker__rid__finish_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/gate/{rid}/claim": {
     parameters: {
       query?: never;
@@ -295,6 +329,7 @@ export interface components {
        */
       decision: "approve" | "deny";
       connection?: components["schemas"]["ConnectionScope"] | null;
+      push?: components["schemas"]["PushScope"] | null;
     };
     /** Enrollment */
     Enrollment: {
@@ -312,10 +347,27 @@ export interface components {
        * Operation
        * @enum {string}
        */
-      operation: "demo.verify" | "ssh.connect";
+      operation: "demo.verify" | "ssh.connect" | "git.push";
       /** Reason */
       reason: string;
       connection?: components["schemas"]["ConnectionScope"] | null;
+      push?: components["schemas"]["PushScope"] | null;
+    };
+    /** PushOutcome */
+    PushOutcome: {
+      /** Outcome */
+      outcome: string;
+    };
+    /** PushScope */
+    PushScope: {
+      /** Repository */
+      repository: string;
+      /** Branch */
+      branch: string;
+      /** Commit */
+      commit: string;
+      /** Expected */
+      expected: string;
     };
     /** RequestView */
     RequestView: {
@@ -338,6 +390,9 @@ export interface components {
       connection?: components["schemas"]["ConnectionScope"] | null;
       /** Connection Deadline */
       connection_deadline?: number | null;
+      push?: components["schemas"]["PushScope"] | null;
+      /** Push Deadline */
+      push_deadline?: number | null;
     };
     /** SessionView */
     SessionView: {
@@ -687,6 +742,76 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RequestView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  claim_push_api_git_broker__rid__claim_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rid: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PushScope"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RequestView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  finish_push_api_git_broker__rid__finish_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rid: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PushOutcome"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

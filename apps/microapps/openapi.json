@@ -364,6 +364,104 @@
         }
       }
     },
+    "/api/git-broker/{rid}/claim": {
+      "post": {
+        "summary": "Claim Push",
+        "operationId": "claim_push_api_git_broker__rid__claim_post",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushScope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/git-broker/{rid}/finish": {
+      "post": {
+        "summary": "Finish Push",
+        "operationId": "finish_push_api_git_broker__rid__finish_post",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushOutcome"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/gate/{rid}/claim": {
       "post": {
         "summary": "Claim Connection",
@@ -583,6 +681,16 @@
                 "type": "null"
               }
             ]
+          },
+          "push": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PushScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -626,7 +734,8 @@
             "type": "string",
             "enum": [
               "demo.verify",
-              "ssh.connect"
+              "ssh.connect",
+              "git.push"
             ],
             "title": "Operation"
           },
@@ -645,6 +754,16 @@
                 "type": "null"
               }
             ]
+          },
+          "push": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PushScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -654,6 +773,54 @@
           "reason"
         ],
         "title": "NewRequest"
+      },
+      "PushOutcome": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "pattern": "^(completed|failed)$",
+            "title": "Outcome"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "outcome"
+        ],
+        "title": "PushOutcome"
+      },
+      "PushScope": {
+        "properties": {
+          "repository": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}$",
+            "title": "Repository"
+          },
+          "branch": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$",
+            "title": "Branch"
+          },
+          "commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Commit"
+          },
+          "expected": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Expected"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "repository",
+          "branch",
+          "commit",
+          "expected"
+        ],
+        "title": "PushScope"
       },
       "RequestView": {
         "properties": {
@@ -716,6 +883,27 @@
               }
             ],
             "title": "Connection Deadline"
+          },
+          "push": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PushScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "push_deadline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Push Deadline"
           }
         },
         "type": "object",

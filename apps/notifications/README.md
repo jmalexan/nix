@@ -83,6 +83,10 @@ access. Device-unlock options are enforced by the native UI, not independently
 attested to the server. High-stakes actions should open the service's authenticated
 web flow unless that service explicitly implements a suitable native trust model.
 
+The Approve adapter includes Git push approvals, showing the exact repository,
+branch, commit, and expected remote tip. The trusted Git broker consumes each
+approved update once; the agent cannot claim it using its requester credential.
+
 The Approve adapter offers **Approve** and **Reject** for requests whose full
 reason and operation scope fit in the notification. Tapping the notification
 opens the request's passkey-authenticated web page. Longer requests have no

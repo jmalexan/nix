@@ -75,7 +75,7 @@ jobs:
         run: python3 -m unittest discover -s tools -p 'test_deployment*.py'
       - name: Run Linux repository checks
         if: steps.reuse.outputs.reused != 'true'
-        run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.notifications .#checks.x86_64-linux.approval-ssh-gate .#checks.x86_64-linux.agent-network .#checks.x86_64-linux.agent-guest
+        run: nix build .#checks.x86_64-linux.lint .#checks.x86_64-linux.microapps .#checks.x86_64-linux.microapps-web .#checks.x86_64-linux.notifications .#checks.x86_64-linux.git-broker .#checks.x86_64-linux.approval-ssh-gate .#checks.x86_64-linux.agent-network .#checks.x86_64-linux.agent-guest
       - name: Record tested checkout
         if: github.event_name == 'pull_request'
         run: |
@@ -187,7 +187,7 @@ jobs:
             'readlink -f /run/current-system; systemctl is-active sshd.service'
           if [[ "$DEPLOY_HOST" == "nasa" ]]; then
             ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 deploy@nasa \
-              'set -e; for unit in microapp-approvals.service microapp-notifications.service microapp-notifications-delivery.service updates-dashboard.service agent-boundary.service microvm@robots.service; do systemctl is-active "$unit"; done; sudo robots-health'
+              'set -e; for unit in microapp-approvals.service microapp-notifications.service microapp-notifications-delivery.service updates-dashboard.service git-broker.service agent-boundary.service microvm@robots.service; do systemctl is-active "$unit"; done; sudo robots-health'
           fi
 
       - name: Return deployment-woken HTPC to sleep
