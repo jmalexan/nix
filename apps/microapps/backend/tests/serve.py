@@ -16,6 +16,7 @@ with tempfile.TemporaryDirectory() as directory:
             "e" * 32,
             static=str(Path(__file__).resolve().parents[2] / "web/dist"),
             gate_token="g" * 32,
+            git_broker_token="b" * 32,
         )
     )
     uvicorn.run(app, host="127.0.0.1", port=5173)

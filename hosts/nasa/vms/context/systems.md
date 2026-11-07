@@ -46,7 +46,8 @@ branch only; do not automatically create PRs. If the broker is configured (see
 repositories.json), `git-broker repositories` lists its allowed collaborator
 repos. Use `git-broker clone/fetch/push`; ordinary Git handles local branches,
 commits, and merges. The upstream GitHub credential stays on NASA. Only configured
-branch namespaces can be pushed; no tags, deletions, history rewrites, arbitrary
+branch namespaces can be pushed, with one-use phone approval for each exact
+update (`git-broker push --reason 'Concrete purpose'`). No tags, deletions, history rewrites, arbitrary
 GitHub API access, or automatic PRs. Capabilities do not authorize work outside
 the user's task. See docs/git-broker.md in the Nix repo.
 

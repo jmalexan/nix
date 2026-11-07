@@ -28,7 +28,8 @@ let
     ];
     text = ''
       export PYTHONPATH=${./.}
-      export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+      export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+      export NIX_SSL_CERT_FILE="$SSL_CERT_FILE"
       exec uvicorn git_broker.api:from_environment --factory --host 127.0.0.1 --port "''${PORT:-8097}" --limit-concurrency 8 --no-access-log
     '';
   };

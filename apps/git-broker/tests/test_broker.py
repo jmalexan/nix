@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from git_broker.api import create_app
 from git_broker.backend import Backend, BrokerError, Repo
-from helpers import git
+from helpers import ApprovedGate, git
 
 
 def commit_bundle(local, tmp_path, branch="robot/work"):
@@ -41,7 +41,7 @@ def test_snapshot_and_push_then_reject_non_fast_forward(repository, tmp_path):
 
 def test_api_requires_client_auth_and_rejects_other_repositories(repository, tmp_path):
     backend, _, _ = repository
-    client = TestClient(create_app(backend, "c" * 32))
+    client = TestClient(create_app(backend, "c" * 32, approval_gate=ApprovedGate()))
     assert client.get("/v1/repositories").status_code == 401
     assert client.get("/v1/repositories/project/snapshot").status_code == 401
     headers = {"Authorization": "Bearer " + "c" * 32}
@@ -99,10 +99,15 @@ def test_readonly_stale_invalid_and_delete_pushes_fail_closed(repository, tmp_pa
 def test_api_push_and_size_limits(repository, tmp_path):
     backend, local, upstream = repository
     commit, bundle = commit_bundle(local, tmp_path)
-    client = TestClient(create_app(backend, "c" * 32))
+    client = TestClient(create_app(backend, "c" * 32, approval_gate=ApprovedGate()))
     headers = {"Authorization": "Bearer " + "c" * 32}
     path = "/v1/repositories/project/push"
-    params = {"branch": "robot/work", "commit": commit, "expected": "0" * 40}
+    params = {
+        "branch": "robot/work",
+        "commit": commit,
+        "expected": "0" * 40,
+        "approval": "p" * 24,
+    }
     assert (
         client.post(path, params=params, content=bundle.read_bytes()).status_code == 401
     )
@@ -113,7 +118,9 @@ def test_api_push_and_size_limits(repository, tmp_path):
         == 200
     )
     assert git(upstream, "rev-parse", "robot/work") == commit
-    limited = TestClient(create_app(backend, "c" * 32, max_bytes=10))
+    limited = TestClient(
+        create_app(backend, "c" * 32, max_bytes=10, approval_gate=ApprovedGate())
+    )
     assert (
         limited.post(
             path, params=params, headers=headers, content=bundle.read_bytes()
@@ -181,13 +188,14 @@ def test_push_lease_rejects_an_upstream_race(repository, tmp_path, monkeypatch):
 def test_upstream_error_is_sanitized(repository, tmp_path, monkeypatch):
     backend, _, _ = repository
 
-    def failure(*args, **kwargs):
-        return subprocess.CompletedProcess(
-            args[0], 1, b"", b"upstream-secret PRIVATE SOURCE"
-        )
+    class FailedProcess:
+        returncode = 1
 
-    monkeypatch.setattr(subprocess, "run", failure)
-    client = TestClient(create_app(backend, "c" * 32))
+        def communicate(self, timeout=None):
+            return b"", b"upstream-secret PRIVATE SOURCE"
+
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: FailedProcess())
+    client = TestClient(create_app(backend, "c" * 32, approval_gate=ApprovedGate()))
     response = client.get(
         "/v1/repositories/project/snapshot",
         headers={"Authorization": "Bearer " + "c" * 32},
@@ -215,3 +223,72 @@ def test_rejected_uploaded_objects_do_not_pollute_persistent_cache(
     assert failure.value.status == 409
     with pytest.raises(BrokerError):
         backend.git(backend.state / "project.git", "cat-file", "-e", rejected)
+
+
+def test_internal_push_requires_a_live_authorizer(repository, tmp_path):
+    import time
+
+    from git_broker.backend import Backend
+
+    backend, local, upstream = repository
+    commit, bundle = commit_bundle(local, tmp_path)
+    before = git(upstream, "show-ref")
+    for authorize in (None, lambda: time.time() - 1, lambda: float("inf")):
+        with pytest.raises(BrokerError) as failure:
+            Backend.push(
+                backend,
+                "project",
+                "robot/work",
+                commit,
+                "0" * 40,
+                bundle,
+                authorize=authorize,
+            )
+        assert failure.value.status == 403
+        assert git(upstream, "show-ref") == before
+
+
+def test_raw_api_without_approval_configuration_cannot_push(repository, tmp_path):
+    backend, local, upstream = repository
+    commit, bundle = commit_bundle(local, tmp_path)
+    api = TestClient(create_app(backend, "c" * 32))
+    params = {
+        "branch": "robot/work",
+        "commit": commit,
+        "expected": "0" * 40,
+        "approval": "p" * 24,
+    }
+    response = api.post(
+        "/v1/repositories/project/push",
+        params=params,
+        headers={"Authorization": "Bearer " + "c" * 32},
+        content=bundle.read_bytes(),
+    )
+    assert response.status_code == 503
+    assert "robot/work" not in git(upstream, "show-ref")
+
+
+def test_git_timeout_kills_the_entire_helper_process_group(repository, monkeypatch):
+    import signal
+
+    backend, _, _ = repository
+    killed = []
+
+    class TimedOutProcess:
+        pid = 123456
+        returncode = -9
+        calls = 0
+
+        def communicate(self, timeout=None):
+            self.calls += 1
+            if self.calls == 1:
+                raise subprocess.TimeoutExpired("git", timeout)
+            return b"", b""
+
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: TimedOutProcess())
+    monkeypatch.setattr(
+        "git_broker.backend.os.killpg", lambda pid, sig: killed.append((pid, sig))
+    )
+    with pytest.raises(BrokerError):
+        backend.git(backend.state, "push", timeout=0.01)
+    assert killed == [(123456, signal.SIGKILL)]

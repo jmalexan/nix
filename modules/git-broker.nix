@@ -47,6 +47,14 @@ in
       type = lib.types.str;
       description = "Root-only GitHub token, retained on the trusted host.";
     };
+    approvalOrigin = lib.mkOption {
+      type = lib.types.str;
+      default = "https://approve.nasa.jmalexan.com";
+    };
+    approvalTokenFile = lib.mkOption {
+      type = lib.types.str;
+      description = "Host-only credential for claiming exact push approvals; never sent to the VM.";
+    };
     maxBundleBytes = lib.mkOption {
       type = lib.types.ints.positive;
       default = 134217728;
@@ -71,6 +79,8 @@ in
           if cfg.repositoriesFile == null then "${repositories}" else "%d/repositories";
         GIT_BROKER_CLIENT_TOKEN = "%d/client";
         GIT_BROKER_UPSTREAM_TOKEN = "%d/upstream";
+        GIT_BROKER_APPROVAL_ORIGIN = cfg.approvalOrigin;
+        GIT_BROKER_APPROVAL_TOKEN = "%d/approval";
         GIT_BROKER_MAX_BYTES = toString cfg.maxBundleBytes;
       };
       serviceConfig = {
@@ -82,6 +92,7 @@ in
         LoadCredential = [
           "client:${cfg.clientTokenFile}"
           "upstream:${cfg.upstreamTokenFile}"
+          "approval:${cfg.approvalTokenFile}"
         ]
         ++ lib.optional (cfg.repositoriesFile != null) "repositories:${cfg.repositoriesFile}";
         Restart = "on-failure";

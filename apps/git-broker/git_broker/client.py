@@ -88,6 +88,7 @@ def main():
     sub.add_parser("fetch")
     push = sub.add_parser("push")
     push.add_argument("branch", nargs="?")
+    push.add_argument("--reason", required=True, help="Why this exact push is needed")
     args = parser.parse_args()
     try:
         client = Client(
@@ -149,8 +150,40 @@ def main():
                     local_git("bundle", "create", str(bundle), "refs/heads/" + branch)
                     from urllib.parse import quote
 
+                    from .approval import request_approval
+
+                    policy = client.call("/v1/repositories")[alias]
+                    if not branch.startswith(tuple(policy["write_prefixes"])):
+                        raise ValueError("Branch is outside allowed namespaces")
+                    scope = {
+                        "repository": policy["github"],
+                        "branch": branch,
+                        "commit": commit,
+                        "expected": expected,
+                    }
+                    approval = request_approval(
+                        os.environ.get(
+                            "GIT_BROKER_APPROVAL_ORIGIN",
+                            "https://approve.nasa.jmalexan.com",
+                        ),
+                        Path(
+                            os.environ.get(
+                                "NASA_APPROVAL_REQUESTER_FILE",
+                                str(Path.home() / ".local/share/nasa-access/requester"),
+                            )
+                        )
+                        .read_text()
+                        .strip(),
+                        scope,
+                        args.reason,
+                    )
                     query = urlencode(
-                        {"branch": branch, "commit": commit, "expected": expected}
+                        {
+                            "branch": branch,
+                            "commit": commit,
+                            "expected": expected,
+                            "approval": approval,
+                        }
                     )
                     result = client.call(
                         "/v1/repositories/" + quote(alias, safe="") + "/push?" + query,

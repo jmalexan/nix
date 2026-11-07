@@ -213,7 +213,7 @@ in
                   "fetch"
                   "push"
                 ];
-                write_policy = "Explicit repository allowlist and branch namespaces; follow the user's task authorization";
+                write_policy = "Exact one-use phone approval plus explicit repository and branch namespaces; follow the user's task authorization";
                 default_delivery = "follow-user-request";
               };
             }

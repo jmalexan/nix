@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 from git_broker.backend import Backend
 
@@ -25,6 +26,12 @@ class LocalBackend(Backend):
         )
         self.local = upstream
 
+    def push(self, *args, authorize=None, **kwargs):
+        # Direct policy tests use an explicitly fake trusted authorizer.
+        return super().push(
+            *args, authorize=authorize or (lambda: time.time() + 180), **kwargs
+        )
+
     def upstream(self, repo):
         return str(self.local)
 
@@ -36,3 +43,11 @@ class LocalBackend(Backend):
         env[f"GIT_CONFIG_KEY_{i}"] = "protocol.file.allow"
         env[f"GIT_CONFIG_VALUE_{i}"] = "always"
         return env
+
+
+class ApprovedGate:
+    def claim(self, rid, scope):
+        return time.time() + 180
+
+    def finish(self, rid, outcome):
+        pass

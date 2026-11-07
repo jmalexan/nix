@@ -14,13 +14,13 @@ from .store import Store
 
 def snapshot(db, row):
     view = request_view(db, row)
-    return json.dumps(
-        {
-            k: view[k]
-            for k in ("id", "requester", "reason", "operation", "expires", "connection")
-        },
-        sort_keys=True,
-    )
+    fields = {
+        k: view[k]
+        for k in ("id", "requester", "reason", "operation", "expires", "connection")
+    }
+    if view["push"] is not None:
+        fields["push"] = view["push"]
+    return json.dumps(fields, sort_keys=True)
 
 
 def native_body(view):
@@ -31,6 +31,12 @@ def native_body(view):
             f"\n{scope['account']}@{scope['target']}; "
             f"maximum {scope['max_seconds']} seconds; no sudo."
             f"\nTemporary key: {scope['public_key']}"
+        )
+    push = view["push"]
+    if push:
+        body += (
+            f"\nRepository: {push['repository']}\nBranch: {push['branch']}"
+            f"\nCommit: {push['commit']}\nExpected tip: {push['expected']}"
         )
     return body
 
@@ -59,7 +65,7 @@ def receive_bridge(store, origin, token, recipient, send=call):
                 and event["recipient"] == recipient == binding["recipient"]
                 and event["action"] in ("approve", "reject")
                 and event["text"] is None
-                and row["operation"] in ("demo.verify", "ssh.connect")
+                and row["operation"] in ("demo.verify", "ssh.connect", "git.push")
                 and now < event["expires"] <= binding["expires"]
                 and row["created"] <= event["created"] <= now
                 and binding["snapshot"] == snapshot(db, row)
@@ -111,6 +117,7 @@ def deliver_bridge(store, origin, token, recipient, app_origin, send=call):
                 choices = len(body) <= 500 and view["operation"] in (
                     "demo.verify",
                     "ssh.connect",
+                    "git.push",
                 )
                 if choices:
                     db.execute(

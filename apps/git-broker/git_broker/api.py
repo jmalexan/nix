@@ -21,7 +21,7 @@ class SnapshotResponse(FileResponse):
             Path(self.path).unlink(missing_ok=True)
 
 
-def create_app(backend, client_token, max_bytes=128 * 1024 * 1024):
+def create_app(backend, client_token, max_bytes=128 * 1024 * 1024, approval_gate=None):
     if len(client_token) < 32 or not client_token.isascii():
         raise ValueError("Invalid broker client credential")
     app = FastAPI(title="Git broker", docs_url=None, redoc_url=None, openapi_url=None)
@@ -84,8 +84,17 @@ def create_app(backend, client_token, max_bytes=128 * 1024 * 1024):
         branch: str = Query(max_length=200),
         commit: str = Query(pattern=OID),
         expected: str = Query(pattern=OID),
+        approval: str = Query(pattern=r"^[A-Za-z0-9_-]{24}$"),
     ):
-        backend.repo(alias)
+        repo = backend.repo(alias)
+        if approval_gate is None:
+            raise HTTPException(503, "Push approval service is required")
+        scope = {
+            "repository": repo.github,
+            "branch": branch,
+            "commit": commit,
+            "expected": expected,
+        }
         length = request.headers.get("content-length", "")
         if not length.isdigit() or request.headers.get("transfer-encoding"):
             raise HTTPException(411, "Content-Length required")
@@ -110,9 +119,30 @@ def create_app(backend, client_token, max_bytes=128 * 1024 * 1024):
                     raise HTTPException(400, "Incomplete bundle")
             from starlette.concurrency import run_in_threadpool
 
-            result = await run_in_threadpool(
-                backend.push, alias, branch, commit, expected, Path(path)
-            )
+            claimed = False
+
+            def authorize():
+                nonlocal claimed
+                deadline = approval_gate.claim(approval, scope)
+                claimed = True
+                return deadline
+
+            try:
+                result = await run_in_threadpool(
+                    backend.push,
+                    alias,
+                    branch,
+                    commit,
+                    expected,
+                    Path(path),
+                    authorize=authorize,
+                )
+            except BaseException:
+                if claimed:
+                    await run_in_threadpool(approval_gate.finish, approval, "failed")
+                raise
+            if claimed:
+                await run_in_threadpool(approval_gate.finish, approval, "completed")
             print(
                 json.dumps({"operation": "push", "repository": alias, **result}),
                 flush=True,
@@ -125,6 +155,8 @@ def create_app(backend, client_token, max_bytes=128 * 1024 * 1024):
 
 
 def from_environment():
+    from .approval import Gate
+
     backend = Backend(
         os.environ["GIT_BROKER_STATE"],
         json.loads(Path(os.environ["GIT_BROKER_REPOSITORIES"]).read_text()),
@@ -134,4 +166,8 @@ def from_environment():
         backend,
         Path(os.environ["GIT_BROKER_CLIENT_TOKEN"]).read_text().strip(),
         int(os.environ.get("GIT_BROKER_MAX_BYTES", str(128 * 1024 * 1024))),
+        approval_gate=Gate(
+            os.environ["GIT_BROKER_APPROVAL_ORIGIN"],
+            Path(os.environ["GIT_BROKER_APPROVAL_TOKEN"]).read_text().strip(),
+        ),
     )

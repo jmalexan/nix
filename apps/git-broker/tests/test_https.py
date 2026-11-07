@@ -13,8 +13,9 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+from fastapi import HTTPException, Request
 from git_broker.api import create_app
-from helpers import git
+from helpers import ApprovedGate, git
 
 
 def test_client_clone_fetch_push_over_verified_https(repository, tmp_path):
@@ -49,9 +50,34 @@ def test_client_clone_fetch_push_over_verified_https(repository, tmp_path):
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
+    pending = {}
+
+    class PhoneGate(ApprovedGate):
+        def claim(self, rid, scope):
+            assert pending.pop(rid) == scope
+            return time.time() + 180
+
+    app = create_app(backend, "c" * 32, approval_gate=PhoneGate())
+
+    @app.post("/api/requests")
+    async def approve_for_test(request: Request):
+        if request.headers.get("authorization") != "Bearer " + "r" * 32:
+            raise HTTPException(401)
+        body = await request.json()
+        assert body["operation"] == "git.push"
+        pending["p" * 24] = body["push"]
+        return {"id": "p" * 24}
+
+    @app.get("/api/requester/requests/{rid}")
+    def approved_for_test(rid: str):
+        assert rid in pending
+        return {"state": "approved"}
+
+    requester = tmp_path / "requester"
+    requester.write_text("r" * 32)
     server = uvicorn.Server(
         uvicorn.Config(
-            create_app(backend, "c" * 32),
+            app,
             log_level="error",
             ssl_certfile=str(certfile),
             ssl_keyfile=str(keyfile),
@@ -70,6 +96,8 @@ def test_client_clone_fetch_push_over_verified_https(repository, tmp_path):
         env = {
             **os.environ,
             "GIT_BROKER_ORIGIN": f"https://localhost:{port}",
+            "GIT_BROKER_APPROVAL_ORIGIN": f"https://localhost:{port}",
+            "NASA_APPROVAL_REQUESTER_FILE": str(requester),
             "GIT_BROKER_TOKEN_FILE": str(tokenfile),
             "SSL_CERT_FILE": str(certfile),
             "NIX_SSL_CERT_FILE": str(certfile),
@@ -96,7 +124,7 @@ def test_client_clone_fetch_push_over_verified_https(repository, tmp_path):
         git(clone, "checkout", "-b", "robot/client")
         (clone / "README").write_text("from client\n")
         git(clone, "commit", "-am", "Client change")
-        result = client("push", cwd=clone)
+        result = client("push", "--reason", "Publish test commit", cwd=clone)
         assert (
             result.returncode == 0
             and "upstream-secret" not in result.stdout + result.stderr
@@ -109,7 +137,12 @@ def test_client_clone_fetch_push_over_verified_https(repository, tmp_path):
         git(local, "push", "origin", "main")
         client("fetch", cwd=clone)
         assert git(clone, "rev-parse", "origin/main") == git(local, "rev-parse", "main")
-        assert client("push", "main", cwd=clone, check=False).returncode == 1
+        assert (
+            client(
+                "push", "main", "--reason", "Must reject", cwd=clone, check=False
+            ).returncode
+            == 1
+        )
         assert git(upstream, "rev-parse", "main") == git(local, "rev-parse", "main")
     finally:
         server.should_exit = True

@@ -3,10 +3,13 @@
 import base64
 import contextlib
 import fcntl
+import math
 import os
 import re
+import signal
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -114,22 +117,32 @@ class Backend:
         authenticated=False,
         status=503,
         message="Git operation failed",
+        timeout=180,
     ):
         try:
-            result = subprocess.run(
+            process = subprocess.Popen(
                 ["git", *arguments],
                 cwd=cwd,
                 env=self.environment(authenticated),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                timeout=180,
+                start_new_session=True,
             )
-        except (OSError, subprocess.TimeoutExpired):
+            try:
+                stdout, _ = process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                # Kill Git's HTTPS/pack helpers too, not only the parent process.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.communicate()
+                raise BrokerError(status, message) from None
+        except OSError:
             raise BrokerError(status, message) from None
-        if result.returncode:
-            # Git/provider output may contain URLs, credentials, or source text.
+        if process.returncode:
             raise BrokerError(status, message)
-        return result.stdout.decode("utf-8", errors="replace").strip()
+        return stdout.decode("utf-8", errors="replace").strip()
 
     @contextlib.contextmanager
     def locked(self, alias):
@@ -190,7 +203,7 @@ class Backend:
                 "HEAD",
             )
 
-    def push(self, alias, branch, commit, expected, bundle):
+    def push(self, alias, branch, commit, expected, bundle, authorize=None):
         repo = self.repo(alias)
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,199}", branch):
             raise BrokerError(422, "Invalid branch")
@@ -271,8 +284,20 @@ class Backend:
                         status=409,
                         message="Non-fast-forward push is not permitted",
                     )
+                if authorize is None:
+                    raise BrokerError(403, "A push approval is required")
+                deadline = authorize()
+                if (
+                    not isinstance(deadline, (int, float))
+                    or not math.isfinite(deadline)
+                    or deadline <= time.time()
+                ):
+                    raise BrokerError(403, "Push approval expired")
                 lease = "" if expected == "0" * 40 else expected
                 # An exact lease protects against upstream races; ancestry was checked above.
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    raise BrokerError(403, "Push approval expired")
                 self.git(
                     staging,
                     "push",
@@ -282,6 +307,7 @@ class Backend:
                     commit + ":" + ref,
                     authenticated=True,
                     status=409,
-                    message="Upstream rejected push; fetch and retry",
+                    message="Upstream rejected push; fetch and request a new approval",
+                    timeout=min(180, remaining),
                 )
                 return {"branch": branch, "commit": commit}

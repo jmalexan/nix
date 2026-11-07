@@ -20,7 +20,9 @@ the broker validates the branch namespace and ref syntax, imported objects,
 commit type, complete object graph, and fast-forward ancestry. Uploaded objects
 are inspected in disposable bare staging repositories rather than retained in
 the upstream caches. An exact upstream
-lease rejects races after validation. Main/default branches outside the write
+lease rejects races after validation. Every remote push also requires a separate,
+explicit, single-use owner approval for the exact repository, branch, new commit,
+and expected remote tip. Clone and fetch do not require phone approval. Main/default branches outside the write
 namespace, tags, deletions, and history rewrites cannot be pushed. This is an API
 policy on the broker, not an instruction that robots can bypass with a Git flag.
 GitHub branch protections and organization policies still apply.
@@ -53,7 +55,7 @@ cd ~/dev/project
 git switch -c robot/my-change
 # Edit, test, and commit with normal local Git.
 git-broker fetch
-git-broker push
+git-broker push --reason "Publish the requested change"
 ```
 
 The clone's `origin` URL is `broker://project`; it contains no GitHub credential.
@@ -63,6 +65,31 @@ branch name. Fetch updates `origin/*` and tags without changing local branches
 or the worktree. Fetch and merge/rebase upstream changes before retrying a stale
 push. The broker never automatically creates a PR; follow the project's delivery
 instructions and separately authorize any future GitHub API capability.
+
+## Push approvals
+
+The CLI creates a `git.push` request in Approve and prints its phone/web link.
+It freezes the bundle and commit before waiting. The owner sees the repository,
+branch, full commit, expected tip (or New branch), and reason. Approve and Reject
+can be used from native notifications when the complete scope fits; otherwise tap
+the notification to review the web page. The existing passkey web flow remains
+available. Phone approval is permission for that exact update; no duplicate chat
+confirmation is needed for the same update.
+
+The broker, not the CLI, enforces the grant. After validating the bundle and
+current upstream branch, it consumes the approval atomically through a host-only
+claiming credential. That credential is shared only by Approve and the broker;
+it is never a VM credential. The agent's requester token can create requests and
+read their status, but cannot approve or claim them. Direct API callers need the
+same exact unused grant. Missing approval service/credentials fail closed.
+
+Pending requests expire after ten minutes; an approved request must be claimed
+within two minutes and before its original expiry. Claimed pushes have a
+three-minute execution deadline. Git and its helper processes are killed on a
+timeout. Denial, expiry, changed scope, changed remote tip, or a consumed request
+prevents the write. There is no automatic remote-write retry or offline queue.
+A network failure can leave the upstream outcome uncertain: fetch to check it,
+then obtain a new approval if another push is needed.
 
 The first version transfers full snapshots and history with a 128 MiB default
 bundle limit, configurable per broker. It does not support shallow clones,
@@ -104,7 +131,8 @@ The Nix module supports `services.gitBroker` with:
 
 - `enable`, `port`, and `maxBundleBytes`;
 - exactly one of `repositories` (public config) or `repositoriesFile` (private JSON);
-- `clientTokenFile` and `upstreamTokenFile` (root-only mutable/agenix paths).
+- `clientTokenFile` and `upstreamTokenFile` (root-only mutable/agenix paths);
+- `approvalOrigin` and `approvalTokenFile` for the trusted Approve claim API.
 
 NASA's optional route is `https://git-broker.nasa.jmalexan.com`, restricted to
 robots, LAN, Tailscale, and loopback. It uses the existing private TLS setup and

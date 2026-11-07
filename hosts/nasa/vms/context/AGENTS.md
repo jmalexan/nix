@@ -39,6 +39,9 @@ maintenance SSH tunnel is needed for releases.
 Public repos can be cloned over HTTPS. Use `github-bot` for `jmalexan/nix`.
 When configured, `git-broker repositories` lists explicitly allowed collaborator
 repos and write namespaces; use `git-broker clone/fetch/push` for those repos.
+Broker pushes require phone approval for the exact repository, branch, commit,
+and remote tip; use `git-broker push --reason 'Concrete purpose'`. That approval
+is the remote-update permission; do not ask for duplicate chat confirmation.
 Broker access is a capability, not permission for unrelated work or pushes.
 Do not fall back to personal GitHub/SSH credentials, forward an SSH agent, or
 assume another repo is authorized because its URL is known.

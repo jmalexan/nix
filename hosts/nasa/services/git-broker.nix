@@ -16,10 +16,15 @@ in
       repositoriesFile = config.age.secrets.git-broker-repositories.path;
       clientTokenFile = "/var/lib/microapp-secrets/git-broker/client";
       upstreamTokenFile = config.age.secrets.git-broker-upstream.path;
+      approvalOrigin = "https://approve.${vars.nasa.domain}";
+      approvalTokenFile = "/var/lib/microapp-secrets/approvals/git-broker";
     };
     age.secrets.git-broker-upstream.file = ../../../secrets/git-broker-upstream.age;
     age.secrets.git-broker-repositories.file = ../../../secrets/git-broker-repositories.age;
-    services.restic.backups.backblaze.paths = [ cfg.clientTokenFile ];
+    services.restic.backups.backblaze.paths = [
+      cfg.clientTokenFile
+      cfg.approvalTokenFile
+    ];
     systemd.services.git-broker-client-credential = {
       description = "Provision the local Git broker client credential";
       serviceConfig = {
@@ -28,9 +33,16 @@ in
         UMask = "0077";
       };
       environment.PYTHONPATH = "${../../../apps/git-broker}";
-      script = "${platform.python}/bin/python -m git_broker.admin --path ${lib.escapeShellArg cfg.clientTokenFile}";
+      script = ''
+        ${platform.python}/bin/python -m git_broker.admin --path ${lib.escapeShellArg cfg.clientTokenFile}
+        ${platform.python}/bin/python -m git_broker.admin --path ${lib.escapeShellArg cfg.approvalTokenFile}
+      '';
     };
     systemd.services.git-broker = {
+      restartTriggers = [
+        config.age.secrets.git-broker-repositories.file
+        config.age.secrets.git-broker-upstream.file
+      ];
       requires = [ "git-broker-client-credential.service" ];
       after = [ "git-broker-client-credential.service" ];
     };
