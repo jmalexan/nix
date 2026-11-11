@@ -37,8 +37,12 @@ function panel(title) {
   return section;
 }
 function pairs(parent, values) {
-  const dl = el("dl");
-  for (const [key, value] of values) dl.append(el("dt", key), el("dd", value));
+  const dl = el("dl", undefined, "metrics");
+  for (const [key, value] of values) {
+    const metric = el("div", undefined, "metric");
+    metric.append(el("dt", key), el("dd", value));
+    dl.append(metric);
+  }
   parent.append(dl);
 }
 function list(parent, values) {
@@ -72,7 +76,7 @@ function table(parent, headings, rows) {
 function render(status) {
   const content = document.createDocumentFragment();
   const health = panel(
-    status.alerts.length ? "Needs attention" : "Protection is current",
+    status.alerts.length ? "Needs attention" : "Storage and backups are healthy",
   );
   if (status.alerts.length) {
     health.classList.add("alerts");

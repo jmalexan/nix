@@ -307,6 +307,8 @@ def test_notification_dedup_recovery_and_retry(tmp_path, report):
     assert sent[0][3]["actions"] == []
     assert sent[0][3]["url"] == "https://backups.test/"
     report.backup.result = "success"
+    report.backup.last_success = NOW + 100
+    report.collected_at = NOW + 120
     atomic_json(path, report.model_dump())
 
     def fail(*args):
@@ -381,6 +383,9 @@ def test_new_alert_after_recovery_gets_a_new_notification_key(tmp_path, report):
 
     for index, result in enumerate(["exit-code", "success", "exit-code"]):
         report.backup.result = result
+        report.collected_at = NOW + index * 60
+        if result == "success":
+            report.backup.last_success = NOW + index * 60 - 1
         atomic_json(path, report.model_dump())
         assert notify(*args, send=send, now=NOW + index * 60)
     assert len({notification["key"] for notification in sent}) == 3
@@ -506,3 +511,118 @@ def test_missing_or_invalid_snapshot_timing_is_not_fabricated(summary):
 def test_zero_duration_is_recorded():
     stamp = "2026-11-02T00:00:00Z"
     assert snapshot_duration({"backup_start": stamp, "backup_end": stamp}) == 0
+
+
+def refresh_healthy_report(report, now, success_at=None):
+    report.collected_at = now
+    report.backup.result = "success"
+    report.backup.last_success = now - 60 if success_at is None else success_at
+    report.backup_state = "inactive"
+    report.pools[0].scrub_at = now - 86400
+    report.datasets[0].latest_automatic = now - 900
+    report.snapshots[0].time = now - 120
+
+
+def test_routine_healthy_days_are_silent(tmp_path, report):
+    path, state = tmp_path / "report.json", tmp_path / "notify.json"
+    sent = []
+    for day in range(4):
+        now = NOW + day * 86400
+        refresh_healthy_report(report, now)
+        atomic_json(path, report.model_dump())
+        assert not notify(
+            path,
+            state,
+            "https://notify.test",
+            "token",
+            "https://backups",
+            send=lambda *args: sent.append(args),
+            now=now,
+        )
+    assert not sent
+
+
+def test_recovery_waits_for_new_backup_and_sends_once(tmp_path, report):
+    path, state = tmp_path / "report.json", tmp_path / "notify.json"
+    sent = []
+
+    def send(*args):
+        sent.append(args[3])
+
+    def run(now):
+        atomic_json(path, report.model_dump())
+        return notify(
+            path,
+            state,
+            "https://notify.test",
+            "token",
+            "https://backups",
+            send=send,
+            now=now,
+        )
+
+    report.pools[0].capacity = 90
+    assert run(NOW)
+    # A more recent observation still advances the incident while alerts deduplicate.
+    report.collected_at = NOW + 600
+    assert not run(NOW + 600)
+    assert json.loads(state.read_text())["last_issue_at"] == NOW + 600
+    report.pools[0].capacity = 50
+    refresh_healthy_report(report, NOW + 900, success_at=NOW + 300)
+    assert not run(NOW + 900)  # This backup preceded the latest problem evidence.
+    refresh_healthy_report(report, NOW + 86400)
+    report.backup_state = "activating"
+    assert not run(NOW + 86400)
+    report.backup_state = "inactive"
+    assert run(NOW + 86400)
+    assert sent[-1]["title"] == "Backups recovered"
+    for day in (2, 3, 4):
+        now = NOW + day * 86400
+        refresh_healthy_report(report, now)
+        assert not run(now)
+    assert [message["title"] for message in sent] == [
+        "Backups need attention",
+        "Backups recovered",
+    ]
+
+
+def test_delayed_collector_does_not_delay_recovery_an_extra_backup(tmp_path, report):
+    path, state = tmp_path / "report.json", tmp_path / "notify.json"
+    sent = []
+
+    def send(*args):
+        sent.append(args[3])
+
+    report.backup.result = "exit-code"
+    atomic_json(path, report.model_dump())
+    assert notify(
+        path,
+        state,
+        "https://notify.test",
+        "token",
+        "https://backups",
+        send=send,
+        now=NOW + 300,
+    )
+    # A still-cached report is observed again after the backup actually completed.
+    assert not notify(
+        path,
+        state,
+        "https://notify.test",
+        "token",
+        "https://backups",
+        send=send,
+        now=NOW + 600,
+    )
+    refresh_healthy_report(report, NOW + 900, success_at=NOW + 500)
+    atomic_json(path, report.model_dump())
+    assert notify(
+        path,
+        state,
+        "https://notify.test",
+        "token",
+        "https://backups",
+        send=send,
+        now=NOW + 900,
+    )
+    assert sent[-1]["title"] == "Backups recovered"

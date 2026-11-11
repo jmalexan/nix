@@ -4,7 +4,8 @@ NASA's independent, read-only ZFS and Restic monitoring app. The host collector
 reads ZFS pools/devices/scrubs, filesystem snapshots, Restic snapshot metadata,
 and systemd backup state every 15 minutes. The web service only reads its
 report; it has no ZFS devices, Restic credentials, command API, or restore
-controls.
+controls. Backup and scrub schedules handle these tasks automatically; manual
+trigger controls are not planned.
 
 The dashboard uses the shared microapp UI and private owner account service. Use
 the same `owner` password as Approve and Updates at `https://backups`. Its
@@ -40,10 +41,16 @@ and never invokes backup, prune, check, restore, or snapshot creation/deletion.
 A separate notifier checks report health every five minutes, including collector
 staleness, and publishes to the existing notification bridge with a dedicated
 `backups` credential scoped to the short and full origins and the owner.
-Notification links use `https://backups/`. It sends on changes, repeats
-unresolved alerts daily, retries transient network/gateway failures on the next timer without failing activation, and reports
-recovery. Notification actions are empty. iPhone delivery still depends on the
-existing bridge device enrollment/APNs configuration.
+Notification links use `https://backups/`. Problem notifications send on changes
+and repeat daily while unresolved. Routine healthy days are silent. A single
+**Backups recovered** notification requires a new successful backup after the
+last reported issue, with all monitored alerts cleared and no backup still running.
+Clearing a storage warning or stale-report alert alone does not send success.
+The notifier tracks problem evidence even while duplicate alerts are suppressed;
+collector lag does not force waiting an extra day after a successful backup.
+Transient network/gateway failures retry on the next timer without failing
+activation. Notification actions are empty. The owner confirmed receipt of status
+notifications on 2026-11-11; delivery uses the existing bridge enrollment/APNs setup.
 
 Coverage lists evaluated Restic paths, exclusions, and retention directly from
 Nix. Dataset inclusion is based on mountpoint containment and is explicitly
