@@ -36,7 +36,7 @@ test("Backups shared account, short URLs, private reports, mobile layout and fai
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Protection is current" }),
+    page.getByRole("heading", { name: "Storage and backups are healthy" }),
   ).toBeVisible();
   await expect(page).toHaveURL(origin + "/");
   await expect(
@@ -66,7 +66,7 @@ test("Backups shared account, short URLs, private reports, mobile layout and fai
   await page.screenshot({ path: "/tmp/backups-mobile.png", fullPage: true });
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Protection is current" }),
+    page.getByRole("heading", { name: "Storage and backups are healthy" }),
   ).toBeVisible();
   // The same account signs in at the full hostname, with a separate session.
   const full = await context.newPage();
@@ -77,7 +77,7 @@ test("Backups shared account, short URLs, private reports, mobile layout and fai
   await full.getByLabel("Password", { exact: true }).fill(password);
   await full.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    full.getByRole("heading", { name: "Protection is current" }),
+    full.getByRole("heading", { name: "Storage and backups are healthy" }),
   ).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   expect(
@@ -103,6 +103,6 @@ test("Backups shared account, short URLs, private reports, mobile layout and fai
   ).toBe(401);
   await full.reload();
   await expect(
-    full.getByRole("heading", { name: "Protection is current" }),
+    full.getByRole("heading", { name: "Storage and backups are healthy" }),
   ).toBeVisible();
 });

@@ -76,7 +76,7 @@ function table(parent, headings, rows) {
 function render(status) {
   const content = document.createDocumentFragment();
   const health = panel(
-    status.alerts.length ? "Needs attention" : "Protection is current",
+    status.alerts.length ? "Needs attention" : "Storage and backups are healthy",
   );
   if (status.alerts.length) {
     health.classList.add("alerts");
