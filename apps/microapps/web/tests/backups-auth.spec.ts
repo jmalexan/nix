@@ -42,9 +42,22 @@ test("Backups shared account, short URLs, private reports, mobile layout and fai
   await expect(
     page.getByRole("heading", { name: "Datasets and local snapshots" }),
   ).toBeVisible();
+  await expect(page.getByText("Not configured", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not scheduled", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("No restore test recorded", { exact: true }),
+    page.getByRole("heading", { name: "Recovery checks" }),
   ).toBeVisible();
+  await page.getByText("How to check recovery", { exact: true }).click();
+  await expect(
+    page.getByText(/Restore a small selection of important files/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Running a check does not update this dashboard/),
+  ).toBeVisible();
+  await expect(page.getByText("1800 sec", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Not stored in snapshot", { exact: true }),
+  ).toHaveCount(2);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

@@ -155,25 +155,55 @@ function render(status) {
   const datasets = panel("Datasets and local snapshots");
   table(
     datasets,
-    ["Dataset", "Used", "Snapshots", "Latest automatic", "Offsite coverage"],
+    [
+      "Dataset",
+      "Used",
+      "Snapshots",
+      "Snapshot policy",
+      "Latest automatic",
+      "Offsite coverage",
+    ],
     report.datasets.map((d) => [
       d.name,
       bytes(d.used),
       d.snapshot_count,
-      d.snapshots_enabled ? date(d.latest_automatic) : "Disabled",
+      d.snapshot_policy ||
+        (d.snapshots_enabled ? "Frequent" : "Not configured"),
+      d.snapshots_enabled ? date(d.latest_automatic) : "Not scheduled",
       d.offsite,
     ]),
   );
   content.append(datasets);
-  const recovery = panel("Recovery confidence");
-  list(recovery, [status.verification, status.restore_test]);
+  const recovery = panel("Recovery checks");
   recovery.append(
     el(
       "p",
-      "Successful backups and retained snapshots do not prove that a restore has been tested.",
+      "This dashboard tracks backup runs and snapshots. Repository integrity checks and test restores are not run or tracked here.",
       "muted",
     ),
   );
+  const steps = el("details");
+  steps.append(el("summary", "How to check recovery"));
+  steps.append(
+    el(
+      "p",
+      "On NASA, a host operator can start with a repository metadata check:",
+    ),
+    el("code", "sudo restic-backblaze check"),
+  );
+  list(steps, [
+    "Check repository consistency with Restic. A metadata check verifies repository structure; reading backup data also checks the stored file contents.",
+    "Restore a small selection of important files to a separate test folder. Open them and compare their contents with the expected backup version.",
+    "For database backups, test importing a dump into a disposable database. A readable dump file alone does not demonstrate a successful restore.",
+  ]);
+  steps.append(
+    el(
+      "p",
+      "These checks are performed by a host operator. Reading backup data from Backblaze may incur retrieval charges. Running a check does not update this dashboard.",
+      "muted",
+    ),
+  );
+  recovery.append(steps);
   content.append(recovery);
   const coverage = panel("Backup coverage");
   coverage.append(
@@ -198,8 +228,12 @@ function render(status) {
     report.snapshots.map((s) => [
       date(s.time),
       s.id.slice(0, 12),
-      bytes(s.bytes_processed),
-      s.duration == null ? "Unknown" : `${Math.round(s.duration)} sec`,
+      s.bytes_processed == null
+        ? "Not stored in snapshot"
+        : bytes(s.bytes_processed),
+      s.duration == null
+        ? "Not stored in snapshot"
+        : `${Math.round(s.duration)} sec`,
     ]),
   );
   content.append(snapshots);

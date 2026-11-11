@@ -389,6 +389,28 @@
             "type": "boolean",
             "title": "Snapshots Enabled"
           },
+          "snapshot_interval": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Interval"
+          },
+          "snapshot_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Policy"
+          },
           "snapshot_count": {
             "type": "integer",
             "title": "Snapshot Count"
@@ -864,16 +886,6 @@
           "checked_at": {
             "type": "number",
             "title": "Checked At"
-          },
-          "verification": {
-            "type": "string",
-            "title": "Verification",
-            "default": "No repository verification recorded"
-          },
-          "restore_test": {
-            "type": "string",
-            "title": "Restore Test",
-            "default": "No restore test recorded"
           }
         },
         "type": "object",
