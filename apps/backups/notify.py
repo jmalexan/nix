@@ -19,14 +19,38 @@ def notify(report, state, origin, token, app_origin, send=call, now=None):
     alerts = sorted((a.id, a.message, a.severity) for a in status.alerts)
     signature = hashlib.sha256(json.dumps(alerts).encode()).hexdigest()
     previous = read_json(state, {})
+    issue_at = None
+    if alerts:
+        # Use the report's evidence time so collector lag does not make a
+        # completed backup appear older than the failure it actually fixed.
+        issue_at = status.report.collected_at if status.report else now
+        if any(alert.id == "report-stale" for alert in status.alerts):
+            issue_at = now
+        if previous.get("alerting"):
+            issue_at = max(
+                issue_at, previous.get("last_issue_at", previous.get("sent", now))
+            )
+            if issue_at != previous.get("last_issue_at"):
+                previous = {**previous, "last_issue_at": issue_at}
+                atomic_json(state, previous)
+    else:
+        if not previous.get("alerting"):
+            return False
+        backup = status.report.backup
+        if (
+            backup.result != "success"
+            or backup.last_success is None
+            or backup.last_success
+            <= previous.get("last_issue_at", previous.get("sent", now))
+            or status.report.backup_state in ("active", "activating", "deactivating")
+        ):
+            return False
     if previous.get("signature") == signature and now - previous.get("sent", 0) < 86400:
-        return False
-    if not alerts and not previous.get("alerting"):
         return False
     body = (
         "; ".join(a[1] for a in alerts)
         if alerts
-        else "All monitored storage and backup checks are healthy."
+        else "A new backup completed successfully and all monitored issues have cleared."
     )
     try:
         send(
@@ -58,7 +82,10 @@ def notify(report, state, origin, token, app_origin, send=call, now=None):
             file=sys.stderr,
         )
         return False
-    atomic_json(state, {"signature": signature, "sent": now, "alerting": bool(alerts)})
+    saved = {"signature": signature, "sent": now, "alerting": bool(alerts)}
+    if alerts:
+        saved["last_issue_at"] = issue_at
+    atomic_json(state, saved)
     return True
 
 
