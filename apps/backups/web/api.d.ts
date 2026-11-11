@@ -237,6 +237,10 @@ export interface components {
       mountpoint: string;
       /** Snapshots Enabled */
       snapshots_enabled: boolean;
+      /** Snapshot Interval */
+      snapshot_interval?: string | null;
+      /** Snapshot Policy */
+      snapshot_policy?: string | null;
       /** Snapshot Count */
       snapshot_count: number;
       /** Latest Snapshot */
@@ -404,16 +408,6 @@ export interface components {
       alerts: components["schemas"]["Alert"][];
       /** Checked At */
       checked_at: number;
-      /**
-       * Verification
-       * @default No repository verification recorded
-       */
-      verification: string;
-      /**
-       * Restore Test
-       * @default No restore test recorded
-       */
-      restore_test: string;
     };
     /** ValidationError */
     ValidationError: {

@@ -3,7 +3,7 @@
 import time
 from pathlib import Path
 
-from models import Alert, Report, Status
+from models import SNAPSHOT_MAX_AGE, Alert, Report, Status
 from pydantic import ValidationError
 
 
@@ -63,7 +63,9 @@ def evaluate(report, now=None):
             )
     for dataset in report.datasets:
         if dataset.snapshots_enabled and (
-            dataset.latest_automatic is None or now - dataset.latest_automatic > 3600
+            dataset.latest_automatic is None
+            or now - dataset.latest_automatic
+            > SNAPSHOT_MAX_AGE.get(dataset.snapshot_interval, 3600)
         ):
             add(
                 f"snapshots-{dataset.name}",

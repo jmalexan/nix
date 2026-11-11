@@ -15,8 +15,14 @@ within the LAN/Tailscale restriction. Reports are never static assets.
 
 ## Health and notifications
 
-Warnings cover 80% pool utilization, missing/overdue frequent snapshots (one
-hour), and no completed scrub in 40 days. Errors cover 90% utilization,
+Warnings cover 80% pool utilization, overdue snapshots for opted-in datasets,
+and no completed scrub in 40 days. Snapshot expectations mirror NixOS's zfstools
+service: unset properties do not opt a dataset in; interval-specific properties
+override the general property, and unmounted datasets are skipped. Only schedules
+enabled in Nix with nonzero retention are monitored. The shortest enabled cadence
+sets freshness: frequent one hour, hourly two hours, daily two days, weekly nine
+days, monthly forty days. Unconfigured root datasets are shown as **Not configured**
+instead of raising an overdue warning; actual pool/device errors still alert. Errors cover 90% utilization,
 unhealthy pools/devices, nonzero disk counters, data/scrub errors, failed
 backup/database units, missing successful backup completion or remote snapshot
 within 36 hours, and reports older than 30 minutes. Probe failures are visible
@@ -45,9 +51,37 @@ subject to exclusions; datasets entirely under an excluded directory are marked
 as excluded. A running scrub preserves its previously observed completion time.
 The robots VM disk is listed separately as a raw ZFS snapshot path; the root
 dataset is not presented as completely protected. Snapshot sizes are logical
-bytes processed, not B2 storage usage or billing. The app does not run
-repository verification or restore tests; both show **not recorded**. Successful
-snapshots do not prove recovery was tested.
+bytes processed, not B2 storage usage or billing. Durations are computed from Restic snapshot summary `backup_start` and
+`backup_end`, including retained snapshots created before this dashboard. Metadata
+absent from an older snapshot is labelled **Not stored in snapshot** rather than
+invented. The **Recovery checks** section explains operator checks; the app does
+not run or track repository checks or restore tests. Successful snapshots do not
+prove recovery was tested.
+
+## Checking recovery
+
+On a trusted NASA administrator terminal, the existing Nix-generated Restic
+wrapper loads the configured repository credentials without copying them:
+
+```sh
+sudo restic-backblaze check
+sudo restic-backblaze snapshots
+```
+
+The first command checks repository structure/metadata. It does not read all file
+data; Restic's data-reading check options can test stored data, but may involve
+substantial Backblaze downloads and retrieval charges. Schedule checks separately
+from backup/prune jobs. For an actual restore test, choose a small important file
+and its snapshot, replace the placeholders, and restore into a separate directory:
+
+```sh
+sudo restic-backblaze restore SNAPSHOT_ID --target /var/tmp/backups-restore-test --include /Data/smb/path/to/a-small-file
+```
+
+Open the restored file and compare it against its expected backed-up version.
+For database dumps, import into a disposable database, never the running service.
+These are operator tasks; this change does not run them, add restore controls, or
+claim their results. Running a check does not change the dashboard's status.
 
 ## Deployment and recovery
 

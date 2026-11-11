@@ -69,6 +69,16 @@ with tempfile.TemporaryDirectory() as directory:
         ],
         datasets=[
             Dataset(
+                name="rpool/root",
+                used=10 * 1024**3,
+                available=100 * 1024**3,
+                mountpoint="legacy",
+                snapshots_enabled=False,
+                snapshot_policy="Not configured",
+                snapshot_count=0,
+                offsite="Not included as a whole dataset",
+            ),
+            Dataset(
                 name="Data/smb",
                 used=6 * 1024**4,
                 available=10 * 1024**4,
@@ -77,9 +87,12 @@ with tempfile.TemporaryDirectory() as directory:
                 snapshot_count=62,
                 latest_automatic=now - 900,
                 offsite="Included, subject to exclusions",
-            )
+            ),
         ],
         snapshots=[
+            Snapshot(
+                id="b" * 64, time=now - 2 * 86400, hostname="nasa", paths=["/Data/smb"]
+            ),
             Snapshot(
                 id="a" * 64,
                 time=now - 3600,
@@ -87,7 +100,7 @@ with tempfile.TemporaryDirectory() as directory:
                 paths=["/Data/smb"],
                 bytes_processed=6 * 1024**4,
                 duration=1800,
-            )
+            ),
         ],
         retained_snapshots=34,
         backup=Run(last_success=now - 1800, result="success"),
@@ -95,6 +108,7 @@ with tempfile.TemporaryDirectory() as directory:
         database_state="inactive",
         next_backup="Tomorrow at midnight",
     )
+    report.snapshots.sort(key=lambda snapshot: snapshot.time, reverse=True)
     atomic_json(root / "report.json", report.model_dump())
     # Test-only account setup; production requires the host account socket.
     account = Account(AuthStore(root / "accounts.sqlite"), "e" * 32)

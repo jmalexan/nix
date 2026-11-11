@@ -11,7 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from models import Dataset, Disk, Pool, Report, Run, Snapshot
+from models import SNAPSHOT_MAX_AGE, Dataset, Disk, Pool, Report, Run, Snapshot
 
 
 def atomic_json(path, value):
@@ -122,7 +122,8 @@ def parse_pool(line, status):
     )
 
 
-def parse_datasets(datasets, snapshots, paths, exclusions=()):
+def parse_datasets(datasets, snapshots, paths, exclusions=(), intervals=None):
+    intervals = list(SNAPSHOT_MAX_AGE) if intervals is None else intervals
     by_dataset = {}
     for line in snapshots.splitlines():
         name, created = line.split("\t")
@@ -130,12 +131,33 @@ def parse_datasets(datasets, snapshots, paths, exclusions=()):
         by_dataset.setdefault(dataset, []).append((suffix, float(created)))
     result = []
     for line in datasets.splitlines():
-        name, used, available, mountpoint, automatic = line.split("\t")
+        name, used, available, mountpoint, automatic, mounted, *values = line.split(
+            "\t"
+        )
+        mounted = mounted == "yes"
+        overrides = dict(zip(SNAPSHOT_MAX_AGE, values, strict=True))
+        eligible = []
+        for interval in intervals:
+            override = overrides[interval]
+            value = automatic if override == "-" else override
+            if mounted and value in ("true", "mysql", "postgresql"):
+                eligible.append(interval)
+        interval = min(eligible, key=SNAPSHOT_MAX_AGE.get) if eligible else None
+        if not mounted:
+            policy = "Not scheduled (dataset is not mounted)"
+        elif not intervals:
+            policy = "Automatic snapshots not scheduled"
+        elif interval:
+            policy = interval.capitalize()
+        elif automatic == "-" and all(value == "-" for value in overrides.values()):
+            policy = "Not configured"
+        else:
+            policy = "Disabled by dataset policy"
         snaps = by_dataset.get(name, [])
         managed = [
             created
             for suffix, created in snaps
-            if suffix.startswith("zfs-auto-snap_frequent-")
+            if interval and suffix.startswith(f"zfs-auto-snap_{interval}-")
         ]
         included = mountpoint.startswith("/") and any(
             mountpoint == path or mountpoint.startswith(path.rstrip("/") + "/")
@@ -151,7 +173,9 @@ def parse_datasets(datasets, snapshots, paths, exclusions=()):
                 used=int(used),
                 available=int(available),
                 mountpoint=mountpoint,
-                snapshots_enabled=automatic != "false",
+                snapshots_enabled=bool(eligible),
+                snapshot_interval=interval,
+                snapshot_policy=policy,
                 snapshot_count=len(snaps),
                 latest_snapshot=max((s[1] for s in snaps), default=None),
                 latest_automatic=max(managed, default=None),
@@ -163,6 +187,27 @@ def parse_datasets(datasets, snapshots, paths, exclusions=()):
             )
         )
     return result
+
+
+def snapshot_duration(summary):
+    # Snapshot summaries store timestamps; total_duration belongs to backup's
+    # streaming console output and is not part of saved snapshot metadata.
+    try:
+        start = dt.datetime.fromisoformat(
+            summary["backup_start"].replace("Z", "+00:00")
+        )
+        end = dt.datetime.fromisoformat(summary["backup_end"].replace("Z", "+00:00"))
+        if (
+            start.year == 1
+            or end.year == 1
+            or start.utcoffset() is None
+            or end.utcoffset() is None
+        ):
+            return None
+        duration = (end - start).total_seconds()
+        return duration if duration >= 0 else None
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return None
 
 
 def parse_snapshots(raw):
@@ -178,7 +223,7 @@ def parse_snapshots(raw):
                 hostname=item.get("hostname", "Unknown"),
                 paths=item.get("paths", []),
                 bytes_processed=summary.get("total_bytes_processed"),
-                duration=summary.get("total_duration"),
+                duration=snapshot_duration(summary),
             )
         )
     return sorted(result, key=lambda s: s.time, reverse=True)
@@ -222,12 +267,17 @@ def collect(config, root, probe=command, now=None):
                     "-t",
                     "filesystem",
                     "-o",
-                    "name,used,available,mountpoint,com.sun:auto-snapshot",
+                    "name,used,available,mountpoint,com.sun:auto-snapshot,mounted,"
+                    + ",".join(
+                        f"com.sun:auto-snapshot:{interval}"
+                        for interval in SNAPSHOT_MAX_AGE
+                    ),
                 ]
             ),
             probe(["zfs", "list", "-Hp", "-t", "snapshot", "-o", "name,creation"]),
             config["paths"],
             config["exclusions"],
+            config.get("snapshot_intervals"),
         )
     except (OSError, ValueError, subprocess.SubprocessError):
         report.errors.append("ZFS snapshot status could not be collected")

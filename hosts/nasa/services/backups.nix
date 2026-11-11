@@ -18,6 +18,15 @@ let
     builtins.toJSON {
       hostname = config.networking.hostName;
       inherit (backup) repository paths;
+      snapshot_intervals = lib.optionals config.services.zfs.autoSnapshot.enable (
+        builtins.filter (interval: config.services.zfs.autoSnapshot.${interval} > 0) [
+          "frequent"
+          "hourly"
+          "daily"
+          "weekly"
+          "monthly"
+        ]
+      );
       exclusions = map (lib.removePrefix "--exclude=") (
         builtins.filter (lib.hasPrefix "--exclude=") backup.extraBackupArgs
       );

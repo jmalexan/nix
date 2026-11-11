@@ -10,6 +10,7 @@ from collector import (
     parse_pool,
     parse_snapshots,
     record_run,
+    snapshot_duration,
 )
 from fastapi.testclient import TestClient
 from microapps.auth_store import digest
@@ -169,6 +170,9 @@ errors: No known data errors
 
 def test_dataset_coverage_and_automatic_freshness():
     datasets = "Data/smb\t500\t500\t/Data/smb\ttrue\nData/smb2\t1\t9\t/Data/smb2\tfalse\nroot\t1\t9\t/\t-"
+    datasets = "\n".join(
+        line + "\tyes\t-\t-\t-\t-\t-" for line in datasets.splitlines()
+    )
     snapshots = (
         "Data/smb@manual\t1800000000\nData/smb@zfs-auto-snap_frequent-2026\t1799999000"
     )
@@ -190,7 +194,11 @@ def test_restic_sorting_and_optional_summaries():
         {
             "id": "new",
             "time": "2026-11-02T00:00:00.123456789Z",
-            "summary": {"total_bytes_processed": 123, "total_duration": 10.5},
+            "summary": {
+                "total_bytes_processed": 123,
+                "backup_start": "2026-11-02T00:00:00.123456789Z",
+                "backup_end": "2026-11-02T01:00:10.623456789+01:00",
+            },
         },
     ]
     snapshots = parse_snapshots(json.dumps(data))
@@ -331,7 +339,7 @@ def test_complete_collection_and_bounded_remote_history(tmp_path):
             return "  scan: scrub repaired 0B with 0 errors on Sun Nov  1 00:00:00 2026\nconfig:\n        Data ONLINE 0 0 0\nerrors: No known data errors\n"
         if args[0] == "zfs":
             if "filesystem" in args:
-                return "Data/smb\t500\t500\t/Data/smb\ttrue\n"
+                return "Data/smb\t500\t500\t/Data/smb\ttrue\tyes\t-\t-\t-\t-\t-\n"
             return f"Data/smb@zfs-auto-snap_frequent-2026\t{NOW - 900}\n"
         if args[0] == "restic":
             assert args[-2:] == ["--host", "nasa"]
@@ -355,7 +363,7 @@ def test_complete_collection_and_bounded_remote_history(tmp_path):
 
 def test_entire_dataset_exclusion_is_visible():
     result = parse_datasets(
-        "Data/imports\t1\t9\t/Data/smb/Imports\ttrue",
+        "Data/imports\t1\t9\t/Data/smb/Imports\ttrue\tyes\t-\t-\t-\t-\t-",
         "",
         ["/Data/smb"],
         ["/Data/smb/Imports"],
@@ -424,3 +432,77 @@ def test_notify_bad_credentials_still_fail(tmp_path, report):
             now=NOW,
         )
     assert not state.exists()
+
+
+def dataset_properties(base="-", mounted="yes", **overrides):
+    classes = ("frequent", "hourly", "daily", "weekly", "monthly")
+    return "\t".join(
+        [
+            "rpool/root",
+            "123",
+            "456",
+            "legacy",
+            base,
+            mounted,
+            *(overrides.get(interval, "-") for interval in classes),
+        ]
+    )
+
+
+def test_unset_snapshot_policy_does_not_alert(report):
+    dataset = parse_datasets(dataset_properties(), "", ["/Data/smb"])[0]
+    assert not dataset.snapshots_enabled
+    assert dataset.snapshot_policy == "Not configured"
+    report.datasets.append(dataset)
+    assert not evaluate(report, NOW).alerts
+    # Enabling snapshots with no snapshot evidence must still alert.
+    report.datasets[-1] = parse_datasets(dataset_properties(base="true"), "", [])[0]
+    assert "snapshots-rpool/root" in ids(evaluate(report, NOW))
+
+
+def test_snapshot_interval_override_and_mount_state(report):
+    raw = dataset_properties(base="true", frequent="false")
+    snapshots = f"rpool/root@zfs-auto-snap_hourly-2026\t{NOW - 3700}\n"
+    dataset = parse_datasets(raw, snapshots, [])[0]
+    assert dataset.snapshot_interval == "hourly"
+    assert dataset.snapshot_policy == "Hourly"
+    report.datasets = [dataset]
+    assert not evaluate(report, NOW).alerts
+    assert "snapshots-rpool/root" in ids(evaluate(report, NOW + 3600))
+    opted_in = parse_datasets(dataset_properties(base="false", daily="true"), "", [])[0]
+    assert opted_in.snapshots_enabled and opted_in.snapshot_interval == "daily"
+    unmounted = parse_datasets(dataset_properties(base="true", mounted="no"), "", [])[0]
+    assert not unmounted.snapshots_enabled
+    assert "not mounted" in unmounted.snapshot_policy
+    unscheduled = parse_datasets(raw, snapshots, [], intervals=[])[0]
+    assert not unscheduled.snapshots_enabled
+    daily_only = parse_datasets(
+        dataset_properties(base="true"), "", [], intervals=["daily"]
+    )[0]
+    assert daily_only.snapshot_interval == "daily"
+
+
+@pytest.mark.parametrize("value", ["true", "mysql", "postgresql"])
+def test_zfstools_opt_in_values(value):
+    assert parse_datasets(dataset_properties(base=value), "", [])[0].snapshots_enabled
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        {},
+        {"total_duration": 100},
+        {"backup_start": "garbage", "backup_end": "2026-11-02T00:00:10Z"},
+        {"backup_start": None, "backup_end": None},
+        {"backup_start": "2026-11-02T00:00:10Z", "backup_end": "2026-11-02T00:00:00Z"},
+        {"backup_start": "0001-01-01T00:00:00Z", "backup_end": "0001-01-01T00:00:00Z"},
+        {"backup_start": "2026-11-02T00:00:00", "backup_end": "2026-11-02T00:00:01"},
+    ],
+)
+def test_missing_or_invalid_snapshot_timing_is_not_fabricated(summary):
+    assert snapshot_duration(summary) is None
+
+
+def test_zero_duration_is_recorded():
+    stamp = "2026-11-02T00:00:00Z"
+    assert snapshot_duration({"backup_start": stamp, "backup_end": stamp}) == 0

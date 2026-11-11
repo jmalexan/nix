@@ -4,6 +4,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# Grace periods match the configured snapshot cadence, rather than assuming
+# every opted-in dataset receives frequent snapshots.
+SNAPSHOT_MAX_AGE = {
+    "frequent": 3600,
+    "hourly": 2 * 3600,
+    "daily": 2 * 86400,
+    "weekly": 9 * 86400,
+    "monthly": 40 * 86400,
+}
+
 
 class Disk(BaseModel):
     name: str
@@ -32,6 +42,8 @@ class Dataset(BaseModel):
     available: int
     mountpoint: str
     snapshots_enabled: bool
+    snapshot_interval: str | None = None
+    snapshot_policy: str | None = None
     snapshot_count: int
     latest_snapshot: float | None = None
     latest_automatic: float | None = None
@@ -83,5 +95,3 @@ class Status(BaseModel):
     report: Report | None = None
     alerts: list[Alert]
     checked_at: float
-    verification: str = "No repository verification recorded"
-    restore_test: str = "No restore test recorded"
