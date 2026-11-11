@@ -89,3 +89,14 @@ for the particular app/task that needs them.
 
 Approve/Updates design follow-ups and notification actions remain documented in
 `docs/microapp-design-followups.md`; do not lose them during infrastructure work.
+
+## WIP previews
+
+`preview start NAME --app approve|updates|backups --repo CHECKOUT` starts a
+resource-limited, disposable app at `https://NAME.preview.nasa.jmalexan.com`.
+Use `preview list`, `preview refresh NAME`, `preview watch NAME`, and
+`preview stop NAME`. Multiple previews can run together; use separate worktrees
+for independently edited versions. No SSH tunnel is needed. Private wildcard
+DNS must be configured once; see `docs/previews.md` in the Nix repository for
+setup, browser checks, lifetime limits, and custom servers. Do not use production
+credentials or connect preview processes to production workers.

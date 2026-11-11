@@ -4,3 +4,5 @@
 apps/microapps/web/dist-auth/
 
 hosts/nasa/services/updates-dashboard/__pycache__/
+tools/previews/__pycache__/
+tools/previews/.pytest_cache/
