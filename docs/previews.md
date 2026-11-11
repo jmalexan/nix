@@ -19,7 +19,7 @@ preview list
 
 Open `https://approve-layout.preview.nasa.jmalexan.com` on a desktop or phone
 connected to the LAN or Tailscale. Sign in with the disposable password
-`NASA preview password`. Production passwords and sessions do not apply.
+`preview`. Production passwords and sessions do not apply.
 Built-in adapters support `approve`, `updates`, and `backups`. Approve includes
 pending, denied, and completed demo requests. Updates and Backups have synthetic
 reports. Updates has no GitHub key or working scan/PR worker; Approve has no

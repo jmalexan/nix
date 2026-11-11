@@ -10,7 +10,7 @@ from pathlib import Path
 
 import uvicorn
 
-PASSWORD = "NASA preview password"
+PASSWORD = "preview"
 
 
 def static_files(repo, directory, app):

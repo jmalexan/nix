@@ -44,7 +44,7 @@ try {
     await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
     await page
       .getByLabel("Password", { exact: true })
-      .fill("NASA preview password");
+      .fill("preview");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
     expect(
