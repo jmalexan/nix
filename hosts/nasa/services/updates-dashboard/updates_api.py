@@ -28,7 +28,7 @@ class Settings:
     static: str | None = None
     inventory: str | None = None
     systemctl: str = "systemctl"
-    token: str | None = None
+    app_key: str | None = None
     aliases: tuple[str, ...] = ()
     account_socket: str | None = None
 
@@ -99,7 +99,9 @@ def create_app(settings):
         queue_root=root / "pr-queue",
         results_root=root / "pr-results",
         systemctl=settings.systemctl,
-        token_path=Path(settings.token) if settings.token else root / "github-token",
+        app_key_path=Path(settings.app_key)
+        if settings.app_key
+        else root / "github-app-key",
         scan_units={
             "containers": "updates-dashboard-containers-report.service",
             "actions": "updates-dashboard-actions-report.service",
@@ -195,6 +197,6 @@ def from_environment():
             static=os.environ["UPDATES_STATIC"],
             inventory=os.environ["UPDATES_INVENTORY"],
             systemctl=os.environ["UPDATES_SYSTEMCTL"],
-            token=os.environ["UPDATES_GITHUB_TOKEN_FILE"],
+            app_key=os.environ["UPDATES_GITHUB_APP_KEY_FILE"],
         )
     )

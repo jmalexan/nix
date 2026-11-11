@@ -70,28 +70,22 @@ It makes no GitHub request when there are no such links. Closing a PR without
 merging changes its control to **Create new PR**; a replacement uses a fresh
 branch even when the proposed diff is unchanged.
 
-Create a fine-grained GitHub personal access token restricted to the
-`jmalexan/nix` repository. Grant **Contents: read and write**, **Pull requests:
-read and write**, and **Workflows: read and write** (the latter permits Action
-update branches to modify `.github/workflows`). Replace the committed encrypted
-empty placeholder with the token:
+Updates authenticates as the same infrastructure GitHub App used by the robots
+VM. NASA already decrypts `secrets/agent-github.age` for that VM; the PR creation
+and status services receive this root-owned key through systemd credentials.
+No separate personal access token is needed. The web service can check that the
+key exists but cannot read it.
 
-```console
-nix develop
-agenix -e secrets/updates-dashboard-github-token.age
-```
+Each PR publication or status refresh generates a short-lived installation token
+restricted to `jmalexan/nix`, using the validation and signing code in
+`tools/github-bot.py`. Tokens are minted after update preparation and revoked
+when the GitHub operation finishes, including on failure. The App's Contents,
+Pull requests, and Workflows write permissions cover all supported update types.
+New PRs request review from `jmalexan`; owner approval and required checks still
+control release. The former `updates-dashboard-github-token.age` is not deployed.
 
-Enter only the token in the editor, then commit the changed encrypted file. On
-deployment, agenix decrypts it to `/run/agenix` as mode `0400`, owned by
-`updates-dashboard-reporter`. The web server can detect whether the decrypted
-file is non-empty but cannot read it. Only the short-lived PR worker runs as
-`updates-dashboard-reporter` and can read the credential. Replacing the secret
-with an encrypted empty value disables PR creation.
-
-The dashboard is deliberately reachable only from the existing LAN and
-Tailscale allowlist. Mutating requests require a same-origin session token to
-prevent cross-site requests, but there is no per-user login: anyone admitted by
-that network allowlist can intentionally launch scans and request PRs.
+The dashboard uses the shared owner account login and existing LAN/Tailscale
+allowlist. Authenticated, same-origin requests can launch scans and request PRs.
 
 ## Review workflow
 
