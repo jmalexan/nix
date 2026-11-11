@@ -59,6 +59,22 @@ in
     '';
 
     virtualHosts = {
+      "preview.${vars.nasa.domain}" = ssl // {
+        serverAliases = [ "*.preview.${vars.nasa.domain}" ];
+        extraConfig = ''
+          allow ${vars.nasa.lanSubnet};
+          allow 100.64.0.0/10;
+          allow 127.0.0.1;
+          allow 10.200.201.2;
+          deny all;
+          client_max_body_size 1m;
+        '';
+        locations."/" = {
+          proxyPass = "http://10.200.201.2:8099";
+          proxyWebsockets = true;
+          extraConfig = "proxy_buffering off;";
+        };
+      };
       # The broker has no interactive login; its short URL can point to the
       # machine API's configured origin. Human apps below serve both names.
       git-broker = lib.mkIf config.services.gitBroker.enable {

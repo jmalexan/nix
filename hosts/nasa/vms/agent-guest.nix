@@ -166,6 +166,49 @@ in
       AllowAgentForwarding = false;
     };
   };
+  # Only NASA's reverse proxy can reach the preview router on the TAP.
+  networking.firewall.extraCommands = ''
+    iptables -A nixos-fw -s 10.200.201.1 -p tcp --dport 8099 -j nixos-fw-accept
+  '';
+  users.users.robot.linger = true;
+  systemd.services.robot-preview-router = {
+    description = "Private WIP preview router (no remote lifecycle API)";
+    wantedBy = [ "multi-user.target" ];
+    requires = [ "agent-github-identity.service" ];
+    after = [
+      "network.target"
+      "agent-github-identity.service"
+    ];
+    serviceConfig = {
+      User = "robot";
+      Group = "users";
+      ExecStart = "${(import ../../../tools/previews { inherit pkgs; }).package}/bin/preview router";
+      Restart = "on-failure";
+      NoNewPrivileges = true;
+      ProtectSystem = "strict";
+      ReadWritePaths = [ "/home/robot/.local/share" ];
+      MemoryMax = "256M";
+    };
+  };
+  systemd.user.slices.robot-previews.sliceConfig = {
+    MemoryMax = "2G";
+    CPUQuota = "150%";
+    TasksMax = 512;
+  };
+  systemd.user.services.robot-preview-cleanup = {
+    description = "Remove expired previews and disposable data";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${(import ../../../tools/previews { inherit pkgs; }).package}/bin/preview cleanup";
+    };
+  };
+  systemd.user.timers.robot-preview-cleanup = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "5m";
+      OnUnitActiveSec = "5m";
+    };
+  };
   networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ 22 ];
   users.users.robot = {
     isNormalUser = true;
@@ -200,6 +243,7 @@ in
     (pkgs.writeShellScriptBin "nasa-journalctl" ''
       exec ${pkgs.systemd}/bin/journalctl --directory=/var/log/nasa-journal "$@"
     '')
+    (import ../../../tools/previews { inherit pkgs; }).package
     (import ../../../tools/github-bot.nix { inherit pkgs; })
     (import ../../../apps/microapps { inherit pkgs; }).access
     (pkgs.writeShellScriptBin "robot-guide" ''

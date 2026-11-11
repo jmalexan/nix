@@ -6,7 +6,7 @@ exec python3 - <<'PYTHON'
 import json
 import os
 
-light = ["lint", "microapps", "microapps-web", "notifications", "git-broker", "backups"]
+light = ["previews", "lint", "microapps", "microapps-web", "notifications", "git-broker", "backups"]
 vms = ["approval-ssh-gate", "agent-network", "agent-guest", "robots-backup", "microapp-upgrade"]
 selected = json.loads(os.environ.get("CI_VM_CHECKS") or json.dumps(vms))
 if (not isinstance(selected, list)

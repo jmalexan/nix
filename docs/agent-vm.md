@@ -33,7 +33,9 @@ separate clones and Git branches to move changes between environments.
   checks the incoming interface and source. IPv6 packets from the TAP are dropped.
 - Outbound LAN exceptions: NASA `10.0.1.10` TCP 443 (existing app APIs) and 2222
   (phone-approved SSH), DNS `10.0.1.20` TCP/UDP 53. Other private destinations,
-  host admin SSH/Rex, and new host-network connections into the guest are denied.
+  host admin SSH/Rex, and forwarded host-network connections into the guest are denied.
+  NASA alone can reach the dedicated preview router at guest TCP 8099; preview
+  app ports remain loopback-only. See [WIP previews](previews.md).
 - Public IPv4 TCP 80/443 and UDP 123/3478/41641 support downloads, AI services,
   time, and Tailscale. Tailscale can fall back to HTTPS relays when a direct peer
   path is blocked. This is network isolation, not a general Internet allowlist.

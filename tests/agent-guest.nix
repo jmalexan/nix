@@ -97,9 +97,32 @@ let
               pkgs.openssh
               pkgs.kmod
               pkgs.curl
+              pkgs.iproute2
             ];
             script = ''
               set -x
+              # Exercise the real preview ingress rule using a disposable NASA
+              # peer. The fixture otherwise has no network interfaces.
+              ip netns add preview-peer
+              ip link add preview0 type veth peer name preview-peer0
+              ip link set preview-peer0 netns preview-peer
+              ip addr add 10.200.201.2/30 dev preview0
+              ip link set preview0 up
+              ip -n preview-peer addr add 10.200.201.1/30 dev preview-peer0
+              ip -n preview-peer link set preview-peer0 up
+              systemctl reset-failed robot-preview-router.service
+              systemctl restart robot-preview-router.service
+              test "$(ip netns exec preview-peer curl --noproxy '*' --silent --retry 10 --retry-connrefused --retry-delay 1 --max-time 2 -o /dev/null -w '%{http_code}' -H 'Host: unknown.preview.nasa.jmalexan.com' http://10.200.201.2:8099/)" = 404
+              ip -n preview-peer addr add 10.200.201.9/32 dev preview-peer0
+              ip route add 10.200.201.9/32 dev preview0
+              if ip netns exec preview-peer curl --noproxy '*' --silent --interface 10.200.201.9 --max-time 2 http://10.200.201.2:8099/; then
+                echo 'Preview router admitted a source other than NASA' >&2
+                exit 1
+              fi
+              systemctl stop robot-preview-router.service
+              ip route del 10.200.201.9/32 dev preview0
+              ip link del preview0
+              ip netns del preview-peer
               systemctl is-active --quiet agent-persist-nix-store.service
               test "$(findmnt -n -o OPTIONS /nix/store | tail -1 | cut -d, -f1)" = ro
               systemctl is-active --quiet git-broker.service || {

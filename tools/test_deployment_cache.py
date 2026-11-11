@@ -459,6 +459,7 @@ class CheckRunnerTests(unittest.TestCase):
             + [
                 f".#checks.x86_64-linux.{name}"
                 for name in [
+                    "previews",
                     "lint",
                     "microapps",
                     "microapps-web",
@@ -473,7 +474,7 @@ class CheckRunnerTests(unittest.TestCase):
         result = self.run_checks('["agent-guest"]')
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout.splitlines()[-1])
-        self.assertEqual(len(args), 9)
+        self.assertEqual(len(args), 10)
         self.assertIn(".#checks.x86_64-linux.agent-guest", args)
         self.assertNotIn(".#checks.x86_64-linux.agent-network", args)
 

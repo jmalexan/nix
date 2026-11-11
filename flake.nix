@@ -157,6 +157,9 @@
           notifications = (import ./apps/notifications { pkgs = stablePkgs system; }).server;
           notifications-admin = (import ./apps/notifications { pkgs = stablePkgs system; }).admin;
         }
+        // nixpkgs.lib.optionalAttrs (system == linuxSystem) {
+          preview = (import ./tools/previews { pkgs = stablePkgs system; }).package;
+        }
       );
 
       nixosModules.git-broker = import ./modules/git-broker.nix;
@@ -170,6 +173,7 @@
           pkgs = stablePkgs system;
         in
         {
+          previews = (import ./tools/previews { inherit pkgs; }).tests;
           microapps = (import ./apps/microapps { inherit pkgs; }).tests;
           backups = (import ./apps/backups { inherit pkgs; }).tests;
           microapps-web = (import ./apps/microapps { inherit pkgs; }).frontend;
@@ -203,6 +207,9 @@
                 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tools/test_deployment_plan.py tools/test_deployment_cache.py tools/test_github_bot.py tools/test_ci_reuse.py
                 ruff check --select E4,E7,E9,F,I tests/agent_network.py
                 ruff format --check tests/agent_network.py
+                ruff check --select E4,E7,E9,F,I tools/previews
+                ruff format --check tools/previews
+                node --check tools/previews/browser-smoke.mjs
                 node --check hosts/nasa/services/updates-dashboard/app.js
                 node --check apps/backups/web/app.js
                 ruff check --select E4,E7,E9,F,I apps/backups

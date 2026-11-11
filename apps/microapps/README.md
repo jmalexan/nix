@@ -9,6 +9,12 @@ indicators, and empty states. Keep copy brief: omit subtitles and explanations
 when the interface already communicates the purpose. See the
 [design follow-ups](../../docs/microapp-design-followups.md).
 
+## WIP previews
+
+For concurrent private HTTPS previews without deploying production, use the
+[preview launcher](../../docs/previews.md). It provides disposable app accounts,
+sample data, automatic browser reload after refresh, and browser screenshots.
+
 ## Development
 
 After new files are included in your checkout's Git index, run from the repository:

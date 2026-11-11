@@ -69,3 +69,11 @@ SSH forwarding is reserved for explicitly authorized recovery or work that CI
 cannot perform. New bot credentials and owner-only protections are provisioned
 as part of the deployment-framework setup; normal bot operations cannot alter
 those protections.
+
+# WIP app previews
+
+Use the isolated preview workflow in `docs/previews.md` for app UI iteration
+before preparing a release PR. Run previews from separate worktrees when
+comparing independently edited versions. Use disposable data and accounts;
+inspect phone/desktop screenshots and exercise changed interactions. Preview
+start/refresh/stop are local VM operations, not production deployments.
