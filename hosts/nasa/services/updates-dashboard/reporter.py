@@ -3,6 +3,7 @@ import base64
 import datetime as dt
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode
@@ -659,6 +661,29 @@ def prepare_nix_pr(args, checkout):
     )
 
 
+@contextmanager
+def app_token(key_path):
+    # Share JWT signing and repository/permission validation with the VM bot.
+    spec = importlib.util.spec_from_file_location(
+        "github_bot", os.environ["UPDATES_GITHUB_APP_HELPER"]
+    )
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    token, _ = helper.installation_token(
+        int(os.environ["UPDATES_GITHUB_APP_ID"]), Path(key_path).read_bytes()
+    )
+    try:
+        yield token
+    finally:
+        try:
+            helper.api(token, "/installation/token", method="DELETE")
+        except (OSError, RuntimeError):
+            print(
+                "Could not revoke temporary GitHub token; automatic expiry applies.",
+                file=sys.stderr,
+            )
+
+
 def github_request(token, repository, path, method="GET", payload=None):
     body = json.dumps(payload).encode() if payload is not None else None
     request = Request(
@@ -678,8 +703,7 @@ def github_request(token, repository, path, method="GET", payload=None):
             data = response.read()
             return json.loads(data) if data else None
     except HTTPError as error:
-        detail = error.read().decode(errors="replace")
-        raise RuntimeError(f"GitHub API returned {error.code}: {detail}") from error
+        raise RuntimeError(f"GitHub API returned HTTP {error.code}") from None
 
 
 def pull_request_state(pull):
@@ -710,70 +734,75 @@ def publish_pull_request(args, checkout, title, body, target):
     slug = re.sub(r"[^a-z0-9]+", "-", target.lower()).strip("-")[:45]
     branch = f"updates-dashboard/{slug}-{fingerprint.hexdigest()[:10]}"
 
-    token = Path(args.token).read_text().strip()
-    if not token:
-        raise RuntimeError("The GitHub token file is empty")
-    owner = args.github_repository.split("/", 1)[0]
-    query = urlencode({"state": "all", "head": f"{owner}:{branch}"})
-    existing = github_request(token, args.github_repository, f"/pulls?{query}")
-    open_pull = next(
-        (pull for pull in existing if pull_request_state(pull) == "open"), None
-    )
-    if open_pull:
-        return pull_request_result(open_pull)
-    if existing:
-        branch = f"{branch}-retry-{os.urandom(3).hex()}"
+    with app_token(args.app_key) as token:
+        owner = args.github_repository.split("/", 1)[0]
+        query = urlencode({"state": "all", "head": f"{owner}:{branch}"})
+        existing = github_request(token, args.github_repository, f"/pulls?{query}")
+        open_pull = next(
+            (pull for pull in existing if pull_request_state(pull) == "open"), None
+        )
+        if open_pull:
+            return pull_request_result(open_pull)
+        if existing:
+            branch = f"{branch}-retry-{os.urandom(3).hex()}"
 
-    base_commit = run([args.git, "rev-parse", "HEAD"], capture=True, cwd=checkout)
-    commit = github_request(
-        token, args.github_repository, f"/git/commits/{base_commit}"
-    )
-    entries = []
-    for relative in changed:
-        blob = github_request(
+        base_commit = run([args.git, "rev-parse", "HEAD"], capture=True, cwd=checkout)
+        commit = github_request(
+            token, args.github_repository, f"/git/commits/{base_commit}"
+        )
+        entries = []
+        for relative in changed:
+            blob = github_request(
+                token,
+                args.github_repository,
+                "/git/blobs",
+                method="POST",
+                payload={
+                    "content": base64.b64encode(
+                        (checkout / relative).read_bytes()
+                    ).decode(),
+                    "encoding": "base64",
+                },
+            )
+            entries.append(
+                {"path": relative, "mode": "100644", "type": "blob", "sha": blob["sha"]}
+            )
+        tree = github_request(
             token,
             args.github_repository,
-            "/git/blobs",
+            "/git/trees",
             method="POST",
-            payload={
-                "content": base64.b64encode(
-                    (checkout / relative).read_bytes()
-                ).decode(),
-                "encoding": "base64",
-            },
+            payload={"base_tree": commit["tree"]["sha"], "tree": entries},
         )
-        entries.append(
-            {"path": relative, "mode": "100644", "type": "blob", "sha": blob["sha"]}
+        new_commit = github_request(
+            token,
+            args.github_repository,
+            "/git/commits",
+            method="POST",
+            payload={"message": title, "tree": tree["sha"], "parents": [base_commit]},
         )
-    tree = github_request(
-        token,
-        args.github_repository,
-        "/git/trees",
-        method="POST",
-        payload={"base_tree": commit["tree"]["sha"], "tree": entries},
-    )
-    new_commit = github_request(
-        token,
-        args.github_repository,
-        "/git/commits",
-        method="POST",
-        payload={"message": title, "tree": tree["sha"], "parents": [base_commit]},
-    )
-    github_request(
-        token,
-        args.github_repository,
-        "/git/refs",
-        method="POST",
-        payload={"ref": f"refs/heads/{branch}", "sha": new_commit["sha"]},
-    )
-    pull = github_request(
-        token,
-        args.github_repository,
-        "/pulls",
-        method="POST",
-        payload={"title": title, "body": body, "head": branch, "base": "main"},
-    )
-    return pull_request_result(pull)
+        github_request(
+            token,
+            args.github_repository,
+            "/git/refs",
+            method="POST",
+            payload={"ref": f"refs/heads/{branch}", "sha": new_commit["sha"]},
+        )
+        pull = github_request(
+            token,
+            args.github_repository,
+            "/pulls",
+            method="POST",
+            payload={"title": title, "body": body, "head": branch, "base": "main"},
+        )
+        github_request(
+            token,
+            args.github_repository,
+            f"/pulls/{pull['number']}/requested_reviewers",
+            method="POST",
+            payload={"reviewers": ["jmalexan"]},
+        )
+        return pull_request_result(pull)
 
 
 def create_pr(args, job):
@@ -971,27 +1000,25 @@ def pr_status(args):
     if not candidates:
         return
 
-    token = Path(args.token).read_text().strip()
-    if not token:
-        return
-    query = urlencode(
-        {
-            "state": "all",
-            "sort": "updated",
-            "direction": "desc",
-            "per_page": 100,
-        }
-    )
-    pulls = github_request(token, args.github_repository, f"/pulls?{query}")
-    by_url = {pull["html_url"]: pull for pull in pulls}
-    for path, result in candidates:
-        pull = by_url.get(result.get("url"))
-        if not pull:
-            continue
-        status = pull_request_state(pull)
-        if result.get("status") != status:
-            result["status"] = status
-            atomic_json(path, result)
+    with app_token(args.app_key) as token:
+        query = urlencode(
+            {
+                "state": "all",
+                "sort": "updated",
+                "direction": "desc",
+                "per_page": 100,
+            }
+        )
+        pulls = github_request(token, args.github_repository, f"/pulls?{query}")
+        by_url = {pull["html_url"]: pull for pull in pulls}
+        for path, result in candidates:
+            pull = by_url.get(result.get("url"))
+            if not pull:
+                continue
+            status = pull_request_state(pull)
+            if result.get("status") != status:
+                result["status"] = status
+                atomic_json(path, result)
 
 
 def parser():
@@ -1038,7 +1065,7 @@ def parser():
     pr_parser.add_argument("inventory")
     pr_parser.add_argument("repository")
     pr_parser.add_argument("github_repository")
-    pr_parser.add_argument("token")
+    pr_parser.add_argument("app_key")
     pr_parser.add_argument("git")
     pr_parser.add_argument("nix")
     pr_parser.add_argument("skopeo")
@@ -1049,7 +1076,7 @@ def parser():
     status_parser.add_argument("state")
     status_parser.add_argument("inventory")
     status_parser.add_argument("github_repository")
-    status_parser.add_argument("token")
+    status_parser.add_argument("app_key")
     status_parser.set_defaults(handler=pr_status)
     return result
 

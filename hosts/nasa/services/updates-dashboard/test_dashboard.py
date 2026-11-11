@@ -3,6 +3,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -22,6 +23,15 @@ server = load_module("dashboard_server", ROOT / "server.py")
 
 
 class DashboardTests(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(
+            reporter,
+            "app_token",
+            side_effect=lambda path: nullcontext("github_app_test"),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_home_assistant_release_post_is_optional(self):
         service = {
             "releaseNotes": {
@@ -261,22 +271,22 @@ class DashboardTests(unittest.TestCase):
 
     def test_empty_agenix_placeholder_disables_prs(self):
         with tempfile.TemporaryDirectory() as root:
-            token = Path(root) / "token"
+            token = Path(root) / "app_key"
             token.write_text("")
             handler = object.__new__(server.DashboardHandler)
-            handler.server = SimpleNamespace(token_path=token)
-            self.assertFalse(handler.token_configured())
-            token.write_text("github_pat_example")
-            self.assertTrue(handler.token_configured())
+            handler.server = SimpleNamespace(app_key_path=token)
+            self.assertFalse(handler.app_configured())
+            token.write_text("github_app_key_example")
+            self.assertTrue(handler.app_configured())
 
     def test_all_containers_is_an_allowed_pr_target(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)
-            token = root / "token"
-            token.write_text("github_pat_example")
+            token = root / "app_key"
+            token.write_text("github_app_key_example")
             handler = object.__new__(server.DashboardHandler)
             handler.server = SimpleNamespace(
-                token_path=token,
+                app_key_path=token,
                 container_names={"app"},
                 results_root=root / "results",
                 queue_root=root / "queue",
@@ -300,8 +310,8 @@ class DashboardTests(unittest.TestCase):
             results = root / "results"
             state.mkdir()
             results.mkdir()
-            token = root / "token"
-            token.write_text("github_pat_example")
+            token = root / "app_key"
+            token.write_text("github_app_key_example")
             inventory = root / "inventory.json"
             inventory.write_text(
                 json.dumps(
@@ -337,7 +347,7 @@ class DashboardTests(unittest.TestCase):
                 "merged_at": None,
             }
             args = argparse.Namespace(
-                token=str(token),
+                app_key=str(token),
                 github_repository="example/repo",
                 results=str(results),
                 state=str(state),
@@ -368,11 +378,11 @@ class DashboardTests(unittest.TestCase):
             checkout = root / "checkout"
             checkout.mkdir()
             (checkout / "changed.nix").write_text("changed")
-            token = root / "token"
-            token.write_text("github_pat_example")
+            token = root / "app_key"
+            token.write_text("github_app_key_example")
             args = argparse.Namespace(
                 git="git",
-                token=str(token),
+                app_key=str(token),
                 github_repository="example/repo",
             )
             refs = []
@@ -412,6 +422,9 @@ class DashboardTests(unittest.TestCase):
                         "state": "open",
                         "merged_at": None,
                     }
+                if path == "/pulls/8/requested_reviewers":
+                    self.assertEqual(payload, {"reviewers": ["jmalexan"]})
+                    return {}
                 raise AssertionError(path)
 
             with (
@@ -431,8 +444,8 @@ class DashboardTests(unittest.TestCase):
             results = root / "results"
             state.mkdir()
             results.mkdir()
-            token = root / "token"
-            token.write_text("github_pat_example")
+            token = root / "app_key"
+            token.write_text("github_app_key_example")
             inventory = root / "inventory.json"
             inventory.write_text(
                 json.dumps(
@@ -480,7 +493,7 @@ class DashboardTests(unittest.TestCase):
                 )
             )
             args = argparse.Namespace(
-                token=str(token),
+                app_key=str(token),
                 github_repository="example/repo",
                 results=str(results),
                 state=str(state),
@@ -501,6 +514,76 @@ class DashboardTests(unittest.TestCase):
         self.assertFalse(
             reporter.container_result_matches({"status": "merged"}, current, [])
         )
+
+
+class AppAuthenticationTests(unittest.TestCase):
+    def test_token_is_revoked_after_success_and_failure(self):
+        for fails in (False, True):
+            with self.subTest(fails=fails), tempfile.TemporaryDirectory() as root:
+                key = Path(root) / "key.pem"
+                key.write_bytes(b"signing-key")
+                helper = mock.Mock()
+                helper.installation_token.return_value = ("installation-token", {})
+                spec = mock.Mock()
+                with (
+                    mock.patch.dict(
+                        reporter.os.environ,
+                        {
+                            "UPDATES_GITHUB_APP_HELPER": "helper.py",
+                            "UPDATES_GITHUB_APP_ID": "5637230",
+                        },
+                    ),
+                    mock.patch.object(
+                        reporter.importlib.util,
+                        "spec_from_file_location",
+                        return_value=spec,
+                    ),
+                    mock.patch.object(
+                        reporter.importlib.util, "module_from_spec", return_value=helper
+                    ),
+                ):
+                    try:
+                        with reporter.app_token(key) as token:
+                            self.assertEqual(token, "installation-token")
+                            if fails:
+                                raise ValueError("publication failed")
+                    except ValueError:
+                        self.assertTrue(fails)
+                helper.installation_token.assert_called_once_with(
+                    5637230, b"signing-key"
+                )
+                helper.api.assert_called_once_with(
+                    "installation-token", "/installation/token", method="DELETE"
+                )
+
+    def test_auth_failure_does_not_fall_back_to_static_token(self):
+        with tempfile.TemporaryDirectory() as root:
+            key = Path(root) / "key.pem"
+            key.write_bytes(b"invalid-key")
+            helper = mock.Mock()
+            helper.installation_token.side_effect = ValueError("invalid key")
+            with (
+                mock.patch.dict(
+                    reporter.os.environ,
+                    {
+                        "UPDATES_GITHUB_APP_HELPER": "helper.py",
+                        "UPDATES_GITHUB_APP_ID": "5637230",
+                        "GITHUB_TOKEN": "owner-token",
+                    },
+                ),
+                mock.patch.object(
+                    reporter.importlib.util,
+                    "spec_from_file_location",
+                    return_value=mock.Mock(),
+                ),
+                mock.patch.object(
+                    reporter.importlib.util, "module_from_spec", return_value=helper
+                ),
+                self.assertRaisesRegex(ValueError, "invalid key"),
+            ):
+                with reporter.app_token(key):
+                    self.fail("Must not run without an App token")
+            helper.api.assert_not_called()
 
 
 if __name__ == "__main__":

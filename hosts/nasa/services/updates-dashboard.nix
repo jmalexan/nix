@@ -13,7 +13,11 @@ let
   triggerState = "${reportState}/triggers";
   prQueue = "${reportState}/pr-queue";
   prResults = "${reportState}/pr-results";
-  githubToken = config.age.secrets.updates-dashboard-github-token.path;
+  githubKey = config.age.secrets.agent-github.path;
+  githubAppEnvironment = {
+    UPDATES_GITHUB_APP_ID = "5637230";
+    UPDATES_GITHUB_APP_HELPER = "${../../../tools/github-bot.py}";
+  };
   repositoryName = lib.removePrefix "github:" vars.repository;
   repositoryUrl = "https://github.com/${repositoryName}.git";
 
@@ -141,7 +145,7 @@ let
     destination = "/bin/update-dashboard-reporter";
     executable = true;
     text = ''
-      #!${pkgs.python3}/bin/python3
+      #!${pkgs.python3.withPackages (ps: [ ps.cryptography ])}/bin/python3
       ${builtins.readFile ./updates-dashboard/reporter.py}
     '';
   };
@@ -285,13 +289,6 @@ let
   };
 in
 {
-  age.secrets.updates-dashboard-github-token = {
-    file = ../../../secrets/updates-dashboard-github-token.age;
-    owner = "updates-dashboard-reporter";
-    group = "updates-dashboard-reporter";
-    mode = "0400";
-  };
-
   users.users.updates-dashboard-reporter = {
     isSystemUser = true;
     group = "updates-dashboard-reporter";
@@ -354,7 +351,7 @@ in
         UPDATES_STATIC = "${dashboardStatic}";
         UPDATES_INVENTORY = "${inventory}";
         UPDATES_SYSTEMCTL = "${pkgs.systemd}/bin/systemctl";
-        UPDATES_GITHUB_TOKEN_FILE = githubToken;
+        UPDATES_GITHUB_APP_KEY_FILE = githubKey;
       };
       serviceConfig = {
         Type = "simple";
@@ -471,8 +468,11 @@ in
       description = "Create dependency pull requests requested by the system updates dashboard";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      environment.HOME = reportState;
+      environment = githubAppEnvironment // {
+        HOME = reportState;
+      };
       serviceConfig = {
+        LoadCredential = [ "github-app-key:${githubKey}" ];
         Type = "oneshot";
         User = "updates-dashboard-reporter";
         Group = "updates-dashboard-reporter";
@@ -491,7 +491,7 @@ in
           ${inventory} \
           ${lib.escapeShellArg repositoryUrl} \
           ${lib.escapeShellArg repositoryName} \
-          ${githubToken} \
+          "$CREDENTIALS_DIRECTORY/github-app-key" \
           ${pkgs.git}/bin/git \
           ${pkgs.nix}/bin/nix \
           ${pkgs.skopeo}/bin/skopeo
@@ -501,8 +501,11 @@ in
       description = "Refresh update pull request states from GitHub";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      environment.HOME = reportState;
+      environment = githubAppEnvironment // {
+        HOME = reportState;
+      };
       serviceConfig = {
+        LoadCredential = [ "github-app-key:${githubKey}" ];
         Type = "oneshot";
         User = "updates-dashboard-reporter";
         Group = "updates-dashboard-reporter";
@@ -511,13 +514,13 @@ in
         Nice = 10;
       };
       script = ''
-        if [ -s ${githubToken} ]; then
+        if [ -s "$CREDENTIALS_DIRECTORY/github-app-key" ]; then
           ${dashboardReporter}/bin/update-dashboard-reporter pr-status \
             ${prResults} \
             ${reportState} \
             ${inventory} \
             ${lib.escapeShellArg repositoryName} \
-            ${githubToken}
+            "$CREDENTIALS_DIRECTORY/github-app-key"
         fi
       '';
     };

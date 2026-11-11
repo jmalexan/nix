@@ -198,6 +198,14 @@ fails. Each invocation uses an empty temporary gh configuration and overrides
 Git's credential helpers; owner tokens are not a fallback. GitHub SSH remotes
 are rewritten to HTTPS and SSH is disabled inside the wrapper.
 
+Updates uses the same App and existing `agent-github.age` signing key. Its PR
+creation and status units receive the root-owned key through systemd credentials;
+the web service checks its presence without reading it. Reporters reuse
+`tools/github-bot.py` to mint repository-scoped tokens after update preparation
+and revoke them after each publication or status refresh. New update PRs request
+owner review and follow the normal release policy. The former static Updates
+token is no longer deployed.
+
 One-time configuration, after creating/installing the App and securely transferring
 its downloaded private key to a temporary file in the container:
 

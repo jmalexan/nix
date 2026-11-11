@@ -430,7 +430,7 @@ function pullRequestControl(kind, target, labels = {}, service = null) {
       title: labels.disabled
         ? labels.disabledTitle
         : !configured
-          ? "Configure the GitHub token on NASA to enable pull requests."
+          ? "Configure the GitHub App on NASA to enable pull requests."
           : requestError || result?.error,
     },
   );
