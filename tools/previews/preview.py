@@ -370,7 +370,7 @@ def start(args, records):
     print(origin)
     print(f"Logs: journalctl --user -u {unit(args.name)} -f")
     if args.app != "custom":
-        print("Preview account password: NASA preview password")
+        print("Preview account password: preview")
 
 
 def main():
