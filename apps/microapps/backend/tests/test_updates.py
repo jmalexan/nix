@@ -194,7 +194,7 @@ def test_pr_queue_requires_human_and_keeps_reporter_access(updates):
 
     app, client = updates
     dashboard = app.state.dashboard.server
-    dashboard.token_path.write_text("test-only-github-credential")
+    dashboard.app_key_path.write_text("test-only-github-credential")
     body = {"action": "create-pr", "kind": "container", "target": "all"}
     assert client.post("/api/actions", json=body).status_code == 401
     assert not list(dashboard.queue_root.iterdir())
