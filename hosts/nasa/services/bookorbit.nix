@@ -71,7 +71,7 @@ in
 
     bookorbit = {
       # External HTTP metadata providers require BookOrbit 3.6.0+.
-      image = "ghcr.io/bookorbit/bookorbit:3.7.0@sha256:0d5f4a31576a2bcd96afa77b8eac75c3b8df395f0f9b9215995de59236f22b95";
+      image = "ghcr.io/bookorbit/bookorbit:3.8.0@sha256:d318f7732f6f6330312e2c5f854f7899f858b54cc4b18a13cde1f43b5bea0515";
       autoStart = true;
       dependsOn = [ "bookorbit-postgres" ];
       # Eufy already occupies host port 3000; nginx fronts this private port.
