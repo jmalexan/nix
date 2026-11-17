@@ -15,7 +15,7 @@ IPv6 route. IPv4 Cloudflare resolvers remain available independently.
 
 Local records live in `hosts/pihole/records.nix`. The stale public IPv6 record
 for pihole.lan is intentionally omitted. Reverse lookups for 10.0.0.0/23 go to
-10.0.0.1:53. The sole blocklist is https://big.oisd.nl. FTL settings are read-only:
+10.0.0.1:53. The sole blocklist is https://big.oisd.nl, refreshed weekly by a persistent timer. FTL settings are read-only:
 make settings changes through Git, not the dashboard. Runtime databases remain
 under /var/lib/pihole and need separate backups; NixOS rollback does not roll
 back databases. Do not import the old Teleporter wholesale over Nix-managed settings.

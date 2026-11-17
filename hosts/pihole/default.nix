@@ -1,5 +1,6 @@
 # Raspberry Pi 4 Model B (8 GB), dedicated Ethernet DNS appliance.
 {
+  config,
   modulesPath,
   pkgs,
   vars,
@@ -69,6 +70,29 @@
       # Avoid competing with the router for NTP service.
       ntp.ipv4.active = false;
       ntp.ipv6.active = false;
+    };
+  };
+  # The native module loads lists at startup; schedule ongoing list refreshes.
+  systemd.services.pihole-gravity = {
+    description = "Refresh Pi-hole blocklists";
+    requires = [ "pihole-ftl.service" ];
+    after = [
+      "network-online.target"
+      "pihole-ftl-setup.service"
+    ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "pihole";
+      ExecStart = "${config.services.pihole-ftl.pihole}/bin/pihole -g";
+    };
+  };
+  systemd.timers.pihole-gravity = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "weekly";
+      RandomizedDelaySec = "1h";
+      Persistent = true;
     };
   };
   services.pihole-web = {
