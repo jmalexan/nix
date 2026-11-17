@@ -44,11 +44,13 @@ def derivations(repo, commit, directory, validate=False):
     # Evaluate both hosts in one process so they can share imported Nix modules.
     expression = (
         "flake: let configs = flake.nixosConfigurations; in "
-        + "assert builtins.attrNames configs == "
+        + 'assert builtins.filter (name: name != "pihole") (builtins.attrNames configs) == '
         + "[ "
         + " ".join(json.dumps(host) for host in sorted(HOSTS))
         + " ]"
-        + "; { hosts = { "
+        + "; builtins.deepSeq (if configs ? pihole then "
+        + 'assert configs.pihole.config.system.build.toplevel.type == "derivation"; '
+        + "configs.pihole.config.system.build.toplevel.drvPath else null) { hosts = { "
         + " ".join(
             f"{host} = assert configs.{host}.config.system.build.toplevel.type "
             f'== "derivation"; configs.{host}.config.system.build.toplevel.drvPath;'

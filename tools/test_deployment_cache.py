@@ -561,6 +561,25 @@ class DeploymentValidationTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout), ["nasa", "htpc"])
         self.assertTrue(recorded)
 
+    def test_staged_pihole_validates_without_deploying(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc"; '
+            'pihole.config.system.build.toplevel = mk "pihole";'
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), ["nasa", "htpc"])
+        self.assertTrue(recorded)
+
+    def test_broken_staged_pihole_fails_validation(self):
+        result, recorded = self.validate_fixture(
+            'nasa.config.system.build.toplevel = mk "nasa"; '
+            'htpc.config.system.build.toplevel = mk "htpc"; '
+            'pihole.config.system.build.toplevel = throw "broken Pi";'
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
+
     def test_invalid_non_host_output_fails_without_record(self):
         result, recorded = self.validate_fixture(
             'nasa.config.system.build.toplevel = mk "nasa"; '

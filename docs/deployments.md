@@ -301,3 +301,10 @@ lint/backend/frontend/SSH-gate checks, workflow syntax, and nine deployment-plan
 and bot-authentication tests. Comparing this branch with GitHub main selects
 only NASA. The existing local App UI and connection-gate commits are included in
 the release branch so a later GitHub deployment preserves what is already live.
+
+## Staged Pi-hole host
+
+`nixosConfigurations.pihole` is evaluated by the planner but is intentionally
+excluded from production selection, including `--force all`, until SD-card
+cutover and deployment access are validated. Historical bases without this host
+remain valid. See [the migration guide](pihole.md) for installation and enrollment.
