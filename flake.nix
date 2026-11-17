@@ -265,6 +265,13 @@
         ];
       };
 
+      # Staged DNS appliance: validate now, enroll in CI deployment after cutover.
+      nixosConfigurations.pihole = nixpkgs.lib.nixosSystem {
+        system = "aarch64-linux";
+        specialArgs = { inherit vars; };
+        modules = [ ./hosts/pihole/default.nix ];
+      };
+
       # Home-theater PC (Minisforum UM760, AMD Radeon 780M).
       # Tracks nixos-unstable so we get Plasma 6.7 (Bigscreen) plus the newest
       # kernel/Mesa/amdgpu HDR work; nasa stays on stable nixpkgs.
