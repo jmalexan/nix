@@ -323,7 +323,7 @@ in
   # at http://127.0.0.1:5000, plus the MQTT broker in mqtt.nix — the integration
   # requires both. HA is host-networked too, so loopback reaches this directly.
   virtualisation.oci-containers.containers.frigate = {
-    image = "ghcr.io/blakeblackshear/frigate:0.18.2-tensorrt@sha256:1cafb6ebbaff0aaf275cc3f31951bcf7e29f3989f18a10ba9565091367d8736c";
+    image = "ghcr.io/blakeblackshear/frigate:0.18.3-tensorrt@sha256:e1576bbceb8bfd4f954a9f67190bb350f99ff2398a1db75fb8b5241d31f3fd9b";
     autoStart = true;
 
     volumes = [
