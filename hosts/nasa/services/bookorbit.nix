@@ -37,7 +37,7 @@ in
     bookorbit-postgres = {
       # BookOrbit 2.2+ ships PostgreSQL 18 with pgvector. Keep this major pinned:
       # changing it requires a dump into a fresh data directory and restore.
-      image = "docker.io/pgvector/pgvector:pg18@sha256:c29f30688a9ad961691bdf0ec1650717cc132a5814619d80f80463d6e4c42e47";
+      image = "docker.io/pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782";
       autoStart = true;
       environment = {
         POSTGRES_USER = "bookorbit";
@@ -71,7 +71,7 @@ in
 
     bookorbit = {
       # External HTTP metadata providers require BookOrbit 3.6.0+.
-      image = "ghcr.io/bookorbit/bookorbit:3.8.0@sha256:d318f7732f6f6330312e2c5f854f7899f858b54cc4b18a13cde1f43b5bea0515";
+      image = "ghcr.io/bookorbit/bookorbit:3.9.0@sha256:79cd9c66c990a82944514e3e82d5be5987f21eda96cb37a378ed1484043716fc";
       autoStart = true;
       dependsOn = [ "bookorbit-postgres" ];
       # Eufy already occupies host port 3000; nginx fronts this private port.

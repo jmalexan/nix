@@ -53,7 +53,7 @@ in
     # Postgres — the container's `postgres` user is already a superuser, so
     # Immich can CREATE EXTENSION without any host-side grant.
     immich-postgres = {
-      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.5@sha256:b38cad4a8bdb716d19b07e5afb4a6e2ed9e7f8a5a93f428aae35f495c72d3498";
+      image = "ghcr.io/immich-app/postgres:14-vectorchord1.1.1-pgvector0.8.7@sha256:a363c71004f469d61b049703935da4725f90db793ba2efa7e451e6313f0e8dac";
       autoStart = true;
       environment = {
         POSTGRES_USER = "postgres";
@@ -69,13 +69,13 @@ in
     };
 
     immich-redis = {
-      image = "docker.io/valkey/valkey:9@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7";
+      image = "docker.io/valkey/valkey:9@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e";
       autoStart = true;
       extraOptions = [ "--network=${backendNetwork}" ];
     };
 
     immich-machine-learning = {
-      image = "ghcr.io/immich-app/immich-machine-learning:v3.4.0@sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454";
+      image = "ghcr.io/immich-app/immich-machine-learning:v3.4.2@sha256:739405742a79bd7447227c553bb62ed5491aa36acf00bc667af7f9c93b6fae91";
       autoStart = true;
       environment.MACHINE_LEARNING_MODEL_REVISION = "v2";
       volumes = [ "${modelCache}:/cache" ];
@@ -83,7 +83,7 @@ in
     };
 
     immich-server = {
-      image = "ghcr.io/immich-app/immich-server:v3.4.0@sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5";
+      image = "ghcr.io/immich-app/immich-server:v3.4.2@sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd";
       autoStart = true;
       dependsOn = [
         "immich-postgres"
@@ -121,7 +121,7 @@ in
     immich-public-proxy = {
       # IPP 2.x is incompatible with Immich 3.x and crashes while reading
       # shared-album assets. Keep this on a 3.x release and pin the amd64 image.
-      image = "docker.io/alangrainger/immich-public-proxy:4.1.2@sha256:d6480d1e6beb3da661cb895e1b368340df48904ecbfe53ece2d5da343e78b857";
+      image = "docker.io/alangrainger/immich-public-proxy:4.2.0@sha256:ebf84972652c4cf5a7ef7d2359db35ddca46a5cf17714975abf5a8674b05935d";
       autoStart = true;
       dependsOn = [ "immich-server" ];
       # Port 3000 on the host is already used by eufy-security-ws. Keep the
