@@ -23,8 +23,8 @@ separate clones and Git branches to move changes between environments.
 - NASA’s persistent journal is shared at
   `/var/log/nasa-journal`, enforced read-only by QEMU and mounted read-only.
   `robot` can read it through `nasa-journalctl` without sudo or SSH.
-- The `Agent Work` folder inside NASA’s existing `smb` share is mounted
-  read/write at `/mnt/agent-work` on robots. VirtioFS exports that directory
+- The `Agent Workspace` folder inside NASA’s existing `smb` share is mounted
+  read/write at `/mnt/agent-workspace` on robots. VirtioFS exports that directory
   alone and preserves the common numeric UID of the SMB owner and `robot`.
   NASA’s deployment health check waits for the guest to read and write a
   temporary file as `robot`.

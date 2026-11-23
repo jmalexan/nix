@@ -10,7 +10,7 @@
   ...
 }:
 let
-  agentWorkSource = "/Data/smb/Agent Work";
+  agentWorkSource = "/Data/smb/Agent Workspace";
   agentWorkUid = 1000;
 in
 {
@@ -34,8 +34,8 @@ in
     };
     config = import ./agent-guest.nix;
   };
-  systemd.services.agent-work-directory = {
-    description = "Prepare the Agent Work folder on the mounted Data pool";
+  systemd.services.agent-workspace-directory = {
+    description = "Prepare the Agent Workspace folder on the mounted Data pool";
     requires = [ "zfs-mount.service" ];
     after = [ "zfs-mount.service" ];
     unitConfig.AssertPathIsMountPoint = "/Data/smb";
@@ -48,8 +48,8 @@ in
     '';
   };
   systemd.services."microvm-virtiofsd@robots" = {
-    requires = [ "agent-work-directory.service" ];
-    after = [ "agent-work-directory.service" ];
+    requires = [ "agent-workspace-directory.service" ];
+    after = [ "agent-workspace-directory.service" ];
   };
   # No bridged path into the trusted LAN. Assign the point-to-point address
   # after microvm creates the TAP, before the guest starts.

@@ -25,8 +25,8 @@ let
   ]
   ++ lib.optional (agentWorkSource != null) {
     source = agentWorkSource;
-    mountPoint = "/mnt/agent-work";
-    tag = "agent-work";
+    mountPoint = "/mnt/agent-workspace";
+    tag = "agent-workspace";
     proto = "virtiofs";
     readOnly = false;
     cache = "never";
@@ -102,7 +102,7 @@ in
     };
   };
   fileSystems."/var/log/nasa-journal".options = [ "ro" ];
-  fileSystems."/mnt/agent-work" = lib.mkIf (agentWorkSource != null) {
+  fileSystems."/mnt/agent-workspace" = lib.mkIf (agentWorkSource != null) {
     options = [
       "nodev"
       "nosuid"
@@ -353,7 +353,7 @@ in
   };
   systemd.services.agent-ready = {
     description = "Report guest readiness and public SSH host key";
-    unitConfig.RequiresMountsFor = lib.optional (agentWorkSource != null) "/mnt/agent-work";
+    unitConfig.RequiresMountsFor = lib.optional (agentWorkSource != null) "/mnt/agent-workspace";
     wantedBy = [ "multi-user.target" ];
     requires = [
       "agent-github-identity.service"
@@ -375,9 +375,9 @@ in
     };
     script = ''
       ${lib.optionalString (agentWorkSource != null) ''
-        ${pkgs.util-linux}/bin/runuser -u robot -- ${pkgs.writeShellScript "agent-work-probe" ''
+        ${pkgs.util-linux}/bin/runuser -u robot -- ${pkgs.writeShellScript "agent-workspace-probe" ''
           set -eu
-          probe=$(${pkgs.coreutils}/bin/mktemp /mnt/agent-work/.robots-health.XXXXXXXX)
+          probe=$(${pkgs.coreutils}/bin/mktemp /mnt/agent-workspace/.robots-health.XXXXXXXX)
           trap '${pkgs.coreutils}/bin/rm -f -- "$probe"' EXIT
           printf "robots\n" > "$probe"
           test "$(${pkgs.coreutils}/bin/cat "$probe")" = robots
@@ -396,7 +396,7 @@ in
             expected: actual: builtins.intersectAttrs expected actual == expected
           ) hostShares config.microvm.shares
         );
-      message = "Agent VM shares must match the read-only NASA journal and the configured Agent Work folder.";
+      message = "Agent VM shares must match the read-only NASA journal and the configured Agent Workspace folder.";
     }
     {
       assertion = !(builtins.elem "wheel" config.users.users.robot.extraGroups);

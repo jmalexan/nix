@@ -67,8 +67,8 @@ repository's `tools/nasa-access.py --approved` honors the same requester path.
 Only the request-creation token is present. It cannot approve or claim requests.
 Use `nasa-journalctl -u SERVICE --since today --no-pager -n 100` for NASA logs.
 NASA's persistent journal is shared read-only at `/var/log/nasa-journal`.
-The `Agent Work` folder in NASA's `smb` share is available read/write at
-`/mnt/agent-work` for task files. Both mounts are available without sudo or
+The `Agent Workspace` folder in NASA's `smb` share is available read/write at
+`/mnt/agent-workspace` for task files. Both mounts are available without sudo or
 an SSH connection to NASA. Other host file access requires the approved
 connection flow.
 
