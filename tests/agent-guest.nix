@@ -16,6 +16,8 @@ let
       specialArgs = specialArgs // {
         gitBrokerEnabled = true;
         nasaJournalSource = "nasa-journal";
+        agentWorkSource = null;
+        agentWorkUid = 1000;
       };
       modules = [
         microvm.nixosModules.microvm

@@ -66,9 +66,11 @@ perform, the packaged approval client is available from any directory; the
 repository's `tools/nasa-access.py --approved` honors the same requester path.
 Only the request-creation token is present. It cannot approve or claim requests.
 Use `nasa-journalctl -u SERVICE --since today --no-pager -n 100` for NASA logs.
-NASA's persistent journal is the VM's only host directory share, read-only at
-`/var/log/nasa-journal`. This needs neither sudo nor an SSH connection. Host file
-access outside the journal still requires the approved connection flow.
+NASA's persistent journal is shared read-only at `/var/log/nasa-journal`.
+The `Agent Work` folder in NASA's `smb` share is available read/write at
+`/mnt/agent-work` for task files. Both mounts are available without sudo or
+an SSH connection to NASA. Other host file access requires the approved
+connection flow.
 
 NASA HTTPS, the approved gate, DNS, and public web/package downloads are allowed.
 The host firewall and `tag:agent` policy block ordinary host SSH/Rex and other

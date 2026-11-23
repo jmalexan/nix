@@ -9,9 +9,37 @@
   vars,
   gitBrokerEnabled ? false,
   nasaJournalSource ? "/var/log/journal",
+  agentWorkSource,
+  agentWorkUid,
   ...
 }:
 let
+  hostShares = [
+    {
+      source = nasaJournalSource;
+      mountPoint = "/var/log/nasa-journal";
+      tag = "nasa-journal";
+      proto = "9p";
+      readOnly = true;
+    }
+  ]
+  ++ lib.optional (agentWorkSource != null) {
+    source = agentWorkSource;
+    mountPoint = "/mnt/agent-work";
+    tag = "agent-work";
+    proto = "virtiofs";
+    readOnly = false;
+    cache = "never";
+    posixAcl = false;
+    # Guest root has the SMB owner's access inside this export.
+    extraArgs = [
+      "--translate-uid"
+      "squash-guest:0:${toString agentWorkUid}:1"
+      "--translate-gid"
+      "squash-guest:0:100:1"
+      "--modcaps=-mknod"
+    ];
+  };
   agentVars = vars // {
     user = vars.user // {
       name = "robot";
@@ -48,16 +76,7 @@ in
       "-Eztailpacking"
       "-Efragments"
     ];
-    # The only host share is journal data, enforced read-only by QEMU.
-    shares = [
-      {
-        source = nasaJournalSource;
-        mountPoint = "/var/log/nasa-journal";
-        tag = "nasa-journal";
-        proto = "9p";
-        readOnly = true;
-      }
-    ];
+    shares = hostShares;
     devices = [ ];
     interfaces = [
       {
@@ -83,6 +102,12 @@ in
     };
   };
   fileSystems."/var/log/nasa-journal".options = [ "ro" ];
+  fileSystems."/mnt/agent-work" = lib.mkIf (agentWorkSource != null) {
+    options = [
+      "nodev"
+      "nosuid"
+    ];
+  };
   # QEMU fw_cfg credentials arrive in PID 1, never in the Nix store.
   boot.initrd.kernelModules = [ "qemu_fw_cfg" ];
   # Concurrent agents and builds share the guest RAM. Give short memory spikes a
@@ -212,6 +237,7 @@ in
   networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ 22 ];
   users.users.robot = {
     isNormalUser = true;
+    uid = agentWorkUid;
     shell = pkgs.fish;
     extraGroups = [ "systemd-journal" ];
     openssh.authorizedKeys.keys = import ../../../users/authorized-keys.nix;
@@ -327,6 +353,7 @@ in
   };
   systemd.services.agent-ready = {
     description = "Report guest readiness and public SSH host key";
+    unitConfig.RequiresMountsFor = lib.optional (agentWorkSource != null) "/mnt/agent-work";
     wantedBy = [ "multi-user.target" ];
     requires = [
       "agent-github-identity.service"
@@ -347,6 +374,15 @@ in
       RemainAfterExit = true;
     };
     script = ''
+      ${lib.optionalString (agentWorkSource != null) ''
+        ${pkgs.util-linux}/bin/runuser -u robot -- ${pkgs.writeShellScript "agent-work-probe" ''
+          set -eu
+          probe=$(${pkgs.coreutils}/bin/mktemp /mnt/agent-work/.robots-health.XXXXXXXX)
+          trap '${pkgs.coreutils}/bin/rm -f -- "$probe"' EXIT
+          printf "robots\n" > "$probe"
+          test "$(${pkgs.coreutils}/bin/cat "$probe")" = robots
+        ''}
+      ''}
       printf 'ROBOTS_SSH_HOST_KEY %s\n' "$(cat /etc/ssh/ssh_host_ed25519_key.pub)" > /dev/ttyS0
       printf 'ROBOTS_READY\n' > /dev/ttyS0
     '';
@@ -354,16 +390,13 @@ in
   assertions = [
     {
       assertion =
-        builtins.length config.microvm.shares == 1
-        && builtins.all (
-          share:
-          share.source == nasaJournalSource
-          && share.mountPoint == "/var/log/nasa-journal"
-          && share.tag == "nasa-journal"
-          && share.proto == "9p"
-          && share.readOnly
-        ) config.microvm.shares;
-      message = "Agent VM may share only the read-only NASA journal.";
+        builtins.length config.microvm.shares == builtins.length hostShares
+        && lib.all lib.id (
+          lib.zipListsWith (
+            expected: actual: builtins.intersectAttrs expected actual == expected
+          ) hostShares config.microvm.shares
+        );
+      message = "Agent VM shares must match the read-only NASA journal and the configured Agent Work folder.";
     }
     {
       assertion = !(builtins.elem "wheel" config.users.users.robot.extraGroups);

@@ -9,6 +9,10 @@
   vars,
   ...
 }:
+let
+  agentWorkSource = "/Data/smb/Agent Work";
+  agentWorkUid = 1000;
+in
 {
   imports = [ ../../../modules/agent-network.nix ];
   services.agentNetwork.enable = true;
@@ -19,6 +23,8 @@
       gitBrokerEnabled = config.services.gitBroker.enable;
       nasaJournalSource = "/var/log/journal";
       inherit
+        agentWorkSource
+        agentWorkUid
         pkgs-unstable
         claude-code-pkg
         home-manager-stable
@@ -27,6 +33,23 @@
         ;
     };
     config = import ./agent-guest.nix;
+  };
+  systemd.services.agent-work-directory = {
+    description = "Prepare the Agent Work folder on the mounted Data pool";
+    requires = [ "zfs-mount.service" ];
+    after = [ "zfs-mount.service" ];
+    unitConfig.AssertPathIsMountPoint = "/Data/smb";
+    serviceConfig.Type = "oneshot";
+    script = ''
+      # VirtioFS preserves numeric ownership across NASA and robots.
+      test "$(id -u ${vars.user.name})" = ${toString agentWorkUid}
+      test ! -L ${lib.escapeShellArg agentWorkSource}
+      install -d -m 0700 -o ${vars.user.name} -g root ${lib.escapeShellArg agentWorkSource}
+    '';
+  };
+  systemd.services."microvm-virtiofsd@robots" = {
+    requires = [ "agent-work-directory.service" ];
+    after = [ "agent-work-directory.service" ];
   };
   # No bridged path into the trusted LAN. Assign the point-to-point address
   # after microvm creates the TAP, before the guest starts.

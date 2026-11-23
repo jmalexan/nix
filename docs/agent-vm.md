@@ -20,9 +20,14 @@ separate clones and Git branches to move changes between environments.
   It does not provide more physical RAM or guarantee sustained workloads fit.
 - `robot` account, no sudo, no trusted Nix daemon access. Shared development
   packages and Home Manager styling; a bot Git author identity.
-- The only host directory share is NASA’s persistent journal at
+- NASA’s persistent journal is shared at
   `/var/log/nasa-journal`, enforced read-only by QEMU and mounted read-only.
   `robot` can read it through `nasa-journalctl` without sudo or SSH.
+- The `Agent Work` folder inside NASA’s existing `smb` share is mounted
+  read/write at `/mnt/agent-work` on robots. VirtioFS exports that directory
+  alone and preserves the common numeric UID of the SMB owner and `robot`.
+  NASA’s deployment health check waits for the guest to read and write a
+  temporary file as `robot`.
 - No host Nix daemon, Docker socket, private
   SSH key, personal GitHub login, or personal Tailscale state is mounted/copied.
 - Owner public SSH keys permit inbound ordinary SSH as `robot`. Agent forwarding
