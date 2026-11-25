@@ -1,0 +1,146 @@
+diff --git a/containments/homescreen/package/contents/ui/launcher/LauncherHome.qml b/containments/homescreen/package/contents/ui/launcher/LauncherHome.qml
+index a4dfc54..b4d06d2 100644
+--- a/containments/homescreen/package/contents/ui/launcher/LauncherHome.qml
++++ b/containments/homescreen/package/contents/ui/launcher/LauncherHome.qml
+@@ -201,7 +201,7 @@ FocusScope {
+                 filterRowCallback: function(sourceRow, sourceParent) {
+                     const sourceIndex = sourceModel.index(sourceRow, 0, sourceParent);
+                     const storageId = sourceIndex.data(recentView.favoriteIdRole);
+-                    return !Plasmoid.applicationListModel.isApplicationBlocklisted(storageId);
++                    return Plasmoid.applicationListModel.isApplicationAllowed(storageId);
+                 }
+             }
+
+diff --git a/containments/homescreen/plugin/applicationlistmodel.cpp b/containments/homescreen/plugin/applicationlistmodel.cpp
+index 995e437..39d683e 100644
+--- a/containments/homescreen/plugin/applicationlistmodel.cpp
++++ b/containments/homescreen/plugin/applicationlistmodel.cpp
+@@ -29,17 +29,11 @@
+ #include <abstracttasksmodel.h>
+ #include <tasksmodel.h>
+
+-QStringList applicationsBlacklist()
++static QStringList applicationsAllowlist()
+ {
+-    auto cfg = KSharedConfig::openConfig(QStringLiteral("applications-blacklistrc"));
+-    auto blgroup = KConfigGroup(cfg, QStringLiteral("Applications"));
+-
+-    return blgroup.readEntry("blacklist", QStringList());
+-}
+-
+-bool isApplicationBlacklisted(const KService::Ptr &service, const QStringList &blacklist)
+-{
+-    return service && blacklist.contains(service->desktopEntryName());
++    const auto config = KSharedConfig::openConfig(QStringLiteral("applications-allowlistrc"));
++    const KConfigGroup group(config, QStringLiteral("Applications"));
++    return group.readEntry("allowlist", QStringList());
+ }
+
+ ApplicationListModel::ApplicationListModel(QObject *parent)
+@@ -74,15 +68,15 @@ void ApplicationListModel::sycocaDbChanged()
+
+ KService::List ApplicationListModel::queryApplications()
+ {
+-    const QStringList blacklist = applicationsBlacklist();
+-    auto filter = [blacklist](const KService::Ptr &service) -> bool {
++    const auto allowlist = applicationsAllowlist();
++    auto filter = [allowlist](const KService::Ptr &service) -> bool {
+         if (service->noDisplay()) {
+             return false;
+         }
+         if (!service->showOnCurrentPlatform()) {
+             return false;
+         }
+-        if (isApplicationBlacklisted(service, blacklist)) {
++        if (!allowlist.contains(service->desktopEntryName())) {
+             return false;
+         }
+         if (service->property<bool>("Terminal")) {
+@@ -262,13 +256,14 @@ void ApplicationListSearchModel::runApplication(const QString &storageId)
+     KActivities::ResourceInstance::notifyAccessed(QUrl(QStringLiteral("applications:") + service->storageId()), QStringLiteral("org.kde.plasma.kicker"));
+ }
+
+-bool ApplicationListSearchModel::isApplicationBlocklisted(const QString &storageId) const
++bool ApplicationListSearchModel::isApplicationAllowed(const QString &storageId) const
+ {
+     if (storageId.isEmpty()) {
+         return false;
+     }
+
+-    return isApplicationBlacklisted(KService::serviceByStorageId(storageId), applicationsBlacklist());
++    const auto service = KService::serviceByStorageId(storageId);
++    return service && applicationsAllowlist().contains(service->desktopEntryName());
+ }
+
+ bool ApplicationListSearchModel::isApplicationRunning(const QString &storageId) const
+diff --git a/containments/homescreen/plugin/applicationlistmodel.h b/containments/homescreen/plugin/applicationlistmodel.h
+index 25a1662..97f6165 100644
+--- a/containments/homescreen/plugin/applicationlistmodel.h
++++ b/containments/homescreen/plugin/applicationlistmodel.h
+@@ -13,9 +13,6 @@
+
+ #include <KService>
+
+-QStringList applicationsBlacklist();
+-bool isApplicationBlacklisted(const KService::Ptr &service, const QStringList &blacklist);
+-
+ namespace TaskManager
+ {
+ class TasksModel;
+@@ -83,7 +80,7 @@ public:
+     ApplicationListSearchModel(QObject *parent = nullptr, ApplicationListModel *model = nullptr);
+
+     Q_INVOKABLE void runApplication(const QString &storageId);
+-    Q_INVOKABLE bool isApplicationBlocklisted(const QString &storageId) const;
++    Q_INVOKABLE bool isApplicationAllowed(const QString &storageId) const;
+     Q_INVOKABLE bool isApplicationRunning(const QString &storageId) const;
+     Q_INVOKABLE void maximizeApplication(const QString &storageId);
+     Q_INVOKABLE QVariantMap itemMap(int index);
+diff --git a/envmanager/config.h b/envmanager/config.h
+index 1e776a7..6e0486c 100644
+--- a/envmanager/config.h
++++ b/envmanager/config.h
+@@ -14,16 +14,6 @@
+ #include <KConfigGroup>
+ #include <KSharedConfig>
+
+-// NOTE: we only write these entries if they are not already defined in the config
+-const QMap<QString, QMap<QString, QVariant>> APPLICATIONS_BLACKLIST_DEFAULT_SETTINGS = {
+-    {"Applications",
+-     {{"blacklist",
+-       "waydroid.com.android.calculator2,waydroid.com.android.camera2,waydroid.com.android.contacts,waydroid.com.android.deskclock,"
+-       "waydroid.com.android.documentsui,waydroid.com.android.gallery3d,waydroid.com.android.inputmethod.latin,"
+-       "waydroid.com.android.settings,waydroid.org.lineageos.eleven,waydroid.org.lineageos.etar,waydroid.org.lineageos.jelly,"
+-       "waydroid.org.lineageos.recorder,org.kde.drkonqi.coredump.gui,org.kde.kdeconnect.app,org.kde.kdeconnect.sms,systemsettings,"
+-       "plasma-bigscreen-swap-session"}}}};
+-
+ // plasma-bigscreen/kdeglobals
+ const QMap<QString, QMap<QString, QVariant>> KDEGLOBALS_DEFAULT_SETTINGS = {{"General", {{"BrowserApplication", "aura-browser"}}}};
+
+diff --git a/envmanager/settings.cpp b/envmanager/settings.cpp
+index 2372e37..448d618 100644
+--- a/envmanager/settings.cpp
++++ b/envmanager/settings.cpp
+@@ -23,7 +23,6 @@ const QString BIGSCREEN_KWINRC_FILE = u"plasma-bigscreen/kwinrc"_s;
+ const QString BIGSCREEN_KSMSERVERRC_FILE = u"plasma-bigscreen/ksmserverrc"_s;
+ const QString BIGSCREEN_KDEGLOBALS_FILE = u"plasma-bigscreen/kdeglobals"_s;
+ const QString BIGSCREEN_PLASMAKEYBOARDRC_FILE = u"plasma-bigscreen/plasmakeyboardrc"_s;
+-const QString BIGSCREEN_APPLICATIONS_BLACKLIST_FILE = u"plasma-bigscreen/applications-blacklistrc"_s;
+
+ Settings::Settings(QObject *parent)
+     : QObject{parent}
+@@ -64,14 +63,6 @@ void Settings::applyBigscreenConfiguration()
+         setOptionsImmutable(true, BIGSCREEN_KWINRC_FILE, getKwinrcSettings(m_bigscreenConfig));
+     }
+
+-    // applications-blacklistrc
+-    {
+-        // We don't set these options as immutable
+-        auto appBlacklistConfig = KSharedConfig::openConfig(BIGSCREEN_APPLICATIONS_BLACKLIST_FILE, KConfig::SimpleConfig);
+-        writeKeys(BIGSCREEN_APPLICATIONS_BLACKLIST_FILE, appBlacklistConfig, APPLICATIONS_BLACKLIST_DEFAULT_SETTINGS);
+-        appBlacklistConfig->sync();
+-    }
+-
+     // kdeglobals
+     {
+         setOptionsImmutable(false, BIGSCREEN_KDEGLOBALS_FILE, KDEGLOBALS_SETTINGS);

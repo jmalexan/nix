@@ -12,6 +12,10 @@
 }:
 
 let
+  plasmaBigscreen = pkgs.kdePackages.plasma-bigscreen.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./plasma-bigscreen-app-allowlist.patch ];
+  });
+
   # ── Idle timeouts ───────────────────────────────────────────────────────────
   # Screen off first, sleep a while later. Both clocks only advance while the
   # session is actually idle — see the inhibitor notes further down.
@@ -60,13 +64,13 @@ in
   services.desktopManager.plasma6.enable = true;
 
   # Register the Bigscreen Wayland session and make it the default.
-  services.displayManager.sessionPackages = [ pkgs.kdePackages.plasma-bigscreen ];
+  services.displayManager.sessionPackages = [ plasmaBigscreen ];
 
   # plasma-bigscreen's session launcher sources `plasma-bigscreen-common-env` by
   # bare name, so the package's bin/ must be on the session PATH. Registering it
   # only as a sessionPackage (above) doesn't do that — it must also be in
   # environment.systemPackages, otherwise the session dies to a black screen.
-  environment.systemPackages = [ pkgs.kdePackages.plasma-bigscreen ];
+  environment.systemPackages = [ plasmaBigscreen ];
 
   # Bigscreen's homescreen imports QML modules that its nixpkgs package doesn't
   # pull in itself. Each missing `module "..." is not installed` maps to a package:
