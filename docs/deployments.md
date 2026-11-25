@@ -302,9 +302,13 @@ and bot-authentication tests. Comparing this branch with GitHub main selects
 only NASA. The existing local App UI and connection-gate commits are included in
 the release branch so a later GitHub deployment preserves what is already live.
 
-## Staged Pi-hole host
+## Pi-hole pull deployment
 
-`nixosConfigurations.pihole` is evaluated by the planner but is intentionally
-excluded from production selection, including `--force all`, until SD-card
-cutover and deployment access are validated. Historical bases without this host
-remain valid. See [the migration guide](pihole.md) for installation and enrollment.
+`nixosConfigurations.pihole` is evaluated by the planner but excluded from the
+GitHub Actions deployment matrix, including `--force all`. The Pi instead runs
+`nixos-upgrade.service` every 15 minutes to build and activate protected main
+locally, with pinned inputs and no automatic reboot. The normal owner approval
+and PR checks still gate main; the timer does not wait for the post-merge run.
+Bootstrap once after merging as described in [the Pi guide](pihole.md).
+NASA/HTPC deployment behavior is unchanged. Pi status, retry, pause, and rollback
+commands are documented in that guide; it does not report GitHub deployments.

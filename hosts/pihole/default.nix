@@ -10,6 +10,7 @@
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
     ../../modules/linux-server.nix
+    ../../modules/rex.nix
   ];
 
   nixpkgs.hostPlatform = "aarch64-linux";
@@ -31,6 +32,11 @@
     "1.0.0.1"
   ];
   services.resolved.enable = false;
+  # Rex uses Tailscale Serve. Keep this DNS appliance's resolver independent.
+  services.tailscale = {
+    openFirewall = true;
+    extraSetFlags = [ "--accept-dns=false" ];
+  };
   time.timeZone = vars.timeZone;
 
   users.users.${vars.user.name} = {
@@ -49,6 +55,23 @@
     pkgs.git
     pkgs.dig
   ];
+
+  # Pull approved main revisions locally; this host needs no CI SSH access.
+  system.autoUpgrade = {
+    enable = true;
+    flake = "${vars.repository}/main#pihole";
+    upgrade = false; # Honour flake.lock; do not independently update inputs.
+    operation = "switch";
+    dates = "*:0/15";
+    randomizedDelaySec = "2min";
+    allowReboot = false;
+    flags = [
+      "--max-jobs"
+      "1"
+      "--cores"
+      "2"
+    ];
+  };
 
   services.pihole-ftl = {
     enable = true;

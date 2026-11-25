@@ -265,10 +265,10 @@
         ];
       };
 
-      # Staged DNS appliance: validate now, enroll in CI deployment after cutover.
+      # DNS appliance: CI validates it; its local timer deploys protected main.
       nixosConfigurations.pihole = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
-        specialArgs = { inherit vars; };
+        specialArgs = { inherit vars rex; };
         modules = [ ./hosts/pihole/default.nix ];
       };
 
