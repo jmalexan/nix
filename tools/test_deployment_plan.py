@@ -28,13 +28,23 @@ class DeploymentPlanTests(unittest.TestCase):
     def test_manual_retry_can_target_unchanged_host(self):
         same = {"nasa": "a", "htpc": "b"}
         self.assertEqual(plan.select_hosts(same, same, "nasa"), ["nasa"])
-        self.assertEqual(plan.select_hosts(same, same, "all"), ["nasa", "htpc"])
+        self.assertEqual(
+            plan.select_hosts(same, same, "all"), ["nasa", "htpc", "pihole"]
+        )
         with self.assertRaises(ValueError):
             plan.select_hosts(same, same, "other")
 
-    def test_initial_deployment_includes_both_hosts(self):
+    def test_pihole_only_change_does_not_touch_other_hosts(self):
+        before = {"nasa": "a", "htpc": "b", "pihole": "c"}
         self.assertEqual(
-            plan.select_hosts({}, {"nasa": "a", "htpc": "b"}), ["nasa", "htpc"]
+            plan.select_hosts(before, {**before, "pihole": "d"}), ["pihole"]
+        )
+        self.assertEqual(plan.select_hosts(before, before, "pihole"), ["pihole"])
+
+    def test_initial_deployment_includes_all_hosts(self):
+        self.assertEqual(
+            plan.select_hosts({}, {"nasa": "a", "htpc": "b", "pihole": "c"}),
+            ["nasa", "htpc", "pihole"],
         )
 
 

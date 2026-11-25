@@ -10,6 +10,7 @@
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
     ../../modules/linux-server.nix
+    ../../modules/ssh-deploy.nix
     ../../modules/rex.nix
   ];
 
@@ -54,24 +55,10 @@
   environment.systemPackages = [
     pkgs.git
     pkgs.dig
+    (pkgs.callPackage ./health.nix {
+      ftl = config.services.pihole-ftl.package;
+    })
   ];
-
-  # Pull approved main revisions locally; this host needs no CI SSH access.
-  system.autoUpgrade = {
-    enable = true;
-    flake = "${vars.repository}/main#pihole";
-    upgrade = false; # Honour flake.lock; do not independently update inputs.
-    operation = "switch";
-    dates = "minutely";
-    randomizedDelaySec = "0";
-    allowReboot = false;
-    flags = [
-      "--max-jobs"
-      "1"
-      "--cores"
-      "2"
-    ];
-  };
 
   services.pihole-ftl = {
     enable = true;

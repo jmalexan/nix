@@ -302,13 +302,18 @@ and bot-authentication tests. Comparing this branch with GitHub main selects
 only NASA. The existing local App UI and connection-gate commits are included in
 the release branch so a later GitHub deployment preserves what is already live.
 
-## Pi-hole pull deployment
+## Pi-hole deployment
 
-`nixosConfigurations.pihole` is evaluated by the planner but excluded from the
-GitHub Actions deployment matrix, including `--force all`. The Pi instead runs
-`nixos-upgrade.service` every minute to build and activate protected main
-locally, with pinned inputs and no automatic reboot. The normal owner approval
-and PR checks still gate main; the timer does not wait for the post-merge run.
-Bootstrap once after merging as described in [the Pi guide](pihole.md).
-NASA/HTPC deployment behavior is unchanged. Pi status, retry, pause, and rollback
-commands are documented in that guide; it does not report GitHub deployments.
+Pi-hole participates in the same derivation-based host selection and GitHub
+Actions release workflow as NASA and HTPC. `--force all` includes all three;
+manual workflow dispatch can target `pihole`. Historical base revisions without
+the Pi configuration remain comparable, but current heads must define all hosts.
+
+The runner builds the exact merged revision on the ARM Pi using the existing
+production SSH identity and Tailscale connection. Its public SSH host key is
+pinned in `hosts/pihole/ssh-known-hosts`. After activation, `sudo pihole-health`
+checks external/local/TCP DNS, populated gravity data, and the refresh timer.
+The first deployment needs one-time bootstrap of the deployment account and
+Tailscale. Complete [Pi enrollment](pihole.md#one-time-bootstrap) before merging
+the enrollment PR; if bootstrap is incomplete, finish it and retry main. The Pi
+has no automatic reboot or polling-based deployment timer.

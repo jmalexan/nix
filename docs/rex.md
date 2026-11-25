@@ -55,7 +55,7 @@ NAS web services. Do not manually replace its Serve mapping. No public
 HTTP listener or anonymous account access is enabled.
 
 For Pi-hole bootstrap and Tailscale enrollment, see [the Pi guide](pihole.md#rex-access).
-It deploys merged changes through its own local updater.
+It deploys merged changes through the same GitHub Actions workflow.
 
 ## Check service health
 

@@ -98,62 +98,77 @@ The raw Debian backup can restore the original card if recovery is needed.
 
 ## Automatic deployment
 
-The Pi checks the repository's protected `main` branch every minute, without
-random delay, using NixOS's `nixos-upgrade.service`. It builds and
-switches locally with one build job and two cores, preserving `flake.lock`.
-GitHub's existing owner approval and required PR checks control what reaches
-main. The owner exemption still applies. It follows main without additionally
-waiting for the post-merge GitHub workflow; PR checks remain the merge gate.
+Pi-hole uses the same GitHub PR release workflow as NASA and HTPC. Once bootstrap
+is complete, merging approved changes triggers deployment when the Pi's system
+derivation changes. There is no polling timer or polling delay. CI joins the
+existing tailnet as `tag:ci`, connects as `deploy@pihole`, and builds/activates the
+exact merged revision on the ARM Pi with one build job and two cores. Required
+validation and runner scheduling/build time still apply.
 
-After this configuration is merged, bootstrap it once on the Pi:
+CI then runs `sudo pihole-health`, which checks FTL, upstream DNS, every declared
+local record, TCP DNS, a nonempty gravity database, and the weekly refresh timer.
+A health failure fails the deployment job; there is no automatic rollback.
+DNS configuration/service changes can briefly interrupt DNS. Deployments do not
+automatically reboot; kernel and firmware changes may need a manual reboot.
+PR checks do not connect to the Pi or deploy branch changes.
 
-```sh
-sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix/main#pihole
-systemctl list-timers nixos-upgrade.timer
-```
+### One-time bootstrap
 
-After that, changing `hosts/pihole/records.nix` and merging the approved PR is
-sufficient: the next timer run applies it (plus build time). The updater can
-apply any Pi configuration change, not only DNS records. It does not reboot
-automatically; new kernels/boot configuration take effect at a manual reboot.
-Unchanged configurations reuse the store and do not restart unchanged services.
-Actual DNS configuration updates can briefly interrupt DNS.
-
-To trigger a check immediately or inspect its result:
+Complete these steps before merging/enabling auto-merge for the enrollment PR.
+The already-running image lacks both the CI deployment account and Tailscale.
+After reviewing/approving the enrollment changes, install their exact branch
+commit locally (replace COMMIT with the full approved SHA):
 
 ```sh
-sudo systemctl start nixos-upgrade.service
-systemctl show nixos-upgrade.service -p Result -p ExecMainStatus
-sudo journalctl -u nixos-upgrade.service -b --no-pager -n 80
+sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix/COMMIT#pihole
 ```
 
-A failed fetch/build leaves the running system in place and retries on the next
-timer run. Activation failures may leave partial changes; inspect the journal.
-The service does not perform automatic health rollback, and a successful rebuild
-is not proof of working DNS. Verify important releases with `dig` from a LAN
-client and the FTL/gravity journals. The blocklist refresh is a separate weekly
-`pihole-gravity.timer` job.
+Then enroll the Pi as described under Rex access below. If the rebuild waits for
+`rex-tailscale-serve`, enroll from a second SSH session. Ensure `tailscale status`
+shows the MagicDNS host name `pihole`; if a duplicate name adds a suffix, resolve
+the name conflict or adjust the workflow target before merging. The existing
+example tailnet policy allows `tag:ci` access, but confirm the live policy permits
+CI TCP 22 and your personal Rex connection. Do not broaden agent access.
 
-To pause updates for recovery:
+The owner supplied the installed Pi's Ed25519 public host key, pinned in
+`hosts/pihole/ssh-known-hosts`. CI appends it to the existing known-hosts file
+only for Pi deployments, with strict host-key checking. No GitHub secret changes
+are needed. If the Pi is reflashed, verify its new key through a trusted local
+connection and update that file in a reviewed PR; never bypass checking.
+
+The deployment public key is the shared key from `modules/ssh-deploy.nix`;
+its private half stays in the existing production GitHub environment. The
+`deploy` account has wheel access, matching the other managed hosts. Do not copy
+the private key onto the Pi or the agent VM. The owner's SSH account is unchanged.
+
+After bootstrap, merge the enrollment PR and watch **Actions → Check → Deploy
+pihole**. The first successful deployment verifies end-to-end CI access. If a
+merge races bootstrap, its deployment may fail until setup is complete; then
+retry using **Check → Run workflow → host: pihole** on main. Subsequent record
+edits need only the normal PR approval/merge. `all` now includes Pi-hole.
+
+### Checks and recovery
+
+On the Pi:
 
 ```sh
-sudo systemctl stop nixos-upgrade.timer
-sudo systemctl stop nixos-upgrade.service
-sudo nixos-rebuild switch --rollback
+sudo pihole-health
+sudo journalctl -u pihole-ftl -u pihole-ftl-setup -b --no-pager -n 80
+systemctl list-timers pihole-gravity.timer
 ```
 
-If the prior generation also enables the timer, stop it again after rollback.
-Fix/revert the repository before resuming; otherwise main will be reapplied.
-The timer can start again after reboot; disable `system.autoUpgrade.enable` in
-the Nix configuration if you need a lasting pause. NixOS rollback does not
-restore database contents or undo schema migrations.
+For immediate manual reconciliation, use an exact reviewed main commit:
 
-NASA/HTPC still use push deployments through GitHub Actions. The planner validates
-the Pi but excludes it from that deployment matrix (including manual `all`),
-since its local timer performs deployment. Deployment needs no CI account,
-private key, or host-key secret. Tailscale is enabled separately for Rex;
-deployment does not depend on its connection.
-Deployment status for the Pi is local in systemd, not the GitHub deployment UI.
+```sh
+sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix/COMMIT#pihole
+```
+
+A failed fetch/build leaves the running system in place. Activation failures
+can leave partial changes; inspect logs before retrying. To recover a bad release,
+finish/cancel any queued CI release, then run `sudo nixos-rebuild switch
+--rollback`. Fix/revert main before the next deployment. NixOS rollback does not
+restore database contents or undo schema migrations. Blocklist content refresh
+is separate from deployment and runs weekly through `pihole-gravity.timer`.
 
 ## Rex access
 

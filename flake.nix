@@ -89,9 +89,9 @@
         name = "package-diff";
         runtimeInputs = [ (stablePkgs linuxSystem).nix ];
         text = ''
-          host="''${1:?usage: package-diff <nasa|htpc>}"
+          host="''${1:?usage: package-diff <nasa|htpc|pihole>}"
           case "$host" in
-            nasa | htpc) ;;
+            nasa | htpc | pihole) ;;
             *) echo "unknown NixOS host: $host" >&2; exit 2 ;;
           esac
 
@@ -227,6 +227,7 @@
               '';
         }
         // nixpkgs.lib.optionalAttrs (system == linuxSystem) {
+          pihole-health = import ./tests/pihole-health.nix { inherit pkgs; };
           approval-ssh-gate = import ./apps/microapps/tests/gate-vm.nix { inherit pkgs; };
           agent-network = import ./tests/agent-network.nix { inherit pkgs; };
           robots-backup = import ./tests/robots-backup.nix { inherit pkgs; };
@@ -265,7 +266,7 @@
         ];
       };
 
-      # DNS appliance: CI validates it; its local timer deploys protected main.
+      # DNS appliance: CI builds and activates the reviewed revision on the Pi.
       nixosConfigurations.pihole = nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
         specialArgs = { inherit vars rex; };
