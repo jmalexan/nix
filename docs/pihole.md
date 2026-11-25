@@ -107,6 +107,9 @@ validation and runner scheduling/build time still apply.
 
 CI then runs `sudo pihole-health`, which checks FTL, upstream DNS, every declared
 local record, TCP DNS, a nonempty gravity database, and the weekly refresh timer.
+DNS checks use 10.0.1.20 rather than loopback: FTL answers its web hostname with
+the address of the queried interface, so pihole.lan resolves to 127.0.0.1 over
+loopback and 10.0.1.20 over the LAN.
 A health failure fails the deployment job; there is no automatic rollback.
 DNS configuration/service changes can briefly interrupt DNS. Deployments do not
 automatically reboot; kernel and firmware changes may need a manual reboot.

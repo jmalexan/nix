@@ -8,6 +8,9 @@ let
   fakeDig = pkgs.writeShellScriptBin "dig" ''
     if [[ "''${FAIL_DNS:-0}" = 1 ]]; then exit 1; fi
     if [[ "''${FAIL_TCP:-0}" = 1 && "$*" = *+tcp* ]]; then exit 1; fi
+    # Reproduce FTL's special answer for its own hostname over loopback.
+    if [[ "$*" = *"@127.0.0.1 pihole.lan"* ]]; then echo 127.0.0.1; exit 0; fi
+    if [[ "$*" != *"@10.0.1.20"* ]]; then exit 1; fi
     for argument in "$@"; do
       case "$argument" in
         example.com) echo 1.1.1.1; exit 0 ;;
@@ -34,6 +37,7 @@ let
   };
 in
 pkgs.runCommand "pihole-health-tests" { } ''
+  test "$(${fakeDig}/bin/dig @127.0.0.1 pihole.lan A)" = 127.0.0.1
   ${health}/bin/pihole-health
   for failure in FAIL_DNS=1 FAIL_TCP=1 FAIL_RECORD=1 FAIL_SERVICE=1 GRAVITY_COUNT=0 GRAVITY_COUNT=invalid; do
     if env "$failure" ${health}/bin/pihole-health; then
