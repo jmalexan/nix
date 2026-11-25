@@ -344,12 +344,8 @@ in
   '';
 
   # ── What shows up on the Bigscreen home grid ────────────────────────────────
-  # Until now this was whatever .desktop files the installed packages happened
-  # to ship. Two levers, both declarative:
-  #
-  # 1. A launcher for the gamescope-wrapped Moonlight that apps.nix only
-  #    described in a comment. Moonlight renders through SDL, which does not
-  #    negotiate Wayland colour management, so its window is an SDR window
+  # The gamescope-wrapped Moonlight launcher enables HDR on the TV. Moonlight
+  #    renders through SDL without Wayland colour management, so its window is SDR
   #    whatever the stream carries; gamescope is a nested compositor that does
   #    speak the protocol and hands KWin a correctly tagged HDR surface on
   #    Moonlight's behalf. (mpv needs none of this — vo=gpu-next talks colour
@@ -399,7 +395,13 @@ in
     name = "Music Assistant Party";
     comment = "Open the party queue and guest QR code";
     exec = ''${pkgs.firefox}/bin/firefox --kiosk --new-window "https://musicassistant.nasa.jmalexan.com/#/party?frameless"'';
-    icon = "multimedia-player";
+    icon = toString (
+      pkgs.fetchurl {
+        name = "music-assistant.svg";
+        url = "https://raw.githubusercontent.com/music-assistant/frontend/14c6d472d1ed9924b3fd0e75b1642c8d4e54f504/public/favicon.svg";
+        hash = "sha256-ML5MBb4Aau0BAJ2zakC2Bj9PAiTdej64Z67ITcdPP5Y=";
+      }
+    );
     terminal = false;
     categories = [
       "AudioVideo"
@@ -407,97 +409,15 @@ in
     ];
   };
 
-  # 2. Hide the tiles that are noise on a TV. This is Bigscreen's own filter,
-  #    not a NoDisplay override: its app model reads ~/.config/applications-
-  #    blacklistrc and drops any service whose desktop entry name is listed
-  #    (applicationlistmodel.cpp, applicationsBlacklist). That keeps the effect
-  #    to the 10-foot shell — everything here is still launchable from a normal
-  #    Plasma session, which desktop.nix keeps available as a fallback.
-  #
-  #    Names are desktop file basenames without the extension, checked against
-  #    the real listing on the box:
-  #      ls /run/current-system/sw/share/applications
-  #    An entry that isn't installed is simply ignored, so this is safe to
-  #    over-specify — but everything below is actually present. Bigscreen
-  #    already drops NoDisplay entries, Terminal=true entries and non-
-  #    applications on its own, so the ~90 kcm_*, akonadi_* and daemon files in
-  #    that directory need no help from us; what is left is the desktop apps
-  #    Plasma 6 drags in, none of which are drivable from a remote.
-  #
-  #    kdeconnect is here because programs.kdeconnect.enable exists only to
-  #    satisfy a QML import in Bigscreen's homescreen (desktop.nix) — nobody is
-  #    pairing a phone to send SMS from the sofa. mpv/umpv are hidden because a
-  #    tile that opens an idle player with no file is useless; mpv is still the
-  #    handler for video files via xdg.mimeApps above. The stock Moonlight tile
-  #    goes because the gamescope/HDR entry above replaces it — drop that line
-  #    to get both back.
-  #
-  #    Deliberately left visible: VacuumTube, the Moonlight (HDR) entry above,
-  #    and Bigscreen's own org.kde.plasma.keyboard (the on-screen keyboard the
-  #    search field needs).
-  xdg.configFile."applications-blacklistrc".text = ''
+  # Bigscreen uses desktop entry names without the .desktop suffix.
+  xdg.configFile."applications-allowlistrc".text = ''
     [Applications]
-    blacklist=${
+    allowlist=${
       lib.concatStringsSep "," [
-        # Bolted on for a QML import, not for use.
-        "org.kde.kdeconnect.app"
-        "org.kde.kdeconnect.sms"
-        "org.kde.kdeconnect.nonplasma"
-        # Bigscreen's own extras. plasma-bigscreen-swap-session is the "Plasma
-        # Bigscreen" tile — it switches *into* this session, so it is a no-op from
-        # inside it (an earlier revision of this list kept it, on the mistaken
-        # reading that it switched out to the desktop; that direction is SDDM's
-        # job). uvcviewer is a webcam viewer for a box with no webcam.
-        "plasma-bigscreen-swap-session"
-        "org.kde.plasma.bigscreen.uvcviewer"
-        # Browser, off for now — re-enable by dropping this line.
-        "firefox"
-        # Players/viewers with no job on the home grid.
-        "mpv"
-        "umpv"
-        "org.kde.elisa"
-        "org.kde.gwenview"
-        "org.kde.okular"
-        "com.moonlight_stream.Moonlight"
-        # Desktop furniture Plasma 6 ships.
-        "org.kde.dolphin"
-        "org.kde.konsole"
-        "org.kde.kate"
-        "org.kde.kwrite"
-        "org.kde.ark"
-        "org.kde.spectacle"
-        "org.kde.discover"
-        "org.kde.khelpcenter"
-        "org.kde.kmenuedit"
-        "org.kde.knetattach"
-        "org.kde.kwalletmanager"
-        "org.kde.kcolorschemeeditor"
-        "org.kde.kfontview"
-        "org.kde.plasma.emojier"
-        "org.kde.plasma-interactiveconsole"
-        "org.kde.plasmawindowed"
-        "org.kde.qrca"
-        "nixos-manual"
-        # Post-mortem UI for crashed apps ("Crashed Processes Viewer"). The crash
-        # handler still runs; this is only its browser, which is a laptop tool.
-        "org.kde.drkonqi.coredump.gui"
-        # Settings front-ends. Bigscreen has its own, on the remote's Settings
-        # button (kcm_mediacenter_* are the pages it shows).
-        "systemsettings"
-        "kdesystemsettings"
-        # "Manage Printing" — CUPS ships its own desktop entry pointing at the
-        # web UI on :631 (print-manager's two are both NoDisplay, so they never
-        # reach the grid). Confirmed as cups-*/share/applications/cups.desktop:
-        # note that this arrives on XDG_DATA_DIRS as a bare store path rather
-        # than through /run/current-system/sw, which is why searching the system
-        # profile alone does not turn it up. To locate an entry by its visible
-        # name, take the search path from the running session instead:
-        #   systemctl --user show-environment | grep ^XDG_DATA_DIRS=
-        "cups"
-        "org.kde.kinfocenter"
-        "org.kde.plasma-systemmonitor"
-        "breezestyleconfig"
-        "kwincompositing"
+        "VacuumTube"
+        "moonlight-hdr"
+        "music-assistant-party"
+        "org.kde.plasma.keyboard"
       ]
     }
   '';
