@@ -395,6 +395,18 @@ in
     ];
   };
 
+  xdg.desktopEntries.music-assistant-party = {
+    name = "Music Assistant Party";
+    comment = "Open the party queue and guest QR code";
+    exec = "${pkgs.firefox}/bin/firefox --new-window https://musicassistant.nasa.jmalexan.com/#/party";
+    icon = "multimedia-player";
+    terminal = false;
+    categories = [
+      "AudioVideo"
+      "Audio"
+    ];
+  };
+
   # 2. Hide the tiles that are noise on a TV. This is Bigscreen's own filter,
   #    not a NoDisplay override: its app model reads ~/.config/applications-
   #    blacklistrc and drops any service whose desktop entry name is listed
