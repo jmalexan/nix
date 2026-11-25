@@ -395,11 +395,13 @@ in
     name = "Music Assistant Party";
     comment = "Open the party queue and guest QR code";
     exec = ''${pkgs.firefox}/bin/firefox --kiosk --new-window "https://musicassistant.nasa.jmalexan.com/#/party?frameless"'';
-    icon = toString (pkgs.fetchurl {
-      name = "music-assistant.svg";
-      url = "https://raw.githubusercontent.com/music-assistant/frontend/14c6d472d1ed9924b3fd0e75b1642c8d4e54f504/public/favicon.svg";
-      hash = "sha256-ML5MBb4Aau0BAJ2zakC2Bj9PAiTdej64Z67ITcdPP5Y=";
-    });
+    icon = toString (
+      pkgs.fetchurl {
+        name = "music-assistant.svg";
+        url = "https://raw.githubusercontent.com/music-assistant/frontend/14c6d472d1ed9924b3fd0e75b1642c8d4e54f504/public/favicon.svg";
+        hash = "sha256-ML5MBb4Aau0BAJ2zakC2Bj9PAiTdej64Z67ITcdPP5Y=";
+      }
+    );
     terminal = false;
     categories = [
       "AudioVideo"
@@ -410,12 +412,14 @@ in
   # Bigscreen uses desktop entry names without the .desktop suffix.
   xdg.configFile."applications-allowlistrc".text = ''
     [Applications]
-    allowlist=${lib.concatStringsSep "," [
-      "VacuumTube"
-      "moonlight-hdr"
-      "music-assistant-party"
-      "org.kde.plasma.keyboard"
-    ]}
+    allowlist=${
+      lib.concatStringsSep "," [
+        "VacuumTube"
+        "moonlight-hdr"
+        "music-assistant-party"
+        "org.kde.plasma.keyboard"
+      ]
+    }
   '';
 
   # ── Default applications ────────────────────────────────────────────────────
