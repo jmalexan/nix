@@ -398,7 +398,7 @@ in
   xdg.desktopEntries.music-assistant-party = {
     name = "Music Assistant Party";
     comment = "Open the party queue and guest QR code";
-    exec = ''${pkgs.firefox}/bin/firefox --new-window "https://musicassistant.nasa.jmalexan.com/#/party"'';
+    exec = ''${pkgs.firefox}/bin/firefox --kiosk --new-window "https://musicassistant.nasa.jmalexan.com/#/party?frameless"'';
     icon = "multimedia-player";
     terminal = false;
     categories = [
