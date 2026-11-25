@@ -302,9 +302,18 @@ and bot-authentication tests. Comparing this branch with GitHub main selects
 only NASA. The existing local App UI and connection-gate commits are included in
 the release branch so a later GitHub deployment preserves what is already live.
 
-## Staged Pi-hole host
+## Pi-hole deployment
 
-`nixosConfigurations.pihole` is evaluated by the planner but is intentionally
-excluded from production selection, including `--force all`, until SD-card
-cutover and deployment access are validated. Historical bases without this host
-remain valid. See [the migration guide](pihole.md) for installation and enrollment.
+Pi-hole participates in the same derivation-based host selection and GitHub
+Actions release workflow as NASA and HTPC. `--force all` includes all three;
+manual workflow dispatch can target `pihole`. Historical base revisions without
+the Pi configuration remain comparable, but current heads must define all hosts.
+
+The runner builds the exact merged revision on the ARM Pi using the existing
+production SSH identity and Tailscale connection. Its public SSH host key is
+pinned in `hosts/pihole/ssh-known-hosts`. After activation, `sudo pihole-health`
+checks external/local/TCP DNS, populated gravity data, and the refresh timer.
+The first deployment needs one-time bootstrap of the deployment account and
+Tailscale. Complete [Pi enrollment](pihole.md#one-time-bootstrap) before merging
+the enrollment PR; if bootstrap is incomplete, finish it and retry main. The Pi
+has no automatic reboot or polling-based deployment timer.

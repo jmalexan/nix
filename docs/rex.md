@@ -1,7 +1,7 @@
 # Rex remote terminals
 
 `modules/rex.nix` enables the official Rex NixOS login server on `nasa`,
-`htpc`, and the `home` container. Sessions run as `jmalexan`; only the
+`htpc`, `pihole`, and the `home` container. Sessions run as `jmalexan`; only the
 Tailscale identity in `vars.user.tailscaleLogin` can access that account.
 The login server uses PAM and preserves account sessions when it restarts.
 
@@ -21,6 +21,7 @@ Host…** and enter each address:
 | NAS | `https://nasa.tailf18bf1.ts.net:7297` |
 | Development container | `https://home.tailf18bf1.ts.net:7297` |
 | Media PC | `https://htpc.tailf18bf1.ts.net:7297` |
+| Pi-hole | `https://pihole.tailf18bf1.ts.net:7297` |
 
 The single allowed account is selected automatically. The HTPC must be awake;
 run `wake-htpc` on the NAS if needed. CLI host registrations do not sync to
@@ -52,6 +53,9 @@ MagicDNS and HTTPS certificates must be enabled for the tailnet. The module
 manages Tailscale Serve on port 7297 and leaves port 443 available for the
 NAS web services. Do not manually replace its Serve mapping. No public
 HTTP listener or anonymous account access is enabled.
+
+For Pi-hole bootstrap and Tailscale enrollment, see [the Pi guide](pihole.md#rex-access).
+It deploys merged changes through the same GitHub Actions workflow.
 
 ## Check service health
 

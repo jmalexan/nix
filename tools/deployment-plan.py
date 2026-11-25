@@ -13,7 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 
-HOSTS = ("nasa", "htpc")
+HOSTS = ("nasa", "htpc", "pihole")
 VM_CHECKS = (
     "approval-ssh-gate",
     "agent-network",
@@ -41,22 +41,24 @@ def derivations(repo, commit, directory, validate=False):
     subprocess.run(
         ["tar", "-x", "-C", str(directory)], input=archive.stdout, check=True
     )
-    # Evaluate both hosts in one process so they can share imported Nix modules.
+    # Evaluate all hosts together. Historical bases may predate the Pi host.
     expression = (
         "flake: let configs = flake.nixosConfigurations; in "
         + 'assert builtins.filter (name: name != "pihole") (builtins.attrNames configs) == '
         + "[ "
-        + " ".join(json.dumps(host) for host in sorted(HOSTS))
+        + " ".join(json.dumps(host) for host in sorted(set(HOSTS) - {"pihole"}))
         + " ]"
-        + "; builtins.deepSeq (if configs ? pihole then "
-        + 'assert configs.pihole.config.system.build.toplevel.type == "derivation"; '
-        + "configs.pihole.config.system.build.toplevel.drvPath else null) { hosts = { "
+        + "; { hosts = { "
         + " ".join(
             f"{host} = assert configs.{host}.config.system.build.toplevel.type "
             f'== "derivation"; configs.{host}.config.system.build.toplevel.drvPath;'
             for host in HOSTS
+            if host != "pihole"
         )
-        + " }; checks = builtins.mapAttrs (_: drv: "
+        + " } // (if configs ? pihole then { pihole = "
+        + 'assert configs.pihole.config.system.build.toplevel.type == "derivation"; '
+        + "configs.pihole.config.system.build.toplevel.drvPath; } else {}); "
+        + "checks = builtins.mapAttrs (_: drv: "
         + 'assert drv.type == "derivation"; drv.drvPath) flake.checks.x86_64-linux; }'
     )
     # A temporary wrapper exposes metadata under lib without altering the source
@@ -134,7 +136,10 @@ def valid_record(record, tree, context, require_vm_checks=True):
         record.get("tree") == tree
         and record.get("context") == context
         and isinstance(values, dict)
-        and set(values) == set(HOSTS)
+        and (
+            set(values) == set(HOSTS)
+            or (not require_vm_checks and set(values) == {"nasa", "htpc"})
+        )
         and isinstance(checks, dict)
         and (not require_vm_checks or set(VM_CHECKS) <= set(checks))
         and all(isinstance(name, str) and CHECK_NAME.fullmatch(name) for name in checks)
@@ -252,7 +257,7 @@ def select_hosts(before, after, force=None):
         if force not in HOSTS:
             raise ValueError("Unknown deployment host")
         return [force]
-    return [host for host in HOSTS if before.get(host) != after[host]]
+    return [host for host in HOSTS if before.get(host) != after.get(host)]
 
 
 def select_vm_checks(before, after, enabled=False):

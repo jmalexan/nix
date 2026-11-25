@@ -96,22 +96,111 @@ Both flashed images initially share filesystem identifiers; do not attach both
 cards to the Pi at once. DNS availability still depends on this single device.
 The raw Debian backup can restore the original card if recovery is needed.
 
-## Updates and deployment enrollment
+## Automatic deployment
 
-After merging and completing cutover, update manually from an authorized client:
+Pi-hole uses the same GitHub PR release workflow as NASA and HTPC. Once bootstrap
+is complete, merging approved changes triggers deployment when the Pi's system
+derivation changes. There is no polling timer or polling delay. CI joins the
+existing tailnet as `tag:ci`, connects as `deploy@pihole`, and builds/activates the
+exact merged revision on the ARM Pi with one build job and two cores. Required
+validation and runner scheduling/build time still apply.
+
+CI then runs `sudo pihole-health`, which checks FTL, upstream DNS, every declared
+local record, TCP DNS, a nonempty gravity database, and the weekly refresh timer.
+DNS checks use 10.0.1.20 rather than loopback: FTL answers its web hostname with
+the address of the queried interface, so pihole.lan resolves to 127.0.0.1 over
+loopback and 10.0.1.20 over the LAN.
+A health failure fails the deployment job; there is no automatic rollback.
+DNS configuration/service changes can briefly interrupt DNS. Deployments do not
+automatically reboot; kernel and firmware changes may need a manual reboot.
+PR checks do not connect to the Pi or deploy branch changes.
+
+### One-time bootstrap
+
+Complete these steps before merging/enabling auto-merge for the enrollment PR.
+The already-running image lacks both the CI deployment account and Tailscale.
+After reviewing/approving the enrollment changes, install their exact branch
+commit locally (replace COMMIT with the full approved SHA):
 
 ```sh
-ssh jmalexan@10.0.1.20
-sudo nixos-rebuild switch --flake github:jmalexan/nix#pihole
+sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix/COMMIT#pihole
 ```
 
-Use an exact reviewed commit in the flake URL for reproducible releases.
-`sudo nixos-rebuild switch --rollback` restores the previous system generation;
-retain backups for state and schema migrations. DNS can briefly stop on updates.
+Then enroll the Pi as described under Rex access below. If the rebuild waits for
+`rex-tailscale-serve`, enroll from a second SSH session. Ensure `tailscale status`
+shows the MagicDNS host name `pihole`; if a duplicate name adds a suffix, resolve
+the name conflict or adjust the workflow target before merging. The existing
+example tailnet policy allows `tag:ci` access, but confirm the live policy permits
+CI TCP 22 and your personal Rex connection. Do not broaden agent access.
 
-CI evaluates the Pi configuration but does not deploy to it yet. NASA/HTPC host
-selection stays unchanged, including manual `all` reconciliation. The Pi has no
-CI deploy account or Tailscale enrollment. After physical boot validation, a
-follow-up PR can enroll it: provision the approved network route, deploy identity,
-verified SSH host key, add it to deployment selection, and add DNS health checks.
-Do not enable deployment before these prerequisites exist.
+The owner supplied the installed Pi's Ed25519 public host key, pinned in
+`hosts/pihole/ssh-known-hosts`. CI appends it to the existing known-hosts file
+only for Pi deployments, with strict host-key checking. No GitHub secret changes
+are needed. If the Pi is reflashed, verify its new key through a trusted local
+connection and update that file in a reviewed PR; never bypass checking.
+
+The deployment public key is the shared key from `modules/ssh-deploy.nix`;
+its private half stays in the existing production GitHub environment. The
+`deploy` account has wheel access, matching the other managed hosts. Do not copy
+the private key onto the Pi or the agent VM. The owner's SSH account is unchanged.
+
+After bootstrap, merge the enrollment PR and watch **Actions → Check → Deploy
+pihole**. The first successful deployment verifies end-to-end CI access. If a
+merge races bootstrap, its deployment may fail until setup is complete; then
+retry using **Check → Run workflow → host: pihole** on main. Subsequent record
+edits need only the normal PR approval/merge. `all` now includes Pi-hole.
+
+### Checks and recovery
+
+On the Pi:
+
+```sh
+sudo pihole-health
+sudo journalctl -u pihole-ftl -u pihole-ftl-setup -b --no-pager -n 80
+systemctl list-timers pihole-gravity.timer
+```
+
+For immediate manual reconciliation, use an exact reviewed main commit:
+
+```sh
+sudo nixos-rebuild switch --refresh --flake github:jmalexan/nix/COMMIT#pihole
+```
+
+A failed fetch/build leaves the running system in place. Activation failures
+can leave partial changes; inspect logs before retrying. To recover a bad release,
+finish/cancel any queued CI release, then run `sudo nixos-rebuild switch
+--rollback`. Fix/revert main before the next deployment. NixOS rollback does not
+restore database contents or undo schema migrations. Blocklist content refresh
+is separate from deployment and runs weekly through `pihole-gravity.timer`.
+
+## Rex access
+
+The Pi imports the shared Rex login-server module. Sessions run as `jmalexan`
+and accept only the existing `vars.user.tailscaleLogin` identity. The pinned
+stable Rex input includes an aarch64 Linux package and follows the Pi's Nixpkgs
+for PAM compatibility. This does not install the shared developer/agent toolset.
+
+After the bootstrap rebuild, enroll the Pi from an SSH session:
+
+```sh
+sudo tailscale up --hostname=pihole --accept-dns=false
+```
+
+Open the login URL and use your existing tailnet account. Keep Tailscale DNS
+acceptance disabled; the Pi must resolve independently of its own DNS service.
+If the rebuild is waiting for `rex-tailscale-serve`, run enrollment from a second
+SSH session. Once enrollment completes, that unit can finish. Tailnet HTTPS
+certificates and MagicDNS must be enabled, as for the other Rex hosts.
+
+Confirm its assigned DNS name using `tailscale status`; add
+`https://pihole.tailf18bf1.ts.net:7297` in Rex for Mac if that is the assigned name.
+If Tailscale assigns a suffix, use the actual name instead. Check:
+
+```sh
+systemctl status rex-login-server rex-tailscale-serve --no-pager
+tailscale serve status
+```
+
+Only the Tailscale UDP port is opened for connectivity; Rex is served through
+Tailscale Serve, not a public LAN HTTP listener. DNS remains restricted to
+Ethernet. The existing SSH login remains available for enrollment and recovery.

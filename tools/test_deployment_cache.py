@@ -20,10 +20,11 @@ BASE_TREE, HEAD_TREE = "c" * 40, "d" * 40
 CONTEXT = {"schema": 2, "planner": "code", "nix": "nix 1", "platform": "Linux-x86_64"}
 
 
-def paths(nasa="a", htpc="b"):
+def paths(nasa="a", htpc="b", pihole="c"):
     return {
         "nasa": f"/nix/store/{nasa * 32}-nasa.drv",
         "htpc": f"/nix/store/{htpc * 32}-htpc.drv",
+        "pihole": f"/nix/store/{pihole * 32}-pihole.drv",
     }
 
 
@@ -107,6 +108,16 @@ class DeploymentCacheTests(unittest.TestCase):
                     )
                     evaluate.assert_called_once()
 
+    def test_base_predating_pihole_can_be_compared(self):
+        historical = evaluation()
+        del historical["hosts"]["pihole"]
+        with (
+            patch.object(plan, "evaluation_context", return_value=CONTEXT),
+            patch.object(plan, "source_tree", side_effect=[BASE_TREE, HEAD_TREE]),
+            patch.object(plan, "derivations", side_effect=[historical, evaluation()]),
+        ):
+            self.assertEqual(plan.plan(Path.cwd(), BASE, HEAD), ["pihole"])
+
     def test_cold_plan_evaluates_each_revision_once(self):
         with (
             patch.object(plan, "evaluation_context", return_value=CONTEXT),
@@ -131,9 +142,9 @@ class DeploymentCacheTests(unittest.TestCase):
 
     def test_initial_and_forced_plans_only_evaluate_head(self):
         for base, force, hosts in [
-            ("0" * 40, None, ["nasa", "htpc"]),
+            ("0" * 40, None, ["nasa", "htpc", "pihole"]),
             (BASE, "nasa", ["nasa"]),
-            (BASE, "all", ["nasa", "htpc"]),
+            (BASE, "all", ["nasa", "htpc", "pihole"]),
         ]:
             with (
                 self.subTest(force=force),
@@ -459,6 +470,7 @@ class CheckRunnerTests(unittest.TestCase):
             + [
                 f".#checks.x86_64-linux.{name}"
                 for name in [
+                    "pihole-health",
                     "previews",
                     "lint",
                     "microapps",
@@ -474,7 +486,7 @@ class CheckRunnerTests(unittest.TestCase):
         result = self.run_checks('["agent-guest"]')
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout.splitlines()[-1])
-        self.assertEqual(len(args), 10)
+        self.assertEqual(len(args), 11)
         self.assertIn(".#checks.x86_64-linux.agent-guest", args)
         self.assertNotIn(".#checks.x86_64-linux.agent-network", args)
 
@@ -552,26 +564,25 @@ class DeploymentValidationTests(unittest.TestCase):
             )
             return result, cache.exists()
 
-    def test_real_flake_validates_both_hosts(self):
+    def test_head_without_pihole_fails_without_record(self):
         result, recorded = self.validate_fixture(
             'nasa.config.system.build.toplevel = mk "nasa"; '
             'htpc.config.system.build.toplevel = mk "htpc";'
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout), ["nasa", "htpc"])
-        self.assertTrue(recorded)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(recorded)
 
-    def test_staged_pihole_validates_without_deploying(self):
+    def test_pihole_validates_and_deploys(self):
         result, recorded = self.validate_fixture(
             'nasa.config.system.build.toplevel = mk "nasa"; '
             'htpc.config.system.build.toplevel = mk "htpc"; '
             'pihole.config.system.build.toplevel = mk "pihole";'
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout), ["nasa", "htpc"])
+        self.assertEqual(json.loads(result.stdout), ["nasa", "htpc", "pihole"])
         self.assertTrue(recorded)
 
-    def test_broken_staged_pihole_fails_validation(self):
+    def test_broken_pihole_fails_validation(self):
         result, recorded = self.validate_fixture(
             'nasa.config.system.build.toplevel = mk "nasa"; '
             'htpc.config.system.build.toplevel = mk "htpc"; '
