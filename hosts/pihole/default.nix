@@ -62,8 +62,8 @@
     flake = "${vars.repository}/main#pihole";
     upgrade = false; # Honour flake.lock; do not independently update inputs.
     operation = "switch";
-    dates = "*:0/15";
-    randomizedDelaySec = "2min";
+    dates = "minutely";
+    randomizedDelaySec = "0";
     allowReboot = false;
     flags = [
       "--max-jobs"

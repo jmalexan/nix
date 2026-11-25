@@ -98,8 +98,8 @@ The raw Debian backup can restore the original card if recovery is needed.
 
 ## Automatic deployment
 
-The Pi checks the repository's protected `main` branch every 15 minutes, with up
-to two minutes of jitter, using NixOS's `nixos-upgrade.service`. It builds and
+The Pi checks the repository's protected `main` branch every minute, without
+random delay, using NixOS's `nixos-upgrade.service`. It builds and
 switches locally with one build job and two cores, preserving `flake.lock`.
 GitHub's existing owner approval and required PR checks control what reaches
 main. The owner exemption still applies. It follows main without additionally

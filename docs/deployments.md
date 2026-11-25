@@ -306,7 +306,7 @@ the release branch so a later GitHub deployment preserves what is already live.
 
 `nixosConfigurations.pihole` is evaluated by the planner but excluded from the
 GitHub Actions deployment matrix, including `--force all`. The Pi instead runs
-`nixos-upgrade.service` every 15 minutes to build and activate protected main
+`nixos-upgrade.service` every minute to build and activate protected main
 locally, with pinned inputs and no automatic reboot. The normal owner approval
 and PR checks still gate main; the timer does not wait for the post-merge run.
 Bootstrap once after merging as described in [the Pi guide](pihole.md).
