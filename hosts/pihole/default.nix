@@ -84,7 +84,8 @@
     serviceConfig = {
       Type = "oneshot";
       User = "pihole";
-      ExecStart = "${config.services.pihole-ftl.pihole}/bin/pihole -g";
+      # The upstream wrapper has no shebang; systemd needs an explicit interpreter.
+      ExecStart = "${pkgs.bash}/bin/bash ${config.services.pihole-ftl.pihole}/bin/pihole -g";
     };
   };
   systemd.timers.pihole-gravity = {
